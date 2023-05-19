@@ -277,7 +277,7 @@ class PaJigSaw(nn.Module):
             x = x + self.pos_embed_cls
         else:
             # add positional encoding to each token
-            x = x + self.embed_dim
+            x = x + self.pos_embed
 
         return self.pos_drop(x)
 

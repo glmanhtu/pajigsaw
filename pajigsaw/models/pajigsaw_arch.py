@@ -287,7 +287,6 @@ class PaJigSaw(nn.Module):
         x2 = self.prepare_tokens(x2, with_cls=True)
         for blk in self.blocks:
             x1 = blk(x1)
-            x2 = blk(x2)
 
         for blk in self.cross_blocks:
             x2 = blk(x2, x1)

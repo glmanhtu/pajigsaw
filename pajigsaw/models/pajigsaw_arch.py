@@ -204,7 +204,8 @@ class PaJigSaw(nn.Module):
         num_patches = self.patch_embed.num_patches
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, embed_dim))
+        self.pos_embed_cls = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
         self.pos_drop = nn.Dropout(p=drop_rate)
 
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth + cross_depth)]  # stochastic depth decay rule
@@ -238,31 +239,31 @@ class PaJigSaw(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    def interpolate_pos_encoding(self, x, w, h, with_cls=False):
-        npatch = x.shape[1] - 1
-        N = self.pos_embed.shape[1] - 1
-        if npatch == N and w == h:
-            return self.pos_embed
-        if npatch == N - 1 and w == h and not with_cls:
-            return self.pos_embed[:, 1:]
-        class_pos_embed = self.pos_embed[:, 0]
-        patch_pos_embed = self.pos_embed[:, 1:]
-        dim = x.shape[-1]
-        w0 = w // self.patch_embed.patch_size
-        h0 = h // self.patch_embed.patch_size
-        # we add a small number to avoid floating point error in the interpolation
-        # see discussion at https://github.com/facebookresearch/dino/issues/8
-        w0, h0 = w0 + 0.1, h0 + 0.1
-        patch_pos_embed = nn.functional.interpolate(
-            patch_pos_embed.reshape(1, int(math.sqrt(N)), int(math.sqrt(N)), dim).permute(0, 3, 1, 2),
-            scale_factor=(w0 / math.sqrt(N), h0 / math.sqrt(N)),
-            mode='bicubic',
-        )
-        assert int(w0) == patch_pos_embed.shape[-2] and int(h0) == patch_pos_embed.shape[-1]
-        patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
-        if not with_cls:
-            return patch_pos_embed
-        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1)
+    # def interpolate_pos_encoding(self, x, w, h, with_cls=False):
+    #     npatch = x.shape[1] - 1
+    #     N = self.pos_embed.shape[1] - 1
+    #     if npatch == N and w == h:
+    #         return self.pos_embed
+    #     if npatch == N - 1 and w == h and not with_cls:
+    #         return self.pos_embed[:, 1:]
+    #     class_pos_embed = self.pos_embed[:, 0]
+    #     patch_pos_embed = self.pos_embed[:, 1:]
+    #     dim = x.shape[-1]
+    #     w0 = w // self.patch_embed.patch_size
+    #     h0 = h // self.patch_embed.patch_size
+    #     # we add a small number to avoid floating point error in the interpolation
+    #     # see discussion at https://github.com/facebookresearch/dino/issues/8
+    #     w0, h0 = w0 + 0.1, h0 + 0.1
+    #     patch_pos_embed = nn.functional.interpolate(
+    #         patch_pos_embed.reshape(1, int(math.sqrt(N)), int(math.sqrt(N)), dim).permute(0, 3, 1, 2),
+    #         scale_factor=(w0 / math.sqrt(N), h0 / math.sqrt(N)),
+    #         mode='bicubic',
+    #     )
+    #     assert int(w0) == patch_pos_embed.shape[-2] and int(h0) == patch_pos_embed.shape[-1]
+    #     patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
+    #     if not with_cls:
+    #         return patch_pos_embed
+    #     return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1)
 
     def prepare_tokens(self, x, with_cls=False):
         B, nc, w, h = x.shape
@@ -272,9 +273,11 @@ class PaJigSaw(nn.Module):
             # add the [CLS] token to the embed patch tokens
             cls_tokens = self.cls_token.expand(B, -1, -1)
             x = torch.cat((cls_tokens, x), dim=1)
-
-        # add positional encoding to each token
-        x = x + self.interpolate_pos_encoding(x, w, h)
+            # add positional encoding to each token
+            x = x + self.pos_embed_cls
+        else:
+            # add positional encoding to each token
+            x = x + self.embed_dim
 
         return self.pos_drop(x)
 

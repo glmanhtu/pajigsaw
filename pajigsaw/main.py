@@ -116,7 +116,7 @@ def train(args):
 
     val_transform = TwoImgSyncEval(args.image_size)
     val_dataset = PapyJigSaw(args.data_path, PapyJigSaw.Split.VAL, transform=val_transform)
-    val_sampler = DistributedSampler(dataset, shuffle=False)
+    val_sampler = DistributedSampler(val_dataset, shuffle=False)
     val_data_loader = DataLoader(
         val_dataset,
         sampler=val_sampler,
@@ -124,7 +124,7 @@ def train(args):
         num_workers=args.num_workers,
         pin_memory=True,
     )
-    print(f"Val data loaded: there are {len(dataset)} images.")
+    print(f"Val data loaded: there are {len(val_dataset)} images.")
 
     # ============ preparing network ... ============
     # if the network is a Vision Transformer (i.e. vit_tiny, vit_small, vit_base)

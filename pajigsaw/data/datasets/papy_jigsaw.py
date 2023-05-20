@@ -82,16 +82,13 @@ class PapyJigSaw(VisionDataset):
     def __getitem__(self, index: int):
         entry = self.entries[index]
         if self._p_negative < torch.rand(1):
-            target_entry = random.choice(entry['positive'])
+            target_entry = random.choice(entry['positive'] + entry['negative'])
             label = 1.
         else:
-            if self._p_negative_in_same_img < torch.rand(1) and len(entry['negative']) > 0:
-                target_entry = random.choice(entry['negative'])
-            else:
-                target_im_name = entry['name']
-                while target_im_name == entry['name']:
-                    target_im_name = random.choice(list(self.fragment_map.keys()))
-                target_entry = random.choice(self.fragment_map[target_im_name])
+            target_im_name = entry['name']
+            while target_im_name == entry['name']:
+                target_im_name = random.choice(list(self.fragment_map.keys()))
+            target_entry = random.choice(self.fragment_map[target_im_name])
             label = 0.
 
         with Image.open(entry['img']) as f:

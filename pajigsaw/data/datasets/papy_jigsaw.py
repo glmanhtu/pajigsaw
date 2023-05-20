@@ -54,8 +54,10 @@ class PapyJigSaw(VisionDataset):
             fragment_name = os.path.splitext(os.path.basename(fragment_path))[0]
             col, row = map(int, fragment_name.split("_"))
             fragment_map.setdefault(image_name, []).append({'img': fragment_path, 'col': col, 'row': row,
+                                                            'name': image_name,
                                                             'positive': [], 'negative': []})
 
+        self.fragment_map = fragment_map
         entries = []
         for image_name, fragments in fragment_map.items():
             for first in fragments:
@@ -86,7 +88,10 @@ class PapyJigSaw(VisionDataset):
             if self._p_negative_in_same_img < torch.rand(1) and len(entry['negative']) > 0:
                 target_entry = random.choice(entry['negative'])
             else:
-                target_entry = random.choice(self.entries)
+                target_im_name = entry['name']
+                while target_im_name == entry['name']:
+                    target_im_name = random.choice(list(self.fragment_map.keys()))
+                target_entry = random.choice(self.fragment_map[target_im_name])
             label = 0.
 
         with Image.open(entry['img']) as f:

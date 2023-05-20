@@ -1,5 +1,5 @@
 # Inspired from https://github.com/seuretm/diamond-square-fragmentation/blob/master/runme_generate_fragments.py
-
+import os
 import random
 
 import numpy as np
@@ -53,10 +53,11 @@ def fragment_image(img: Image, n_cols: int, n_rows: int):
         arr[(arr.shape[0] - b[-i]):arr.shape[0], i] = 0
 
     # vertical cuts
+    patch_w = (ing_w / n_cols)
     for cut in range(1, n_cols):
-        h1 = horizon(arr.shape[0], 0.6, arr.shape[1] // 10)
+        h1 = horizon(arr.shape[0], 0.6, patch_w // 3)
         h2 = horizon(arr.shape[0], 0.5, 10)
-        h3 = horizon(arr.shape[0], 0.8, arr.shape[1] // 25)
+        h3 = horizon(arr.shape[0], 0.8, patch_w // 6)
         h = h1 + h2 + cut * arr.shape[1] // n_cols
         for i in range(arr.shape[0]):
             j = (i + 1) % arr.shape[0]
@@ -65,27 +66,30 @@ def fragment_image(img: Image, n_cols: int, n_rows: int):
             arr[i, a:b] = 0
 
     # horizontal cuts
+    patch_h = (ing_h / n_rows)
     for cut in range(1, n_rows):
-        h1 = horizon(arr.shape[1], 0.6, arr.shape[1] // 10)
+        h1 = horizon(arr.shape[1], 0.6, patch_h // 3)
         h2 = horizon(arr.shape[1], 0.5, 10)
-        h3 = horizon(arr.shape[1], 0.8, arr.shape[1] // 25)
+        h3 = horizon(arr.shape[1], 0.8, patch_h // 6)
         h = h1 + h2 + cut * arr.shape[0] // n_rows
         for i in range(arr.shape[1]):
             j = (i + 1) % arr.shape[1]
             a = min(h[i], h[j]) - h3[i] // 2
             b = max(h[i], h[j]) + h3[i] // 2 + 2
             arr[a:b, i] = 0
+    os.makedirs('img_cuts', exist_ok=True)
+    cuts = ImageChops.multiply(Image.fromarray(arr.astype('uint8')).convert('RGB'), img)
 
     labeled, ncomponents = label(arr)
 
-    nb_pixels = arr.shape[0] * arr.shape[1]
+    nb_pixels = (ing_w / n_cols) * (ing_h / n_rows)
     mx = numpy.max(labeled) + 1
 
     results = []
     for c in range(1, mx):
         binary = labeled == c
         s = numpy.sum(binary)
-        if s < nb_pixels / 40:
+        if s < nb_pixels / 4:
             continue
 
         fmask = Image.fromarray((255 * binary).astype('uint8')).convert('RGB')
@@ -106,4 +110,4 @@ def fragment_image(img: Image, n_cols: int, n_rows: int):
             'img': res
         })
 
-    return results
+    return results, cuts

@@ -41,11 +41,13 @@ if __name__ == '__main__':
                 img = f.convert('RGB')
             n_rows = max(round(img.height / args.patch_size), 1)
             n_cols = max(round(img.width / args.patch_size), 1)
-            patches = fragment_image(img, n_cols, n_rows)
+            patches, im_cut = fragment_image(img, n_cols, n_rows)
             file_name = os.path.splitext(os.path.basename(image_path))[0]
             if len(patches) < 2:
                 continue
             os.makedirs(os.path.join(args.output_dir, split.value, file_name), exist_ok=True)
+            os.makedirs(os.path.join(args.output_dir, 'cuts'), exist_ok=True)
+            im_cut.save(os.path.join(args.output_dir, 'cuts', f'{file_name}.jpg'))
             for item in patches:
                 patch = item['img']
                 shape_trans = torchvision.transforms.Compose([

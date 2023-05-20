@@ -65,9 +65,6 @@ def get_args_parser():
     parser.add_argument('--batch_size_per_gpu', default=64, type=int,
         help='Per-GPU batch-size : number of distinct images loaded on one GPU.')
     parser.add_argument('--epochs', default=100, type=int, help='Number of epochs of training.')
-    parser.add_argument('--freeze_last_layer', default=1, type=int, help="""Number of epochs
-        during which we keep the output layer fixed. Typically doing so during
-        the first epoch helps training. Try increasing this value if the loss does not decrease.""")
     parser.add_argument("--lr", default=0.0005, type=float, help="""Learning rate at the end of
         linear warmup (highest LR used during training). The learning rate is linearly scaled
         with the batch size, and specified here for a reference batch size of 256.""")
@@ -84,7 +81,6 @@ def get_args_parser():
         help='Please specify path to the ImageNet training data.')
     parser.add_argument('--image_size', default=224, type=int, help='Image size')
     parser.add_argument('--output_dir', default=".", type=str, help='Path to save logs and checkpoints.')
-    parser.add_argument('--save_ckp_freq', default=20, type=int, help='Save checkpoint every x epochs.')
     parser.add_argument('--seed', default=0, type=int, help='Random seed.')
     parser.add_argument('--num_workers', default=10, type=int, help='Number of data loading workers per GPU.')
     parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
@@ -187,6 +183,7 @@ def train(args):
     start_epoch = to_restore["epoch"]
     start_time = time.time()
     print("Starting PaJigSaw training !")
+    best_auc = 0
     for epoch in range(start_epoch, args.epochs):
         sampler.set_epoch(epoch)
 
@@ -205,11 +202,12 @@ def train(args):
         if fp16_scaler is not None:
             save_dict['fp16_scaler'] = fp16_scaler.state_dict()
         utils.save_on_master(save_dict, os.path.join(args.output_dir, 'checkpoint.pth'))
-        if args.save_ckp_freq and epoch % args.save_ckp_freq == 0:
-            utils.save_on_master(save_dict, os.path.join(args.output_dir, f'checkpoint{epoch:04}.pth'))
+        if best_auc < eval_stats['auc']:
+            print(f'AUC is improved from {best_auc} to {eval_stats["auc"]}')
+            best_auc = eval_stats['auc']
+            utils.save_on_master(save_dict, os.path.join(args.output_dir, 'best_model_checkpoint.pth'))
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     **{f'val_{k}': v for k, v in eval_stats.items()},
-                     'epoch': epoch}
+                     **{f'val_{k}': v for k, v in eval_stats.items()}, 'epoch': epoch}
         if utils.is_main_process():
             with (Path(args.output_dir) / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")

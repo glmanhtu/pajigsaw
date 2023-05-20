@@ -317,20 +317,20 @@ class PaJigSaw(nn.Module):
 
 def pajigsaw_tiny(patch_size=16, **kwargs):
     model = PaJigSaw(
-        patch_size=patch_size, embed_dim=192, depth=6, cross_depth=6, num_heads=3, mlp_ratio=4,
+        patch_size=patch_size, embed_dim=192, depth=12, cross_depth=12, num_heads=3, mlp_ratio=4,
         qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
 
 def pajigsaw_small(patch_size=16, **kwargs):
     model = PaJigSaw(
-        patch_size=patch_size, embed_dim=384, depth=6, cross_depth=6, num_heads=6, mlp_ratio=4,
+        patch_size=patch_size, embed_dim=384, depth=12, cross_depth=12, num_heads=6, mlp_ratio=4,
         qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
 
 def pajigsaw_base(patch_size=16, **kwargs):
     model = PaJigSaw(
-        patch_size=patch_size, embed_dim=768, depth=6, cross_depth=6, num_heads=12, mlp_ratio=4,
+        patch_size=patch_size, embed_dim=768, depth=12, cross_depth=12, num_heads=12, mlp_ratio=4,
         qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model

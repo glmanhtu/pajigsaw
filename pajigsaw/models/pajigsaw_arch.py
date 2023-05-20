@@ -208,7 +208,8 @@ class PaJigSaw(nn.Module):
         self.pos_embed_cls = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
         self.pos_drop = nn.Dropout(p=drop_rate)
 
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth + cross_depth)]  # stochastic depth decay rule
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
+        dpr_cross = [x.item() for x in torch.linspace(0, drop_path_rate, cross_depth)]  # stochastic depth decay rule
         self.blocks = nn.ModuleList([
             Block(
                 dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -218,7 +219,7 @@ class PaJigSaw(nn.Module):
         self.cross_blocks = nn.ModuleList([
             CrossBlock(
                 dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
-                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[i + depth], norm_layer=norm_layer)
+                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr_cross[i], norm_layer=norm_layer)
             for i in range(cross_depth)])
 
         self.norm = norm_layer(embed_dim)

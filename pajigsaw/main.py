@@ -29,7 +29,7 @@ from torchvision import datasets
 
 from pajigsaw.data.datasets.papy_jigsaw import PapyJigSaw
 from pajigsaw.data.transforms import TwoImgSyncAugmentation, TwoImgSyncEval
-from pajigsaw.models import pajigsaw_arch
+from pajigsaw.models import pajigsaw_arch, vision_transformer
 from pajigsaw.utils import utils
 from sklearn.metrics import accuracy_score, roc_auc_score
 
@@ -126,7 +126,8 @@ def train(args):
 
     # ============ preparing network ... ============
     # if the network is a Vision Transformer (i.e. vit_tiny, vit_small, vit_base)
-    model = pajigsaw_arch.__dict__[args.arch](
+    model = vision_transformer.__dict__[args.arch](
+        img_size=args.image_size,
         patch_size=args.patch_size,
         drop_path_rate=args.drop_path_rate,  # stochastic depth
         num_classes=1   # binary classification

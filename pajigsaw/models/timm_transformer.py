@@ -351,47 +351,9 @@ class VisionTransformer(nn.Module):
                 drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr_cross[i], norm_layer=norm_layer,
                 init_values=init_values, window_size=None)
             for i in range(cross_depth)])
-        self.norm = nn.Identity() if use_mean_pooling else norm_layer(embed_dim)
-        self.fc_norm = norm_layer(embed_dim) if use_mean_pooling else None
-        self.head = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
-
-        if num_classes > 0:
-            self._trunc_normal_(self.head.weight, std=.02)
-        self.apply(self._init_weights)
-        self.fix_init_weight()
-
-        if num_classes > 0:
-            self.head.weight.data.mul_(init_scale)
-            self.head.bias.data.mul_(init_scale)
 
         self.backbone = timm.create_model('vit_base_patch16_224', pretrained=True)
-
-    def _trunc_normal_(self, tensor, mean=0., std=1.):
-        trunc_normal_(tensor, mean=mean, std=std)
-
-    def fix_init_weight(self):
-        def rescale(param, layer_id):
-            param.div_(math.sqrt(2.0 * layer_id))
-
-        for layer_id, layer in enumerate(self.cross_blocks):
-            rescale(layer.attn.proj.weight.data, layer_id + 1)
-            rescale(layer.mlp.fc2.weight.data, layer_id + 1)
-
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            self._trunc_normal_(m.weight, std=.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            self._trunc_normal_(m.weight, std=.02)
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-
-    def get_num_layers(self):
-        return len(self.blocks)
+        self.backbone.reset_classifier(num_classes=num_classes)
 
     @torch.jit.ignore
     def no_weight_decay(self):
@@ -414,17 +376,10 @@ class VisionTransformer(nn.Module):
         for blk in self.cross_blocks:
             x2 = blk(x2, x1, rel_pos_bias=False)
 
-        x = self.norm(x2)
-        if self.fc_norm is not None:
-            t = x[:, 1:, :]
-            return self.fc_norm(t.mean(1))
-        else:
-            return x[:, 0]
+        return self.backbone.forward_head(x2)
 
     def forward(self, x):
-        x = self.forward_features(x)
-        x = self.head(x)
-        return x
+        return self.forward_features(x)
 
 
 def pajigsaw_base(patch_size=16, img_size=224, num_classes=1, use_abs_pos=False, use_rel_pos=True, **kwargs):

@@ -15,7 +15,7 @@ from pajigsaw.utils.utils import split_list_by_ratios
 def get_args_parser(add_help: bool = True):
     parser = argparse.ArgumentParser("Pajigsaw dataset generator", add_help=add_help)
     parser.add_argument("--dataset-dir", required=True, metavar="FILE", help="Path to papyrus images dataset")
-    parser.add_argument("--patch-size", type=int, default=384, help="Size of the path fragment")
+    parser.add_argument("--patch-size", type=int, default=512, help="Size of the path fragment")
     parser.add_argument(
         "--output-dir",
         required=True,

@@ -30,6 +30,12 @@ def horizon_step(arr, a, c, noise, roughness):
     horizon_step(arr, b, c, noise * roughness, roughness)
 
 
+def avg_pixel_score(np_img):
+    pixel_sum = np.sum(np_img)
+    n_pixels = np_img.shape[0] * np_img.shape[1] * np_img.shape[2]
+    return pixel_sum / n_pixels
+
+
 def fragment_image(img: Image, n_cols: int, n_rows: int):
     """
     This function fragment the input image to multiple fragments, specified by n_cols and n_rows
@@ -103,6 +109,9 @@ def fragment_image(img: Image, n_cols: int, n_rows: int):
         binary = binary[bbox[1]:bbox[3], bbox[0]:bbox[2]]
         data = numpy.array(res)
         data[np.logical_not(binary)] = 255
+        pixel_score = avg_pixel_score(data)
+        if pixel_score > 200:
+            continue
         res = Image.fromarray(data)
         results.append({
             'row': horizontal_pos,

@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torchvision.transforms
 from matplotlib import pyplot as plt
+from torch.utils.data import DataLoader
 
 from pajigsaw.data.datasets.papy_jigsaw import PapyJigSaw
 from pajigsaw.data.transforms import TwoImgSyncAugmentation, UnNormalize, TwoImgSyncEval
@@ -24,9 +25,10 @@ un_normalize = torchvision.transforms.Compose([
 ])
 transform = TwoImgSyncEval(args.image_size)
 dataset = PapyJigSaw(args.data_path, PapyJigSaw.Split.TRAIN, transform=transform)
-for images, label in dataset:
-    print(label)
-    x1, x2 = torch.unbind(images, dim=0)
+dataloader = DataLoader(dataset, shuffle=True, batch_size=1)
+for images, label in dataloader:
+    print(label[0])
+    x1, x2 = torch.unbind(images[0], dim=0)
     x1 = np.array(un_normalize(x1))
     x2 = np.array(un_normalize(x2))
     vis = np.concatenate((x1, x2), axis=1)

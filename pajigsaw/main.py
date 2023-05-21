@@ -80,6 +80,7 @@ def get_args_parser():
     parser.add_argument('--data_path', default='/path/to/imagenet/train/', type=str,
         help='Please specify path to the ImageNet training data.')
     parser.add_argument('--image_size', default=224, type=int, help='Image size')
+    parser.add_argument('--p_negative_in_same_img', default=0.7, type=float, help='Image size')
     parser.add_argument('--output_dir', default=".", type=str, help='Path to save logs and checkpoints.')
     parser.add_argument('--seed', default=0, type=int, help='Random seed.')
     parser.add_argument('--num_workers', default=10, type=int, help='Number of data loading workers per GPU.')
@@ -98,7 +99,8 @@ def train(args):
 
     # ============ preparing data ... ============
     transform = TwoImgSyncAugmentation(args.image_size)
-    dataset = PapyJigSaw(args.data_path, PapyJigSaw.Split.TRAIN, transform=transform)
+    dataset = PapyJigSaw(args.data_path, PapyJigSaw.Split.TRAIN, transform=transform,
+                         p_negative_in_same_img=args.p_negative_in_same_img)
     sampler = DistributedSampler(dataset, shuffle=True)
     data_loader = DataLoader(
         dataset,

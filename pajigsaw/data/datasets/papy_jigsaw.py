@@ -85,7 +85,7 @@ class PapyJigSaw(VisionDataset):
             target_entry = random.choice(entry['positive'])
             label = 1.
         else:
-            if self._p_negative_in_same_img < torch.rand(1) and len(entry['negative']) > 0:
+            if self._p_negative_in_same_img > torch.rand(1) and len(entry['negative']) > 0:
                 target_entry = random.choice(entry['negative'])
             else:
                 target_im_name = entry['name']

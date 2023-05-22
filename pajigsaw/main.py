@@ -126,7 +126,7 @@ def train(args):
 
     # ============ preparing network ... ============
     # if the network is a Vision Transformer (i.e. vit_tiny, vit_small, vit_base)
-    model = timm_transformer.__dict__[args.arch](
+    model = pajigsaw_arch.__dict__[args.arch](
         patch_size=args.patch_size,
         drop_path_rate=args.drop_path_rate,  # stochastic depth
         num_classes=2

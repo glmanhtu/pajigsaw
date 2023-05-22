@@ -59,7 +59,7 @@ class ImageNetData(Dataset):
             bbox = patch.getbbox()
             patch = patch.crop(bbox)
             patch = ImageOps.invert(patch)
-            patch_name = f'{item["col"]}_{item["row"]}.png'
+            patch_name = f'{item["col"]}_{item["row"]}.jpeg'
             patch.save(os.path.join(self.working_dir, file_name, patch_name))
         return torch.tensor(len(patches))
 

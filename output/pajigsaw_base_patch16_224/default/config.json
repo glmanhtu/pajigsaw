@@ -1,0 +1,136 @@
+AMP_ENABLE: true
+AMP_OPT_LEVEL: ''
+AUG:
+  AUTO_AUGMENT: rand-m9-mstd0.5-inc1
+  COLOR_JITTER: 0.4
+  CUTMIX: 1.0
+  CUTMIX_MINMAX: null
+  MIXUP: 0.8
+  MIXUP_MODE: batch
+  MIXUP_PROB: 1.0
+  MIXUP_SWITCH_PROB: 0.5
+  RECOUNT: 1
+  REMODE: pixel
+  REPROB: 0.25
+BASE:
+- ''
+DATA:
+  BATCH_SIZE: 2
+  CACHE_MODE: part
+  DATASET: papyjigsaw
+  DATA_PATH: /home/mvu/Documents/datasets/michigan_h32_fragment
+  IMG_SIZE: 224
+  INTERPOLATION: bicubic
+  MASK_PATCH_SIZE: 32
+  MASK_RATIO: 0.6
+  NUM_WORKERS: 8
+  PIN_MEMORY: true
+  P_NEGATIVE_IN_SAME_IMG: 0.7
+  ZIP_MODE: false
+ENABLE_AMP: false
+EVAL_MODE: false
+FUSED_LAYERNORM: false
+FUSED_WINDOW_PROCESS: false
+LOCAL_RANK: 0
+MODEL:
+  DROP_PATH_RATE: 0.1
+  DROP_RATE: 0.0
+  LABEL_SMOOTHING: 0.1
+  NAME: pajigsaw_base_patch16_224
+  NUM_CLASSES: 1
+  PJS:
+    C_DEPTH: 12
+    DEPTH: 12
+    EMBED_DIM: 768
+    IN_CHANS: 3
+    MLP_RATIO: 4.0
+    NUM_HEADS: 12
+    PATCH_SIZE: 16
+    QKV_BIAS: true
+    QK_SCALE: null
+  PRETRAINED: ''
+  RESUME: ''
+  SWIN:
+    APE: false
+    DEPTHS:
+    - 2
+    - 2
+    - 6
+    - 2
+    EMBED_DIM: 96
+    IN_CHANS: 3
+    MLP_RATIO: 4.0
+    NUM_HEADS:
+    - 3
+    - 6
+    - 12
+    - 24
+    PATCH_NORM: true
+    PATCH_SIZE: 4
+    QKV_BIAS: true
+    QK_SCALE: null
+    WINDOW_SIZE: 7
+  SWINV2:
+    APE: false
+    DEPTHS:
+    - 2
+    - 2
+    - 6
+    - 2
+    EMBED_DIM: 96
+    IN_CHANS: 3
+    MLP_RATIO: 4.0
+    NUM_HEADS:
+    - 3
+    - 6
+    - 12
+    - 24
+    PATCH_NORM: true
+    PATCH_SIZE: 4
+    PRETRAINED_WINDOW_SIZES:
+    - 0
+    - 0
+    - 0
+    - 0
+    QKV_BIAS: true
+    WINDOW_SIZE: 7
+  TYPE: pjs
+OUTPUT: output/pajigsaw_base_patch16_224/default
+PRINT_FREQ: 10
+SAVE_FREQ: 1
+SEED: 0
+TAG: default
+TEST:
+  CROP: true
+  SEQUENTIAL: false
+  SHUFFLE: false
+THROUGHPUT_MODE: false
+TRAIN:
+  ACCUMULATION_STEPS: 1
+  AUTO_RESUME: true
+  BASE_LR: 3.90625e-06
+  CLIP_GRAD: 5.0
+  EPOCHS: 300
+  LAYER_DECAY: 1.0
+  LR_SCHEDULER:
+    DECAY_EPOCHS: 30
+    DECAY_RATE: 0.1
+    GAMMA: 0.1
+    MULTISTEPS: []
+    NAME: cosine
+    WARMUP_PREFIX: true
+  MIN_LR: 3.90625e-08
+  MOE:
+    SAVE_MASTER: false
+  OPTIMIZER:
+    BETAS:
+    - 0.9
+    - 0.999
+    EPS: 1.0e-08
+    MOMENTUM: 0.9
+    NAME: adamw
+  START_EPOCH: 0
+  USE_CHECKPOINT: false
+  WARMUP_EPOCHS: 20
+  WARMUP_LR: 3.90625e-09
+  WEIGHT_DECAY: 0.05

@@ -64,6 +64,8 @@ class PapyJigSaw(VisionDataset):
         self.entry_id_map = data['entry_map']
 
     def generate_entries(self):
+        if os.path.exists(self.cache_file):
+            return
         fragment_paths = glob.glob(os.path.join(self.dataset_path, '**', '*.jpeg'), recursive=True)
         fragment_map = {}
         for fragment_path in fragment_paths:

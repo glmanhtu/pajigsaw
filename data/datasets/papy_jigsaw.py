@@ -100,17 +100,10 @@ class PapyJigSaw(VisionDataset):
         if len(self.entries) == 0:
             self.load_entries()
         entry = random.choice(self.entries[self.entry_id_map[index]])
-        if self._p_negative < torch.rand(1):
-            target_entry = random.choice(entry['positive'])
+        target_entry = random.choice(entry['positive'])
+        if entry['col'] < target_entry['col'] or entry['row'] < target_entry['row']:
             label = 1.
         else:
-            if self._p_negative_in_same_img > torch.rand(1) and len(entry['negative']) > 0:
-                target_entry = random.choice(entry['negative'])
-            else:
-                target_im_name = entry['name']
-                while target_im_name == entry['name']:
-                    target_im_name = random.choice(list(self.entries.keys()))
-                target_entry = random.choice(self.entries[target_im_name])
             label = 0.
 
         with Image.open(entry['img']) as f:

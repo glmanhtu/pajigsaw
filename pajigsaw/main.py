@@ -101,6 +101,7 @@ def train(args):
     transform = TwoImgSyncAugmentation(args.image_size)
     dataset = PapyJigSaw(args.data_path, PapyJigSaw.Split.TRAIN, transform=transform,
                          p_negative_in_same_img=args.p_negative_in_same_img)
+    dataset.generate_entries()
     sampler = DistributedSampler(dataset, shuffle=True)
     data_loader = DataLoader(
         dataset,
@@ -114,6 +115,7 @@ def train(args):
 
     val_transform = TwoImgSyncEval(args.image_size)
     val_dataset = PapyJigSaw(args.data_path, PapyJigSaw.Split.VAL, transform=val_transform)
+    val_dataset.generate_entries()
     val_sampler = DistributedSampler(val_dataset, shuffle=False)
     val_data_loader = DataLoader(
         val_dataset,

@@ -59,5 +59,5 @@ if __name__ == '__main__':
                 bbox = patch.getbbox()
                 patch = patch.crop(bbox)
                 patch = ImageOps.invert(patch)
-                patch_name = f'{item["col"]}_{item["row"]}.png'
+                patch_name = f'{item["col"]}_{item["row"]}.jpeg'
                 patch.save(os.path.join(args.output_dir, split.value, file_name, patch_name))

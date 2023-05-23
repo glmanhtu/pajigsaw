@@ -47,7 +47,24 @@ class PapyJigSaw(VisionDataset):
         self.dataset_path = os.path.join(root, split.value)
         self._p_negative = p_negative
         self._p_negative_in_same_img = p_negative_in_same_img
-        fragment_paths = glob.glob(os.path.join(self.dataset_path, '**', '*.png'), recursive=True)
+        self.cache_file = os.path.join(self.dataset_path, f'{self._split}.cache')
+
+        self.entries = {}
+        self.entry_id_map = {}
+
+    @property
+    def split(self) -> "PapyJigSaw.Split":
+        return self._split
+
+    def load_entries(self):
+        if not os.path.exists(self.cache_file):
+            raise Exception('Entries file does not exists!')
+        data = torch.load(self.cache_file)
+        self.entries = data['entries']
+        self.entry_id_map = data['entry_map']
+
+    def generate_entries(self):
+        fragment_paths = glob.glob(os.path.join(self.dataset_path, '**', '*.jpeg'), recursive=True)
         fragment_map = {}
         for fragment_path in fragment_paths:
             image_name = os.path.basename(os.path.dirname(fragment_path))
@@ -57,8 +74,7 @@ class PapyJigSaw(VisionDataset):
                                                             'name': image_name,
                                                             'positive': [], 'negative': []})
 
-        self.fragment_map = fragment_map
-        entries = []
+        entries = {}
         for image_name, fragments in fragment_map.items():
             for first in fragments:
                 for second in fragments:
@@ -71,16 +87,17 @@ class PapyJigSaw(VisionDataset):
                     else:
                         first['negative'].append(second)
                 if len(first['positive']) > 0:
-                    entries.append(first)
-
-        self.entries = entries
-
-    @property
-    def split(self) -> "PapyJigSaw.Split":
-        return self._split
+                    entries.setdefault(image_name, []).append(first)
+        entry_map = {i: k for i, k in enumerate(entries.keys())}
+        torch.save({
+            'entries': entries,
+            'entry_map': entry_map
+        }, self.cache_file)
 
     def __getitem__(self, index: int):
-        entry = self.entries[index]
+        if len(self.entries) == 0:
+            self.load_entries()
+        entry = random.choice(self.entries[self.entry_id_map[index]])
         if self._p_negative < torch.rand(1):
             target_entry = random.choice(entry['positive'])
             label = 1.
@@ -90,8 +107,8 @@ class PapyJigSaw(VisionDataset):
             else:
                 target_im_name = entry['name']
                 while target_im_name == entry['name']:
-                    target_im_name = random.choice(list(self.fragment_map.keys()))
-                target_entry = random.choice(self.fragment_map[target_im_name])
+                    target_im_name = random.choice(list(self.entries.keys()))
+                target_entry = random.choice(self.entries[target_im_name])
             label = 0.
 
         with Image.open(entry['img']) as f:
@@ -110,5 +127,8 @@ class PapyJigSaw(VisionDataset):
         return stacked_img, torch.tensor(label, dtype=torch.float32)
 
     def __len__(self) -> int:
+        if len(self.entries) == 0:
+            self.load_entries()
+
         return len(self.entries)
 

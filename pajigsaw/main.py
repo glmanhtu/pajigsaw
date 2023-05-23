@@ -129,7 +129,7 @@ def train(args):
     model = pajigsaw_arch.__dict__[args.arch](
         patch_size=args.patch_size,
         drop_path_rate=args.drop_path_rate,  # stochastic depth
-        num_classes=2
+        num_classes=1
     )
 
     model = model.cuda()
@@ -141,7 +141,7 @@ def train(args):
     print(f"PaJigSaw is built using {args.arch} network.")
 
     # ============ preparing loss ... ============
-    criterion = torch.nn.CrossEntropyLoss().cuda()
+    criterion = torch.nn.BCEWithLogitsLoss().cuda()
 
     # ============ preparing optimizer ... ============
     params_groups = utils.get_params_groups(model)
@@ -233,10 +233,10 @@ def train_one_epoch(model, criterion, data_loader, optimizer, lr_schedule, wd_sc
         # move images to gpu
         with torch.cuda.amp.autocast(fp16_scaler is not None):
             output = model(images.cuda(non_blocking=True))
-            loss = criterion(output, labels.cuda(non_blocking=True))
+            loss = criterion(output, labels.cuda(non_blocking=True).view(-1, 1))
 
         if not math.isfinite(loss.item()):
-            print("Loss is {}, stopping training".format(loss.item()), force=True)
+            print("Loss is {}, stopping training".format(loss.item()))
             sys.exit(1)
 
         optimizer.zero_grad()
@@ -279,11 +279,11 @@ def validate(model, criterion, data_loader, epoch, args):
         with torch.no_grad():
             output = model(images.cuda(non_blocking=True))
             yhat.append(output.cpu())
-            y.append(labels)
-            loss = criterion(output, labels.cuda(non_blocking=True))
+            y.append(labels.view(-1, 1))
+            loss = criterion(output, labels.cuda(non_blocking=True).view(-1, 1))
             losses.append(loss.item())
 
-    yhat = torch.argmax(torch.softmax(torch.cat(yhat, dim=0), dim=-1), dim=-1).numpy()
+    yhat = torch.sigmoid(torch.cat(yhat, dim=0)).numpy()
     y = torch.cat(y, dim=0).numpy()
     accuracy = accuracy_score(y, np.round(yhat))
     auc = roc_auc_score(y, yhat)

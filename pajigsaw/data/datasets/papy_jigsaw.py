@@ -107,7 +107,7 @@ class PapyJigSaw(VisionDataset):
         assert isinstance(target_img, torch.Tensor)
 
         stacked_img = torch.stack([img, target_img], dim=0)
-        return stacked_img, torch.tensor(label, dtype=torch.int64)
+        return stacked_img, torch.tensor(label, dtype=torch.float32)
 
     def __len__(self) -> int:
         return len(self.entries)

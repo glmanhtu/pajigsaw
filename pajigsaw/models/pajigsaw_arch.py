@@ -204,8 +204,7 @@ class PaJigSaw(nn.Module):
         num_patches = self.patch_embed.num_patches
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, embed_dim))
-        self.pos_embed_cls = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
         self.pos_drop = nn.Dropout(p=drop_rate)
 
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
@@ -228,7 +227,6 @@ class PaJigSaw(nn.Module):
         self.head = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
         trunc_normal_(self.pos_embed, std=.02)
-        trunc_normal_(self.pos_embed_cls, std=.02)
         trunc_normal_(self.cls_token, std=.02)
         self.apply(self._init_weights)
 
@@ -276,10 +274,10 @@ class PaJigSaw(nn.Module):
             cls_tokens = self.cls_token.expand(B, -1, -1)
             x = torch.cat((cls_tokens, x), dim=1)
             # add positional encoding to each token
-            x = x + self.pos_embed_cls
+            x = x + self.pos_embed
         else:
             # add positional encoding to each token
-            x = x + self.pos_embed
+            x = x + self.pos_embed[:, 1:]
 
         return self.pos_drop(x)
 

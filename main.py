@@ -140,10 +140,14 @@ def main(config):
                         loss_scaler)
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
-                            logger)
+                            logger, 'checkpoint')
 
         loss, acc, auc = validate(config, data_loader_val, model)
         logger.info(f"Evaluation: AUC: {auc:.2f} ACC: {acc:.2f}, Loss: {loss}")
+        if auc > max_accuracy:
+            save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
+                            logger, 'best_model')
+
         max_accuracy = max(max_accuracy, auc)
         logger.info(f'Max AUC: {auc:.2f}%')
 

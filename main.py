@@ -224,18 +224,18 @@ def validate(config, data_loader, model):
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             output = model(images)
-            yhat.append(output.cpu())
+            yhat.append(torch.sigmoid(output).cpu())
             y.append(target.view(-1, 1))
             loss = criterion(output, target.cuda(non_blocking=True).view(-1, 1))
             losses.append(loss.item())
 
-    yhat = torch.sigmoid(torch.cat(yhat, dim=0)).numpy()
+    yhat = torch.cat(yhat, dim=0).numpy()
     y = torch.cat(y, dim=0).numpy()
-    accuracy = accuracy_score(y, np.round(yhat))
+    acc = accuracy_score(y, np.round(yhat))
     auc = roc_auc_score(y, yhat)
     loss = sum(losses) / len(losses)
 
-    return loss, accuracy, auc
+    return loss, acc, auc
 
 
 @torch.no_grad()

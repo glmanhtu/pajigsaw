@@ -5,30 +5,27 @@
 # Written by Ze Liu
 # --------------------------------------------------------
 
-import os
-import time
-import json
-import random
 import argparse
 import datetime
-import numpy as np
+import json
+import os
+import random
+import time
 
+import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 from sklearn.metrics import accuracy_score, roc_auc_score
-
-from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
-from timm.utils import accuracy, AverageMeter
+from timm.utils import AverageMeter
 
 from config import get_config
 from data.build import build_loader
-from models import build_model
-from lr_scheduler import build_scheduler
-from optimizer import build_optimizer
 from logger import create_logger
-from utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper, \
-    reduce_tensor
+from lr_scheduler import build_scheduler
+from models import build_model
+from optimizer import build_optimizer
+from utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper
 
 
 def parse_option():
@@ -63,7 +60,8 @@ def parse_option():
     parser.add_argument('--fused_window_process', action='store_true',
                         help='Fused window shift & window partition, similar for reversed part.')
     parser.add_argument('--fused_layernorm', action='store_true', help='Use fused layernorm.')
-    ## overwrite optimizer in config (*.yaml) if specified, e.g., fused_adam/fused_lamb
+
+    # overwrite optimizer in config (*.yaml) if specified, e.g., fused_adam/fused_lamb
     parser.add_argument('--optim', type=str,
                         help='overwrite optimizer if provided, can be adamw/sgd/fused_adam/fused_lamb.')
 
@@ -117,15 +115,15 @@ def main(config):
 
     if config.MODEL.RESUME:
         max_accuracy = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger)
-        acc1, acc5, loss = validate(config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
+        loss, acc, auc = validate(config, data_loader_val, model)
+        logger.info(f"AUC of the network on the {len(dataset_val)} test images: {auc:.2f}")
         if config.EVAL_MODE:
             return
 
     if config.MODEL.PRETRAINED and (not config.MODEL.RESUME):
         load_pretrained(config, model_without_ddp, logger)
-        acc1, acc5, loss = validate(config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
+        loss, acc, auc = validate(config, data_loader_val, model)
+        logger.info(f"AUC of the network on the {len(dataset_val)} test images: {auc:.2f}")
 
     if config.THROUGHPUT_MODE:
         throughput(data_loader_val, model, logger)
@@ -143,7 +141,7 @@ def main(config):
                             logger, 'checkpoint')
 
         loss, acc, auc = validate(config, data_loader_val, model)
-        logger.info(f"Evaluation: AUC: {auc:.2f} ACC: {acc:.2f}, Loss: {loss}")
+        logger.info(f"Evaluation: AUC: {auc:.2f}% ACC: {acc:.2f}%, Loss: {loss}")
         if auc > max_accuracy:
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
                             logger, 'best_model')
@@ -218,7 +216,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
 @torch.no_grad()
 def validate(config, data_loader, model):
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.BCEWithLogitsLoss()
     model.eval()
 
     yhat, y, losses = [], [], []
@@ -235,8 +233,8 @@ def validate(config, data_loader, model):
 
     yhat = torch.cat(yhat, dim=0).numpy()
     y = torch.cat(y, dim=0).numpy()
-    acc = accuracy_score(y, np.round(yhat))
-    auc = roc_auc_score(y, yhat)
+    acc = accuracy_score(y, np.round(yhat)) * 100
+    auc = roc_auc_score(y, yhat) * 100
     loss = sum(losses) / len(losses)
 
     return loss, acc, auc

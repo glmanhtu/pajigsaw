@@ -1,3 +1,5 @@
+import random
+
 import torch
 from PIL import Image, ImageOps
 from torchvision import transforms
@@ -8,10 +10,10 @@ class TwoImgSyncAugmentation:
         self.img_size = image_size
         self.default_transforms = transforms.Compose([
             transforms.RandomApply(
-                [transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1)],
+                [transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2)],
                 p=0.8
             ),
-            transforms.RandomGrayscale(p=0.2),
+            # transforms.RandomGrayscale(p=0.2),
             # utils.GaussianBlur(0.1)
         ])
 
@@ -23,6 +25,7 @@ class TwoImgSyncAugmentation:
 
     def __call__(self, first_img, second_img):
         max_size = max(first_img.width, first_img.height, second_img.width, second_img.height)
+        max_size = round(random.uniform(0.85, 1.15) * max_size)
         image_transformer = transforms.Compose([
             transforms.RandomCrop(max_size, pad_if_needed=True, fill=255),
             transforms.Resize(self.image_size),

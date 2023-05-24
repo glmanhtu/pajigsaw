@@ -16,7 +16,7 @@ from timm.data import create_transform
 
 from .datasets.papy_jigsaw import PapyJigSaw
 from .samplers import SubsetRandomSampler
-from .transforms import TwoImgSyncAugmentation
+from .transforms import TwoImgSyncAugmentation, TwoImgSyncEval
 
 try:
     from torchvision.transforms import InterpolationMode
@@ -99,7 +99,10 @@ def build_dataset(is_train, config):
         dataset = datasets.ImageFolder(root, transform=transform)
         nb_classes = 1000
     elif config.DATA.DATASET == 'papyjigsaw':
-        transform = TwoImgSyncAugmentation(config.DATA.IMG_SIZE)
+        if is_train:
+            transform = TwoImgSyncAugmentation(config.DATA.IMG_SIZE)
+        else:
+            transform = TwoImgSyncEval(config.DATA.IMG_SIZE)
         split = PapyJigSaw.Split.TRAIN if is_train else PapyJigSaw.Split.VAL
         dataset = PapyJigSaw(config.DATA.DATA_PATH, split, transform=transform,
                              p_negative_in_same_img=config.DATA.P_NEGATIVE_IN_SAME_IMG)

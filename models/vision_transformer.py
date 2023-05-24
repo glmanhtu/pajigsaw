@@ -249,9 +249,14 @@ class VisionTransformerCustom(VisionTransformer):
             )
             for i in range(c_depth)])
 
+    def _pos_embed_no_cls(self, x):
+        x = x + self.pos_embed[:, 1:]
+        return self.pos_drop(x)
+
     def forward_features(self, x):
         x1, x2 = torch.unbind(x, 1)
         x1 = self.patch_embed(x1)
+        x1 = self._pos_embed_no_cls(x1)
         x1 = self.patch_drop(x1)
         x1 = self.norm_pre(x1)
         x1 = self.blocks(x1)

@@ -101,7 +101,7 @@ def build_dataset(is_train, config):
     elif config.DATA.DATASET == 'papyjigsaw':
         transform = TwoImgSyncAugmentation(config.DATA.IMG_SIZE)
         split = PapyJigSaw.Split.TRAIN if is_train else PapyJigSaw.Split.VAL
-        dataset = PapyJigSaw(config.DATA.DATA_PATH, PapyJigSaw.Split.TRAIN, transform=transform,
+        dataset = PapyJigSaw(config.DATA.DATA_PATH, split, transform=transform,
                              p_negative_in_same_img=config.DATA.P_NEGATIVE_IN_SAME_IMG)
         dataset.generate_entries()
         nb_classes = 1

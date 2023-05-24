@@ -63,7 +63,7 @@ class CrossAttention(nn.Module):
     def forward(self, x, context):
         B, N, C = x.shape
         q = self.q(x).reshape(B, N, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
-        kv = self.kv(context).reshape(B, N, 2, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        kv = self.kv(context).reshape(B, N - 1, 2, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
         k, v = kv.unbind(0)
         q, k = self.q_norm(q), self.k_norm(k)
 
@@ -249,39 +249,20 @@ class VisionTransformerCustom(VisionTransformer):
             )
             for i in range(c_depth)])
 
-        self.context_blocks = nn.ModuleList([
-            block_fn(
-                dim=embed_dim,
-                num_heads=num_heads,
-                mlp_ratio=mlp_ratio,
-                qkv_bias=qkv_bias,
-                qk_norm=qk_norm,
-                init_values=init_values,
-                proj_drop=proj_drop_rate,
-                attn_drop=attn_drop_rate,
-                drop_path=dpr_cross[i],
-                norm_layer=norm_layer,
-                act_layer=act_layer,
-                mlp_layer=mlp_layer,
-            )
-            for i in range(c_depth)])
-
     def forward_features(self, x):
         x1, x2 = torch.unbind(x, 1)
         x1 = self.patch_embed(x1)
         x1 = self.patch_drop(x1)
         x1 = self.norm_pre(x1)
+        x1 = self.blocks(x1)
 
         x2 = self.patch_embed(x2)
+        x2 = self._pos_embed(x2)
         x2 = self.patch_drop(x2)
         x2 = self.norm_pre(x2)
-        for context_blk, blk in zip(self.context_blocks, self.cross_blocks):
-            x1 = context_blk(x1)
+        for blk in self.cross_blocks:
             x2 = blk(x2, x1)
-
-        x2 = self._pos_embed(x2)
-        x = self.blocks(x2)
-        x = self.norm(x)
+        x = self.norm(x2)
         return x
 
 

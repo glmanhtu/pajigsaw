@@ -219,25 +219,44 @@ def validate(config, data_loader, model):
     criterion = torch.nn.BCEWithLogitsLoss()
     model.eval()
 
-    yhat, y, losses = [], [], []
+    batch_time = AverageMeter()
+    loss_meter = AverageMeter()
+    acc_meter = AverageMeter()
+    auc_meter = AverageMeter()
+
+    end = time.time()
     for idx, (images, target) in enumerate(data_loader):
         images = images.cuda(non_blocking=True)
+        target = target.cuda(non_blocking=True).view(-1, 1)
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             output = model(images)
-            yhat.append(torch.sigmoid(output).cpu())
-            y.append(target.view(-1, 1))
-            loss = criterion(output, target.cuda(non_blocking=True).view(-1, 1))
-            losses.append(loss.item())
+        loss = criterion(output, target)
+        y = target.cpu().numpy()
+        y_hat = (output > 0).float().cpu().numpy()  # sigmoid 0 = 0.5
+        acc = accuracy_score(y, y_hat) * 100
+        auc = roc_auc_score(y, y_hat) * 100
 
-    yhat = torch.cat(yhat, dim=0).numpy()
-    y = torch.cat(y, dim=0).numpy()
-    acc = accuracy_score(y, np.round(yhat)) * 100
-    auc = roc_auc_score(y, yhat) * 100
-    loss = sum(losses) / len(losses)
+        loss_meter.update(loss.item(), target.size(0))
+        acc_meter.update(acc, target.size(0))
+        auc_meter.update(auc, target.size(0))
 
-    return loss, acc, auc
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        if idx % config.PRINT_FREQ == 0:
+            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+            logger.info(
+                f'Test: [{idx}/{len(data_loader)}]\t'
+                f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
+                f'ACC {acc_meter.val:.3f} ({acc_meter.avg:.3f})\t'
+                f'AUC {auc_meter.val:.3f} ({auc_meter.avg:.3f})\t'
+                f'Mem {memory_used:.0f}MB')
+
+    return loss_meter.avg, acc_meter.avg, auc_meter.avg
 
 
 @torch.no_grad()

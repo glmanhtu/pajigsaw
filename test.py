@@ -32,8 +32,7 @@ def parse_option():
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
     parser.add_argument('--data-path', type=str, help='path to dataset')
-    parser.add_argument('--pretrained',
-                        help='pretrained weight from checkpoint, could be imagenet22k pretrained weight')
+    parser.add_argument('--pretrained', required=True, help='pretrained weight from checkpoint')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')

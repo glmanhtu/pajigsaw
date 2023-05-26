@@ -365,12 +365,10 @@ class VisionTransformerCustom(VisionTransformer):
         x = self.norm(x2)
         return x
 
-    def forward(self, x, return_attn=False):
+    def forward(self, x):
         x = self.forward_features(x)
         x = self.forward_head(x)
-        if return_attn:
-            if not self.keep_attn:
-                raise Exception("To return attention map, please initialise the model with keep_attn=True")
+        if self.keep_attn:
             x1_attn = self.blocks[-1].attn.last_attn_map
             x2_attn = self.cross_blocks[-1].attn.last_attn_map
             cross_attn = self.cross_blocks[-1].cross_attn.last_attn_map

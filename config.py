@@ -77,6 +77,7 @@ _C.MODEL.PJS.NUM_HEADS = 12
 _C.MODEL.PJS.MLP_RATIO = 4.
 _C.MODEL.PJS.QKV_BIAS = True
 _C.MODEL.PJS.QK_SCALE = None
+_C.MODEL.PJS.KEEP_ATTN = False
 
 # Swin Transformer parameters
 _C.MODEL.SWIN = CN()
@@ -266,6 +267,8 @@ def update_config(config, args):
         config.MODEL.PRETRAINED = args.pretrained
     if _check_args('resume'):
         config.MODEL.RESUME = args.resume
+    if _check_args('keep_attn'):
+        config.MODEL.PJS.KEEP_ATTN = args.keep_attn
     if _check_args('accumulation_steps'):
         config.TRAIN.ACCUMULATION_STEPS = args.accumulation_steps
     if _check_args('use_checkpoint'):
@@ -298,10 +301,9 @@ def update_config(config, args):
     if _check_args('optim'):
         config.TRAIN.OPTIMIZER.NAME = args.optim
 
-    local_rank = int(os.environ["LOCAL_RANK"])
-
-    # set local rank for distributed training
-    config.LOCAL_RANK = local_rank
+    if "LOCAL_RANK" in os.environ:
+        # set local rank for distributed training
+        config.LOCAL_RANK = int(os.environ["LOCAL_RANK"])
 
     # output folder
     config.OUTPUT = os.path.join(config.OUTPUT, config.MODEL.NAME, config.TAG)

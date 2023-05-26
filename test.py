@@ -1,10 +1,3 @@
-# --------------------------------------------------------
-# Swin Transformer
-# Copyright (c) 2021 Microsoft
-# Licensed under The MIT License [see LICENSE for details]
-# Written by Ze Liu
-# --------------------------------------------------------
-
 import argparse
 import datetime
 import json
@@ -23,12 +16,11 @@ from config import get_config
 from data.build import build_test_loader
 from logger import create_logger
 from models import build_model
-from optimizer import build_optimizer
-from utils import load_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper
+from utils import load_pretrained
 
 
 def parse_option():
-    parser = argparse.ArgumentParser('Swin Transformer training and evaluation script', add_help=False)
+    parser = argparse.ArgumentParser('Pajigsaw testing script', add_help=False)
     parser.add_argument('--cfg', type=str, required=True, metavar="FILE", help='path to config file', )
     parser.add_argument(
         "--opts",
@@ -42,13 +34,7 @@ def parse_option():
     parser.add_argument('--data-path', type=str, help='path to dataset')
     parser.add_argument('--pretrained',
                         help='pretrained weight from checkpoint, could be imagenet22k pretrained weight')
-    parser.add_argument('--resume', help='resume from checkpoint')
-    parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
-    parser.add_argument('--use-checkpoint', action='store_true',
-                        help="whether to use gradient checkpointing to save memory")
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
-    parser.add_argument('--amp-opt-level', type=str, choices=['O0', 'O1', 'O2'],
-                        help='mixed precision opt level, if O0, no amp is used (deprecated!)')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
     parser.add_argument('--tag', help='tag of experiment')
@@ -69,31 +55,16 @@ def main(config):
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {n_parameters}")
-    if hasattr(model, 'flops'):
-        flops = model.flops()
-        logger.info(f"number of GFLOPs: {flops / 1e9}")
 
     model.cuda()
     model_without_ddp = model
 
-    optimizer = build_optimizer(config, model)
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False)
-    loss_scaler = NativeScalerWithGradNormCount()
 
-    if config.TRAIN.AUTO_RESUME:
-        resume_file = auto_resume_helper(config.OUTPUT)
-        if resume_file:
-            if config.MODEL.RESUME:
-                logger.warning(f"auto-resume changing resume file from {config.MODEL.RESUME} to {resume_file}")
-            config.defrost()
-            config.MODEL.RESUME = resume_file
-            config.freeze()
-            logger.info(f'auto resuming from {resume_file}')
-        else:
-            logger.info(f'no checkpoint found in {config.OUTPUT}, ignoring auto resume')
-
-    if config.MODEL.RESUME:
-        load_checkpoint(config, model_without_ddp, optimizer, None, loss_scaler, logger)
+    if os.path.isfile(config.MODEL.PRETRAINED):
+        load_pretrained(config, model_without_ddp, logger)
+    else:
+        raise Exception(f'Pretrained model is not exists {config.MODEL.PRETRAINED}')
 
     logger.info("Start testing")
     start_time = time.time()
@@ -153,9 +124,6 @@ def testing(config, data_loader, model):
 if __name__ == '__main__':
     args, config = parse_option()
     local_rank = int(os.environ["LOCAL_RANK"])
-
-    if config.AMP_OPT_LEVEL:
-        print("[warning] Apex amp has been deprecated, please use pytorch amp instead!")
 
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         rank = int(os.environ["RANK"])

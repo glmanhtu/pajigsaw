@@ -1,35 +1,117 @@
-import math
-from collections import OrderedDict
 from functools import partial
-from typing import Callable, Optional, Sequence, Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint
-from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD, \
-    OPENAI_CLIP_MEAN, OPENAI_CLIP_STD
-from timm.layers import PatchEmbed, Mlp, DropPath, trunc_normal_, lecun_normal_, resample_patch_embed, \
-    resample_abs_pos_embed, RmsNorm, PatchDropout, use_fused_attn, SwiGLUPacked
+from timm.layers import PatchEmbed, Mlp, DropPath, use_fused_attn
 from timm.models import VisionTransformer
-from timm.models.vision_transformer import Attention, Block
 from torch.jit import Final
 
 
-def named_apply(
-        fn: Callable,
-        module: nn.Module, name='',
-        depth_first: bool = True,
-        include_root: bool = False,
-) -> nn.Module:
-    if not depth_first and include_root:
-        fn(module=module, name=name)
-    for child_name, child_module in module.named_children():
-        child_name = '.'.join((name, child_name)) if name else child_name
-        named_apply(fn=fn, module=child_module, name=child_name, depth_first=depth_first, include_root=True)
-    if depth_first and include_root:
-        fn(module=module, name=name)
-    return module
+class Attention(nn.Module):
+    fused_attn: Final[bool]
+
+    def __init__(
+            self,
+            dim,
+            num_heads=8,
+            qkv_bias=False,
+            qk_norm=False,
+            attn_drop=0.,
+            proj_drop=0.,
+            norm_layer=nn.LayerNorm,
+            keep_attn=False
+    ):
+        super().__init__()
+        assert dim % num_heads == 0, 'dim should be divisible by num_heads'
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        self.scale = self.head_dim ** -0.5
+        self.fused_attn = use_fused_attn()
+
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.q_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
+        self.k_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj = nn.Linear(dim, dim)
+        self.proj_drop = nn.Dropout(proj_drop)
+        self.keep_attn = keep_attn
+        self.last_attn_map = None
+
+    def forward(self, x):
+        B, N, C = x.shape
+        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv.unbind(0)
+        q, k = self.q_norm(q), self.k_norm(k)
+
+        if self.fused_attn and not self.keep_attn:
+            x = F.scaled_dot_product_attention(
+                q, k, v,
+                dropout_p=self.attn_drop.p,
+            )
+        else:
+            q = q * self.scale
+            attn = q @ k.transpose(-2, -1)
+            attn = attn.softmax(dim=-1)
+            if self.keep_attn:
+                # Not the best solution, but it works
+                self.last_attn_map = attn.detach()
+            attn = self.attn_drop(attn)
+            x = attn @ v
+
+        x = x.transpose(1, 2).reshape(B, N, C)
+        x = self.proj(x)
+        x = self.proj_drop(x)
+        return x
+
+
+class Block(nn.Module):
+
+    def __init__(
+            self,
+            dim,
+            num_heads,
+            mlp_ratio=4.,
+            qkv_bias=False,
+            qk_norm=False,
+            proj_drop=0.,
+            attn_drop=0.,
+            init_values=None,
+            drop_path=0.,
+            act_layer=nn.GELU,
+            norm_layer=nn.LayerNorm,
+            mlp_layer=Mlp,
+    ):
+        super().__init__()
+        self.norm1 = norm_layer(dim)
+        self.attn = Attention(
+            dim,
+            num_heads=num_heads,
+            qkv_bias=qkv_bias,
+            qk_norm=qk_norm,
+            attn_drop=attn_drop,
+            proj_drop=proj_drop,
+            norm_layer=norm_layer,
+        )
+        self.ls1 = LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        self.drop_path1 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+
+        self.norm2 = norm_layer(dim)
+        self.mlp = mlp_layer(
+            in_features=dim,
+            hidden_features=int(dim * mlp_ratio),
+            act_layer=act_layer,
+            drop=proj_drop,
+        )
+        self.ls2 = LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+
+    def forward(self, x):
+        x = x + self.drop_path1(self.ls1(self.attn(self.norm1(x))))
+        x = x + self.drop_path2(self.ls2(self.mlp(self.norm2(x))))
+        return x
 
 
 class CrossAttention(nn.Module):
@@ -44,6 +126,7 @@ class CrossAttention(nn.Module):
             attn_drop=0.,
             proj_drop=0.,
             norm_layer=nn.LayerNorm,
+            keep_attn=False
     ):
         super().__init__()
         assert dim % num_heads == 0, 'dim should be divisible by num_heads'
@@ -59,6 +142,8 @@ class CrossAttention(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
+        self.keep_attn = keep_attn
+        self.last_attn_map = None
 
     def forward(self, x, context):
         B, N, C = x.shape
@@ -67,7 +152,7 @@ class CrossAttention(nn.Module):
         k, v = kv.unbind(0)
         q, k = self.q_norm(q), self.k_norm(k)
 
-        if self.fused_attn:
+        if self.fused_attn and not self.keep_attn:
             x = F.scaled_dot_product_attention(
                 q, k, v,
                 dropout_p=self.attn_drop.p,
@@ -76,6 +161,9 @@ class CrossAttention(nn.Module):
             q = q * self.scale
             attn = q @ k.transpose(-2, -1)
             attn = attn.softmax(dim=-1)
+            if self.keep_attn:
+                # Not the best solution, but it works
+                self.last_attn_map = attn.detach()
             attn = self.attn_drop(attn)
             x = attn @ v
 
@@ -196,6 +284,7 @@ class VisionTransformerCustom(VisionTransformer):
             block_fn: Callable = Block,
             cross_block_fn: Callable = CrossBlock,
             mlp_layer: Callable = Mlp,
+            keep_attn=False
     ):
         """
         Args:
@@ -221,6 +310,7 @@ class VisionTransformerCustom(VisionTransformer):
             norm_layer: Normalization layer.
             act_layer: MLP activation layer.
             block_fn: Transformer block layer.
+            keep_attn: save the last attention map to memory
         """
 
         super().__init__(img_size, patch_size, in_chans, num_classes, global_pool, embed_dim, depth, num_heads,
@@ -249,6 +339,11 @@ class VisionTransformerCustom(VisionTransformer):
             )
             for i in range(c_depth)])
 
+        self.blocks[-1].attn.keep_attn = keep_attn
+        self.cross_blocks[-1].attn.keep_attn = keep_attn
+        self.cross_blocks[-1].cross_attn.keep_attn = keep_attn
+        self.keep_attn = keep_attn
+
     def _pos_embed_no_cls(self, x):
         x = x + self.pos_embed[:, 1:]
         return self.pos_drop(x)
@@ -268,6 +363,18 @@ class VisionTransformerCustom(VisionTransformer):
         for blk in self.cross_blocks:
             x2 = blk(x2, x1)
         x = self.norm(x2)
+        return x
+
+    def forward(self, x, return_attn=False):
+        x = self.forward_features(x)
+        x = self.forward_head(x)
+        if return_attn:
+            if not self.keep_attn:
+                raise Exception("To return attention map, please initialise the model with keep_attn=True")
+            x1_attn = self.blocks[-1].attn.last_attn_map
+            x2_attn = self.cross_blocks[-1].attn.last_attn_map
+            cross_attn = self.cross_blocks[-1].cross_attn.last_attn_map
+            return x, x1_attn, x2_attn, cross_attn
         return x
 
 

@@ -120,7 +120,7 @@ def build_dataset(mode, config):
             transform = TwoImgSyncAugmentation(config.DATA.IMG_SIZE)
         else:
             transform = TwoImgSyncEval(config.DATA.IMG_SIZE)
-        split = PapyJigSaw.Split[mode]
+        split = PapyJigSaw.Split.from_string(mode)
         dataset = PapyJigSaw(config.DATA.DATA_PATH, split, transform=transform)
         dataset.generate_entries()
         nb_classes = 1

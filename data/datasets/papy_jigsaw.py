@@ -27,6 +27,12 @@ class _Split(Enum):
         }
         return split_lengths[self]
 
+    @staticmethod
+    def from_string(name):
+        for key in _Split:
+            if key.value == name:
+                return key
+
 
 class PapyJigSaw(VisionDataset):
     Target = Union[_Target]

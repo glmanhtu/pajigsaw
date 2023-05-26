@@ -39,14 +39,10 @@ class PapyJigSaw(VisionDataset):
         transforms: Optional[Callable] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
-        p_negative: float = 0.5,
-        p_negative_in_same_img: float = 0.7,
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
         self.dataset_path = os.path.join(root, split.value)
-        self._p_negative = p_negative
-        self._p_negative_in_same_img = p_negative_in_same_img
         self.cache_file = os.path.join(self.dataset_path, f'{self._split}.cache')
 
         self.entries = {}

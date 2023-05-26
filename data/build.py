@@ -43,10 +43,10 @@ except:
 
 def build_loader(config):
     config.defrost()
-    dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config)
+    dataset_train, config.MODEL.NUM_CLASSES = build_dataset(mode='train', config=config)
     config.freeze()
     print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
-    dataset_val, _ = build_dataset(is_train=False, config=config)
+    dataset_val, _ = build_dataset(mode='val', config=config)
     print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
 
     num_tasks = dist.get_world_size()
@@ -91,21 +91,37 @@ def build_loader(config):
     return dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn
 
 
-def build_dataset(is_train, config):
-    if config.DATA.DATASET == 'imagenet':
-        transform = build_transform(is_train, config)
-        prefix = 'train' if is_train else 'val'
-        root = os.path.join(config.DATA.DATA_PATH, prefix)
-        dataset = datasets.ImageFolder(root, transform=transform)
-        nb_classes = 1000
-    elif config.DATA.DATASET == 'papyjigsaw':
-        if is_train:
+def build_test_loader(config):
+    dataset_test, _ = build_dataset(mode='test', config=config)
+    print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build test dataset")
+
+    if config.TEST.SEQUENTIAL:
+        sampler_val = torch.utils.data.SequentialSampler(dataset_test)
+    else:
+        sampler_val = torch.utils.data.distributed.DistributedSampler(
+            dataset_test, shuffle=config.TEST.SHUFFLE
+        )
+
+    data_loader_val = torch.utils.data.DataLoader(
+        dataset_test, sampler=sampler_val,
+        batch_size=config.DATA.BATCH_SIZE,
+        shuffle=False,
+        num_workers=config.DATA.NUM_WORKERS,
+        pin_memory=config.DATA.PIN_MEMORY,
+        drop_last=False
+    )
+
+    return dataset_test, data_loader_val
+
+
+def build_dataset(mode, config):
+    if config.DATA.DATASET == 'papyjigsaw':
+        if mode == 'train':
             transform = TwoImgSyncAugmentation(config.DATA.IMG_SIZE)
         else:
             transform = TwoImgSyncEval(config.DATA.IMG_SIZE)
-        split = PapyJigSaw.Split.TRAIN if is_train else PapyJigSaw.Split.VAL
-        dataset = PapyJigSaw(config.DATA.DATA_PATH, split, transform=transform,
-                             p_negative_in_same_img=config.DATA.P_NEGATIVE_IN_SAME_IMG)
+        split = PapyJigSaw.Split[mode]
+        dataset = PapyJigSaw(config.DATA.DATA_PATH, split, transform=transform)
         dataset.generate_entries()
         nb_classes = 1
     else:

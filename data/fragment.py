@@ -44,7 +44,7 @@ def fragment_image(img: Image, n_cols: int, n_rows: int):
     ing_w = img.size[0]
     ing_h = img.size[1]
 
-    # side borders
+    # # side borders
     b = horizon(arr.shape[0], 0.9, 10)
     for i in range(arr.shape[0]):
         arr[i, 0:b[i]] = 0
@@ -83,7 +83,7 @@ def fragment_image(img: Image, n_cols: int, n_rows: int):
             a = min(h[i], h[j]) - h3[i] // 2
             b = max(h[i], h[j]) + h3[i] // 2 + 2
             arr[a:b, i] = 0
-    os.makedirs('img_cuts', exist_ok=True)
+
     cuts = ImageChops.multiply(Image.fromarray(arr.astype('uint8')).convert('RGB'), img)
 
     labeled, ncomponents = label(arr)

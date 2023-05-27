@@ -220,3 +220,20 @@ class NativeScalerWithGradNormCount:
 
     def load_state_dict(self, state_dict):
         self._scaler.load_state_dict(state_dict)
+
+
+def split_list_by_ratios(lst, ratios):
+    total_len = len(lst)
+    split_points = [int(ratio * total_len) for ratio in ratios]
+    sublists = []
+    start_idx = 0
+
+    for split_point in split_points:
+        sublist = lst[start_idx:start_idx + split_point]
+        sublists.append(sublist)
+        start_idx += split_point
+
+    # Add the remaining elements to the last sublist
+    sublists[-1].extend(lst[start_idx:])
+
+    return sublists

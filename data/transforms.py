@@ -25,7 +25,7 @@ class TwoImgSyncAugmentation:
 
     def __call__(self, first_img, second_img):
         max_size = max(first_img.width, first_img.height, second_img.width, second_img.height)
-        max_size = round(random.uniform(0.85, 1.15) * max_size)
+        max_size = round(random.uniform(0.8, 1.2) * max_size)
         image_transformer = transforms.Compose([
             transforms.RandomCrop(max_size, pad_if_needed=True, fill=255),
             transforms.Resize(self.image_size),
@@ -34,6 +34,11 @@ class TwoImgSyncAugmentation:
 
         first_img = image_transformer(first_img)
         second_img = image_transformer(second_img)
+
+        # Grayscale
+        if 0.5 < torch.rand(1):
+            first_img = first_img.convert('L')
+            second_img = second_img.convert('L')
 
         # Horizontally flipping
         if 0.5 < torch.rand(1):

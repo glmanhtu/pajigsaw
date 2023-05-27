@@ -40,8 +40,7 @@ class ImageNetData(Dataset):
         with Image.open(image_path) as f:
             img = f.convert('RGB')
             ratio = 4 * self.patch_size / min(img.width, img.height)
-            if ratio > 1:
-                img = img.resize((int(ratio * img.width), int(ratio * img.height)), Image.LANCZOS)
+            img = img.resize((int(ratio * img.width), int(ratio * img.height)), Image.LANCZOS)
         n_rows = max(round(img.height / self.patch_size), 1)
         n_cols = max(round(img.width / self.patch_size), 1)
         patches, im_cut = fragment_image(img, n_cols, n_rows)

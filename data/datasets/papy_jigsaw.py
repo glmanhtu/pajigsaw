@@ -80,6 +80,8 @@ class PapyJigSaw(VisionDataset):
 
         entries = {}
         for image_name, fragments in fragment_map.items():
+            max_col = max([x['col'] for x in fragments])
+            max_row = max([x['row'] for x in fragments])
             for first in fragments:
                 for second in fragments:
                     if first['img'] == second['img']:
@@ -90,7 +92,8 @@ class PapyJigSaw(VisionDataset):
                         first['positive'].append(second)
                     else:
                         first['negative'].append(second)
-                if len(first['positive']) > 0:
+                not_in_border = 0 < first['col'] < max_col and 0 < first['row'] < max_row
+                if len(first['positive']) > 0 and not_in_border:
                     entries.setdefault(image_name, []).append(first)
         entry_map = {i: k for i, k in enumerate(entries.keys())}
         torch.save({

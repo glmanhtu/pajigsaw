@@ -35,12 +35,6 @@ class TwoImgSyncAugmentation:
 
         first_img = image_transformer(first_img)
         second_img = image_transformer(second_img)
-        to_gray_scale = torchvision.transforms.Grayscale(num_output_channels=3)
-
-        # Grayscale
-        if 0.5 < torch.rand(1):
-            first_img = to_gray_scale(first_img)
-            second_img = to_gray_scale(second_img)
 
         # Horizontally flipping
         if 0.5 < torch.rand(1):

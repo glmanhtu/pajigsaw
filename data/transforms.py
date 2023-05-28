@@ -10,10 +10,10 @@ class TwoImgSyncAugmentation:
     def __init__(self, image_size):
         self.img_size = image_size
         self.default_transforms = transforms.Compose([
-            transforms.RandomApply(
-                [transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2)],
-                p=0.8
-            ),
+            # transforms.RandomApply(
+            #     [transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2)],
+            #     p=0.8
+            # ),
             # transforms.RandomGrayscale(p=0.2),
             # utils.GaussianBlur(0.1)
         ])

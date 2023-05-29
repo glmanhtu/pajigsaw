@@ -1,8 +1,6 @@
 import random
 
-import torch
 import torchvision
-from PIL import Image, ImageOps
 from torchvision import transforms
 
 
@@ -26,8 +24,11 @@ class TwoImgSyncAugmentation:
 
     def __call__(self, first_img, second_img):
         max_size = max(first_img.width, first_img.height, second_img.width, second_img.height)
-        max_size = round(random.uniform(0.8, 1.2) * max_size)
+        min_size = round(random.uniform(0.9, 1.0) * max_size)
+        max_size = round(random.uniform(1.05, 1.15) * max_size)
         image_transformer = transforms.Compose([
+            transforms.RandomCrop(min_size),
+            torchvision.transforms.Pad(20, fill=255),
             transforms.RandomCrop(max_size, pad_if_needed=True, fill=255),
             transforms.Resize(self.image_size),
             self.default_transforms,
@@ -35,16 +36,6 @@ class TwoImgSyncAugmentation:
 
         first_img = image_transformer(first_img)
         second_img = image_transformer(second_img)
-
-        # Horizontally flipping
-        if 0.5 < torch.rand(1):
-            first_img = first_img.transpose(Image.FLIP_LEFT_RIGHT)
-            second_img = second_img.transpose(Image.FLIP_LEFT_RIGHT)
-
-        # Vertically flipping
-        if 0.5 < torch.rand(1):
-            first_img = first_img.transpose(Image.FLIP_TOP_BOTTOM)
-            second_img = second_img.transpose(Image.FLIP_TOP_BOTTOM)
 
         first_img = self.normalize(first_img)
         second_img = self.normalize(second_img)
@@ -65,9 +56,11 @@ class TwoImgSyncEval:
     def __call__(self, first_img, second_img):
         max_size = max(first_img.width, first_img.height, second_img.width, second_img.height)
         image_transformer = transforms.Compose([
-            lambda x: ImageOps.invert(x),
-            transforms.CenterCrop(max_size),    # CenterCrop will pad the image, but with value 0
-            lambda x: ImageOps.invert(x),
+            transforms.CenterCrop(int(0.95 * max_size)),
+            torchvision.transforms.Pad(20, fill=255),
+            # lambda x: ImageOps.invert(x),
+            # transforms.CenterCrop(max_size),    # CenterCrop will pad the image, but with value 0
+            # lambda x: ImageOps.invert(x),
             transforms.Resize(self.image_size),
         ])
 

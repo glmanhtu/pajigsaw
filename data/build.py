@@ -5,17 +5,15 @@
 # Written by Ze Liu
 # --------------------------------------------------------
 
-import os
 import torch
-import numpy as np
 import torch.distributed as dist
-from torchvision import datasets, transforms
-from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import Mixup
 from timm.data import create_transform
+from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
+from torchvision import transforms
 
-from .datasets.papy_jigsaw import PapyJigSaw
-from .samplers import SubsetRandomSampler
+from .datasets.imnet_patch import ImNetPatch
+from .datasets.jigsaw_imnet import JigSawImNet
 from .transforms import TwoImgSyncAugmentation, TwoImgSyncEval
 
 try:
@@ -115,13 +113,18 @@ def build_test_loader(config):
 
 
 def build_dataset(mode, config):
-    if config.DATA.DATASET == 'papyjigsaw':
-        if mode == 'train':
-            transform = TwoImgSyncAugmentation(config.DATA.IMG_SIZE)
-        else:
-            transform = TwoImgSyncEval(config.DATA.IMG_SIZE)
-        split = PapyJigSaw.Split.from_string(mode)
-        dataset = PapyJigSaw(config.DATA.DATA_PATH, split, transform=transform)
+    if mode == 'train':
+        transform = TwoImgSyncAugmentation(config.DATA.IMG_SIZE)
+    else:
+        transform = TwoImgSyncEval(config.DATA.IMG_SIZE)
+    if config.DATA.DATASET == 'jigsaw_imnet':
+        split = JigSawImNet.Split.from_string(mode)
+        dataset = JigSawImNet(config.DATA.DATA_PATH, split, transform=transform)
+        dataset.generate_entries()
+        nb_classes = 1
+    elif config.DATA.DATASET == 'imnet_patch':
+        split = ImNetPatch.Split.from_string(mode)
+        dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform)
         dataset.generate_entries()
         nb_classes = 1
     else:

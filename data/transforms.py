@@ -1,6 +1,7 @@
 import random
 
 import torchvision
+from PIL import ImageOps
 from torchvision import transforms
 
 
@@ -27,7 +28,7 @@ class TwoImgSyncAugmentation:
         min_size = round(random.uniform(0.9, 1.0) * max_size)
         max_size = round(random.uniform(1.05, 1.15) * max_size)
         image_transformer = transforms.Compose([
-            transforms.RandomCrop(min_size),
+            transforms.RandomCrop(min_size, pad_if_needed=True, fill=255),
             torchvision.transforms.Pad(20, fill=255),
             transforms.RandomCrop(max_size, pad_if_needed=True, fill=255),
             transforms.Resize(self.image_size),
@@ -56,11 +57,11 @@ class TwoImgSyncEval:
     def __call__(self, first_img, second_img):
         max_size = max(first_img.width, first_img.height, second_img.width, second_img.height)
         image_transformer = transforms.Compose([
+            lambda x: ImageOps.invert(x),
             transforms.CenterCrop(int(0.95 * max_size)),
-            torchvision.transforms.Pad(20, fill=255),
-            # lambda x: ImageOps.invert(x),
-            # transforms.CenterCrop(max_size),    # CenterCrop will pad the image, but with value 0
-            # lambda x: ImageOps.invert(x),
+            torchvision.transforms.Pad(20, fill=0),
+            transforms.CenterCrop(max_size),    # CenterCrop will pad the image, but with value 0
+            lambda x: ImageOps.invert(x),
             transforms.Resize(self.image_size),
         ])
 

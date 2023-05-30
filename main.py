@@ -235,17 +235,17 @@ def validate(config, data_loader, model):
             output = model(images)
         loss = criterion(output, target)
         y = target.cpu()
-        output = torch.sigmoid(output)
+        output = torch.sigmoid(output).cpu()
 
-        positive_flag = target < 2.
+        positive_flag = y < 2.
 
-        y_hat = (output[positive_flag] > 0.7).float().cpu().numpy()  # sigmoid 0 = 0.5
+        y_hat = (output[positive_flag] > 0.7).float().numpy()  # sigmoid 0 = 0.5
         acc = accuracy_score(y[positive_flag].numpy(), y_hat) * 100
         acc_meter.update(acc, target.size(0))
 
         negative_target = torch.logical_not(positive_flag)
         output = output[negative_target]
-        y_hat = (torch.logical_and(output < 0.7, output > 0.3)).float().cpu().numpy()  # sigmoid 0 = 0.5
+        y_hat = (torch.logical_and(output < 0.7, output > 0.3)).float().numpy()  # sigmoid 0 = 0.5
         acc = accuracy_score(y[negative_target].numpy(), y_hat) * 100
         acc_neg_meter.update(acc, target.size(0))
 

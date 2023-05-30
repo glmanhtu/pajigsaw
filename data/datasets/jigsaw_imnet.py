@@ -15,7 +15,7 @@ _Target = int
 
 class _Split(Enum):
     TRAIN = "train"
-    VAL = "val"
+    VAL = "validation"
     TEST = "test"  # NOTE: torchvision does not support the test split
 
     @property

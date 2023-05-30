@@ -228,25 +228,25 @@ def validate(config, data_loader, model):
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
         images = images.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True).view(-1, 1)
+        target = target.cuda(non_blocking=True).view(-1)
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             output = model(images)
         loss = criterion(output, target)
         y = target.cpu()
-        output = torch.sigmoid(output).cpu()
+        output = torch.sigmoid(output).view(-1).cpu()
 
         positive_flag = y < 2.
 
-        y_hat = (output[positive_flag] > 0.7).float().numpy()  # sigmoid 0 = 0.5
+        y_hat = (output[positive_flag] > 0.7).float().numpy()
         acc = accuracy_score(y[positive_flag].numpy(), y_hat) * 100
         acc_meter.update(acc, target.size(0))
 
         negative_target = torch.logical_not(positive_flag)
         output = output[negative_target]
-        y_hat = (torch.logical_and(output < 0.7, output > 0.3)).float().numpy()  # sigmoid 0 = 0.5
-        acc = accuracy_score(y[negative_target].numpy(), y_hat) * 100
+        y_hat = (torch.logical_and(output < 0.7, output > 0.3)).float().numpy()
+        acc = accuracy_score((y[negative_target] > 0).float().numpy(), y_hat) * 100
         acc_neg_meter.update(acc, target.size(0))
 
         loss_meter.update(loss.item(), target.size(0))

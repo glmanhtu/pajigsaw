@@ -79,15 +79,18 @@ class ImNetPatch(VisionDataset):
             self.load_entries()
 
         image = self.dataset[index]['image'].convert('RGB')
-        gap = random.randint(15, 45)
-        ratio = (self.image_size * 2.5 + gap) / min(image.width, image.height)
+        min_rand, max_rand = 15, 45
+        ratio = (self.image_size * 2.5 + max_rand) / min(image.width, image.height)
         if ratio > 1:
             image = image.resize((math.ceil(ratio * image.width), math.ceil(ratio * image.height)), Image.LANCZOS)
-        cropper = self.cropper_class((self.image_size * 2 + gap, self.image_size * 2 + gap))
+        cropper = self.cropper_class((self.image_size * 2 + max_rand, self.image_size * 2 + max_rand))
         patch = cropper(image)
         first_img = patch.crop((0, 0, self.image_size, self.image_size))
-        second_img = patch.crop((self.image_size + gap, 0, self.image_size * 2 + gap, self.image_size))
+        gap_x = random.randint(min_rand, max_rand)
+        gap_y = random.randint(min_rand, max_rand)
+        second_img = patch.crop((self.image_size + gap_x, gap_y, self.image_size * 2 + gap_x, self.image_size))
 
+        gap = random.randint(min_rand, max_rand)
         # Third image is right below the second image
         third_img = patch.crop((self.image_size + gap, self.image_size + gap, self.image_size * 2 + gap,
                                 self.image_size * 2 + gap))

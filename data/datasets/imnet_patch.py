@@ -85,18 +85,18 @@ class ImNetPatch(VisionDataset):
             image = image.resize((math.ceil(ratio * image.width), math.ceil(ratio * image.height)), Image.LANCZOS)
         cropper = self.cropper_class((self.image_size * 2 + max_rand, self.image_size * 2 + max_rand))
         patch = cropper(image)
-        first_img = patch.crop((0, 0, self.image_size, self.image_size))
+        gap_y = random.randint(min_rand, max_rand)
+        first_img = patch.crop((0, gap_y, self.image_size, self.image_size))
         gap_x = random.randint(min_rand, max_rand)
         gap_y = random.randint(min_rand, max_rand)
         second_img = patch.crop((self.image_size + gap_x, gap_y, self.image_size * 2 + gap_x, self.image_size))
 
-        gap = random.randint(min_rand, max_rand)
         # Third image is right below the second image
-        third_img = patch.crop((self.image_size + gap, self.image_size + gap, self.image_size * 2 + gap,
-                                self.image_size * 2 + gap))
+        third_img = patch.crop((self.image_size + max_rand, self.image_size + max_rand, self.image_size * 2 + max_rand,
+                                self.image_size * 2 + max_rand))
 
         # Fourth mage is right below the first image
-        fourth_img = patch.crop((0, self.image_size + gap, self.image_size, self.image_size * 2 + gap))
+        fourth_img = patch.crop((0, self.image_size + max_rand, self.image_size, self.image_size * 2 + max_rand))
 
         # For now, the second image connect forward to first image, and backward to third image
         # The first and third images have no connection

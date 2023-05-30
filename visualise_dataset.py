@@ -30,7 +30,7 @@ for pair, label in train_dataset:
     cv2.imshow('image', cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 
     # waitKey() waits for a key press to close the window and 0 specifies indefinite loop
-    cv2.waitKey(50)
+    cv2.waitKey(1000)
 
     # cv2.destroyAllWindows() simply destroys all the windows we created.
 cv2.destroyAllWindows()

@@ -140,14 +140,15 @@ def main(config):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
                             logger, 'checkpoint')
 
-        loss, acc, auc = validate(config, data_loader_val, model)
-        logger.info(f"Evaluation: AUC: {auc:.2f}% ACC: {acc:.2f}%, Loss: {loss}")
-        if auc > max_accuracy:
+        loss, acc, acc_neg = validate(config, data_loader_val, model)
+        logger.info(f"Evaluation: ACC Neg: {acc_neg:.2f}% ACC: {acc:.2f}%, Loss: {loss}")
+        avg_acc = (acc + acc_neg) / 2
+        if avg_acc > max_accuracy:
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
                             logger, 'best_model')
+            logger.info(f"Avg acc is improved from {max_accuracy} to {avg_acc}")
 
-        max_accuracy = max(max_accuracy, auc)
-        logger.info(f'Max AUC: {auc:.2f}%')
+        max_accuracy = max(max_accuracy, avg_acc)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -222,7 +223,7 @@ def validate(config, data_loader, model):
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
     acc_meter = AverageMeter()
-    auc_meter = AverageMeter()
+    acc_neg_meter = AverageMeter()
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
@@ -233,14 +234,22 @@ def validate(config, data_loader, model):
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             output = model(images)
         loss = criterion(output, target)
-        y = target.cpu().numpy()
-        y_hat = (output > 0).float().cpu().numpy()  # sigmoid 0 = 0.5
-        acc = accuracy_score(y, y_hat) * 100
-        auc = roc_auc_score(y, y_hat) * 100
+        y = target.cpu()
+        output = torch.sigmoid(output)
+
+        positive_flag = target < 2.
+
+        y_hat = (output[positive_flag] > 0.7).float().cpu().numpy()  # sigmoid 0 = 0.5
+        acc = accuracy_score(y[positive_flag].numpy(), y_hat) * 100
+        acc_meter.update(acc, target.size(0))
+
+        negative_target = torch.logical_not(positive_flag)
+        output = output[negative_target]
+        y_hat = (torch.logical_and(output < 0.7, output > 0.3)).float().cpu().numpy()  # sigmoid 0 = 0.5
+        acc = accuracy_score(y[negative_target].numpy(), y_hat) * 100
+        acc_neg_meter.update(acc, target.size(0))
 
         loss_meter.update(loss.item(), target.size(0))
-        acc_meter.update(acc, target.size(0))
-        auc_meter.update(auc, target.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -253,10 +262,10 @@ def validate(config, data_loader, model):
                 f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                 f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
                 f'ACC {acc_meter.val:.3f} ({acc_meter.avg:.3f})\t'
-                f'AUC {auc_meter.val:.3f} ({auc_meter.avg:.3f})\t'
+                f'AUC Neg {acc_neg_meter.val:.3f} ({acc_neg_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
 
-    return loss_meter.avg, acc_meter.avg, auc_meter.avg
+    return loss_meter.avg, acc_meter.avg, acc_neg_meter.avg
 
 
 @torch.no_grad()

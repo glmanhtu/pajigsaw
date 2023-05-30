@@ -48,6 +48,7 @@ class ImNetPatch(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         image_size=224,
+        with_negative=False
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
@@ -57,6 +58,7 @@ class ImNetPatch(VisionDataset):
         self.entries = {}
         self.entry_id_map = {}
         self.image_size = image_size
+        self.with_negative = with_negative
 
         self.cropper_class = torchvision.transforms.RandomCrop
         if split != _Split.TRAIN:
@@ -77,29 +79,38 @@ class ImNetPatch(VisionDataset):
             self.load_entries()
 
         image = self.dataset[index]['image'].convert('RGB')
-        gap = random.randint(1, 15)
-        ratio_short = self.image_size / min(image.width, image.height)
-        ratio_long = (self.image_size * 2 + gap) / max(image.width, image.height)
-        ratio = max(ratio_long, ratio_short)
+        gap = random.randint(15, 45)
+        ratio = (self.image_size * 2 + gap) / min(image.width, image.height)
         if ratio > 1:
             image = image.resize((math.ceil(ratio * image.width), math.ceil(ratio * image.height)), Image.LANCZOS)
-        if image.width > image.height:
-            cropper = self.cropper_class((self.image_size, self.image_size * 2 + gap))
-            patch = cropper(image)
-            first_img = patch.crop((0, 0, self.image_size, self.image_size))
-            second_img = patch.crop((self.image_size + gap, 0, self.image_size * 2 + gap, self.image_size))
-        else:
-            cropper = self.cropper_class((self.image_size * 2 + gap, self.image_size))
-            patch = cropper(image)
-            first_img = patch.crop((0, 0, self.image_size, self.image_size))
-            second_img = patch.crop((0, self.image_size + gap, self.image_size, self.image_size * 2 + gap))
+        cropper = self.cropper_class((self.image_size * 2 + gap, self.image_size * 2 + gap))
+        patch = cropper(image)
+        first_img = patch.crop((0, 0, self.image_size, self.image_size))
+        second_img = patch.crop((self.image_size + gap, 0, self.image_size * 2 + gap, self.image_size))
 
+        # Third image is right below the second image
+        third_img = patch.crop((self.image_size + gap, self.image_size + gap, self.image_size * 2 + gap,
+                                self.image_size * 2 + gap))
+
+        # Fourth mage is right below the first image
+        fourth_img = patch.crop((0, self.image_size + gap, self.image_size, self.image_size * 2 + gap))
+
+        # For now, the second image connect forward to first image, and backward to third image
+        # The first and third images have no connection
         label = 1.
         if 0.5 < torch.rand(1):
             tmp = first_img
             first_img = second_img
             second_img = tmp
+            # When we swap the first and second image, then we also need to replace the third by the four image
+            # to ensure that the first image have no connection to the third image
+            third_img = fourth_img
             label = 0.
+
+        if self.with_negative and 0.3 < torch.rand(1):
+            # Negative pair for evaluation
+            second_img = third_img
+            label = 2.
 
         if self.transform is not None:
             first_img, second_img = self.transform(first_img, second_img)

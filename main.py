@@ -115,15 +115,15 @@ def main(config):
 
     if config.MODEL.RESUME:
         max_accuracy = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger)
-        loss, acc, auc = validate(config, data_loader_val, model)
-        logger.info(f"AUC of the network on the {len(dataset_val)} test images: {auc:.2f}")
+        loss, f_acc, b_acc = validate(config, data_loader_val, model)
+        logger.info(f"Avg ACC of the network on the {len(dataset_val)} test images: {(f_acc + b_acc) / 2:.2f}")
         if config.EVAL_MODE:
             return
 
     if config.MODEL.PRETRAINED and (not config.MODEL.RESUME):
         load_pretrained(config, model_without_ddp, logger)
-        loss, acc, auc = validate(config, data_loader_val, model)
-        logger.info(f"AUC of the network on the {len(dataset_val)} test images: {auc:.2f}")
+        loss, f_acc, b_acc = validate(config, data_loader_val, model)
+        logger.info(f"Avg ACC of the network on the {len(dataset_val)} test images: {(f_acc + b_acc) / 2:.2f}")
 
     if config.THROUGHPUT_MODE:
         throughput(data_loader_val, model, logger)
@@ -140,9 +140,9 @@ def main(config):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
                             logger, 'checkpoint')
 
-        loss, acc, acc_neg = validate(config, data_loader_val, model)
-        logger.info(f"Evaluation: ACC Neg: {acc_neg:.2f}% ACC: {acc:.2f}%, Loss: {loss}")
-        avg_acc = (acc + acc_neg) / 2
+        loss, f_acc, b_acc = validate(config, data_loader_val, model)
+        logger.info(f"Evaluation: Forward ACC: {f_acc:.2f}% Backward ACC: {b_acc:.2f}%, Loss: {loss}")
+        avg_acc = (f_acc + b_acc) / 2
         if avg_acc > max_accuracy:
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
                             logger, 'best_model')
@@ -176,7 +176,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             outputs = model(samples)
-        loss = criterion(outputs, targets.view(-1, 1))
+        loss = criterion(outputs, targets.view(-1, 2))
         loss = loss / config.TRAIN.ACCUMULATION_STEPS
 
         # this attribute is added by timm on one optimizer (adahessian)
@@ -222,35 +222,29 @@ def validate(config, data_loader, model):
 
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
-    acc_meter = AverageMeter()
-    acc_neg_meter = AverageMeter()
+    acc_f_meter = AverageMeter()
+    acc_b_meter = AverageMeter()
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
         images = images.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True).view(-1)
+        target = target.cuda(non_blocking=True)
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            output = model(images).view(-1)
+            output = model(images)
 
-        y = target.cpu()
-        positive_flag = y < 2.
-        n_positives = torch.sum(positive_flag).item()
-        loss = criterion(output[positive_flag], target[positive_flag])
-        loss_meter.update(loss.item(), n_positives)
+        loss = criterion(output, target)
 
-        output = torch.sigmoid(output).cpu()
-        y_hat = (output[positive_flag] > 0.7).float().numpy()
-        acc = accuracy_score(y[positive_flag].numpy(), y_hat) * 100
-        acc_meter.update(acc, target.size(0))
+        f_output, b_output = torch.unbind(output.cpu(), dim=1)
+        f_y, b_y = torch.unbind(target.cpu(), dim=1)
 
-        negative_target = torch.logical_not(positive_flag)
-        output = output[negative_target]
-        n_negatives = torch.sum(negative_target).item()
-        y_hat = (torch.logical_and(output < 0.7, output > 0.3)).float().numpy()
-        acc = accuracy_score((y[negative_target] > 0).float().numpy(), y_hat) * 100
-        acc_neg_meter.update(acc, n_negatives)
+        f_acc = accuracy_score(f_y.numpy(), (f_output > 0).float().numpy()) * 100
+        b_acc = accuracy_score(b_y.numpy(), (b_output > 0).float().numpy()) * 100
+
+        loss_meter.update(loss.item(), target.size(0))
+        acc_f_meter.update(f_acc, target.size(0))
+        acc_b_meter.update(b_acc, target.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -262,11 +256,11 @@ def validate(config, data_loader, model):
                 f'Test: [{idx}/{len(data_loader)}]\t'
                 f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                 f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
-                f'ACC {acc_meter.val:.3f} ({acc_meter.avg:.3f})\t'
-                f'AUC Neg {acc_neg_meter.val:.3f} ({acc_neg_meter.avg:.3f})\t'
+                f'Forward ACC {acc_f_meter.val:.3f} ({acc_f_meter.avg:.3f})\t'
+                f'Backward ACC {acc_b_meter.val:.3f} ({acc_b_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
 
-    return loss_meter.avg, acc_meter.avg, acc_neg_meter.avg
+    return loss_meter.avg, acc_f_meter.avg, acc_b_meter.avg
 
 
 @torch.no_grad()

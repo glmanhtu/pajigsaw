@@ -128,7 +128,7 @@ def build_dataset(mode, config):
         split = ImNetPatch.Split.from_string(mode)
         dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=with_negative)
         dataset.generate_entries()
-        nb_classes = 1
+        nb_classes = 2
     else:
         raise NotImplementedError("We only support ImageNet Now.")
 

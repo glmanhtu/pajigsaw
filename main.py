@@ -232,12 +232,12 @@ def validate(config, data_loader, model):
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            output = model(images)
-        loss = criterion(output, target)
-        y = target.cpu()
-        output = torch.sigmoid(output).view(-1).cpu()
+            output = model(images).view(-1)
 
+        y = target.cpu()
         positive_flag = y < 2.
+        loss = criterion(output[positive_flag], target[positive_flag])
+        output = torch.sigmoid(output).cpu()
 
         y_hat = (output[positive_flag] > 0.7).float().numpy()
         acc = accuracy_score(y[positive_flag].numpy(), y_hat) * 100

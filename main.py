@@ -236,20 +236,21 @@ def validate(config, data_loader, model):
 
         y = target.cpu()
         positive_flag = y < 2.
+        n_positives = torch.sum(positive_flag).item()
         loss = criterion(output[positive_flag], target[positive_flag])
-        output = torch.sigmoid(output).cpu()
+        loss_meter.update(loss.item(), n_positives)
 
+        output = torch.sigmoid(output).cpu()
         y_hat = (output[positive_flag] > 0.7).float().numpy()
         acc = accuracy_score(y[positive_flag].numpy(), y_hat) * 100
         acc_meter.update(acc, target.size(0))
 
         negative_target = torch.logical_not(positive_flag)
         output = output[negative_target]
+        n_negatives = torch.sum(negative_target).item()
         y_hat = (torch.logical_and(output < 0.7, output > 0.3)).float().numpy()
         acc = accuracy_score((y[negative_target] > 0).float().numpy(), y_hat) * 100
-        acc_neg_meter.update(acc, target.size(0))
-
-        loss_meter.update(loss.item(), target.size(0))
+        acc_neg_meter.update(acc, n_negatives)
 
         # measure elapsed time
         batch_time.update(time.time() - end)

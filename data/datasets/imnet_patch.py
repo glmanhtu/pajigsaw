@@ -80,7 +80,7 @@ class ImNetPatch(VisionDataset):
 
         image = self.dataset[index]['image'].convert('RGB')
         gap = random.randint(15, 45)
-        ratio = (self.image_size * 2 + gap) / min(image.width, image.height)
+        ratio = (self.image_size * 2.5 + gap) / min(image.width, image.height)
         if ratio > 1:
             image = image.resize((math.ceil(ratio * image.width), math.ceil(ratio * image.height)), Image.LANCZOS)
         cropper = self.cropper_class((self.image_size * 2 + gap, self.image_size * 2 + gap))

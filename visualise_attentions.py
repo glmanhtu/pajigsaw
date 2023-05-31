@@ -150,12 +150,13 @@ def main(config):
     w_featmap = images.shape[-2] // config.MODEL.PJS.PATCH_SIZE
     h_featmap = images.shape[-1] // config.MODEL.PJS.PATCH_SIZE
 
-    torchvision.utils.save_image(torchvision.utils.make_grid(second, normalize=True, scale_each=True),
-                                 os.path.join(args.output_dir, "img.png"))
+    # torchvision.utils.save_image(torchvision.utils.make_grid(second, normalize=True, scale_each=True),
+    #                              os.path.join(args.output_dir, "img.png"))
 
     th_attn, attentions = generate_attention_images(x2_attn, args.threshold, config.MODEL.PJS.PATCH_SIZE,
                                                     w_featmap, h_featmap)
 
+    os.makedirs(args.output_dir, exist_ok=True)
     fname = os.path.join(args.output_dir, "attn-2.jpg")
     plt.imsave(
         fname=fname,

@@ -1,7 +1,7 @@
 import random
 
 import torchvision
-from PIL import ImageOps
+from PIL import ImageOps, Image
 from torchvision import transforms
 
 
@@ -90,3 +90,12 @@ class UnNormalize(object):
             t.mul_(s).add_(m)
             # The normalize code -> t.sub_(m).div_(s)
         return tensor
+
+
+def crop(im: Image, n_cols, n_rows):
+    width = im.width // n_cols
+    height = im.height // n_rows
+    for i in range(n_cols):
+        for j in range(n_rows):
+            box = (j*width, i*height, (j+1)*width, (i+1)*height)
+            yield im.crop(box)

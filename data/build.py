@@ -113,9 +113,7 @@ def build_test_loader(config):
 
 
 def build_dataset(mode, config):
-    with_negative = True
     if mode == 'train':
-        with_negative = False
         transform = TwoImgSyncAugmentation(config.DATA.IMG_SIZE)
     else:
         transform = TwoImgSyncEval(config.DATA.IMG_SIZE)
@@ -126,7 +124,7 @@ def build_dataset(mode, config):
         nb_classes = 1
     elif config.DATA.DATASET == 'imnet_patch':
         split = ImNetPatch.Split.from_string(mode)
-        dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=with_negative)
+        dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True)
         dataset.generate_entries()
         nb_classes = 2
     else:

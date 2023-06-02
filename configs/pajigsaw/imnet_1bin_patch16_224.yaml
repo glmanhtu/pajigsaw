@@ -1,0 +1,7 @@
+MODEL:
+  TYPE: pjs
+  NAME: imnet_1bin_patch16_224
+  DROP_PATH_RATE: 0.1
+  NUM_CLASSES: 1
+DATA:
+  DATASET: imnet_patch

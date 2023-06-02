@@ -115,15 +115,15 @@ def main(config):
 
     if config.MODEL.RESUME:
         max_accuracy = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger)
-        loss, f_acc, b_acc = validate(config, data_loader_val, model)
-        logger.info(f"Avg ACC of the network on the {len(dataset_val)} test images: {(f_acc + b_acc) / 2:.2f}")
+        loss, acc = validate(config, data_loader_val, model)
+        logger.info(f"Avg ACC of the network on the {len(dataset_val)} test images: {acc:.2f}")
         if config.EVAL_MODE:
             return
 
     if config.MODEL.PRETRAINED and (not config.MODEL.RESUME):
         load_pretrained(config, model_without_ddp, logger)
-        loss, f_acc, b_acc = validate(config, data_loader_val, model)
-        logger.info(f"Avg ACC of the network on the {len(dataset_val)} test images: {(f_acc + b_acc) / 2:.2f}")
+        loss, acc = validate(config, data_loader_val, model)
+        logger.info(f"Avg ACC of the network on the {len(dataset_val)} test images: {acc:.2f}")
 
     if config.THROUGHPUT_MODE:
         throughput(data_loader_val, model, logger)
@@ -140,15 +140,14 @@ def main(config):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
                             logger, 'checkpoint')
 
-        loss, f_acc, b_acc = validate(config, data_loader_val, model)
-        logger.info(f"Evaluation: Forward ACC: {f_acc:.2f}% Backward ACC: {b_acc:.2f}%, Loss: {loss}")
-        avg_acc = (f_acc + b_acc) / 2
-        if avg_acc > max_accuracy:
+        loss, acc = validate(config, data_loader_val, model)
+        logger.info(f"Evaluation: ACC: {acc:.2f}%, Loss: {loss}")
+        if acc > max_accuracy:
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
                             logger, 'best_model')
-            logger.info(f"Avg acc is improved from {max_accuracy} to {avg_acc}")
+            logger.info(f"Avg acc is improved from {max_accuracy} to {acc}")
 
-        max_accuracy = max(max_accuracy, avg_acc)
+        max_accuracy = max(max_accuracy, acc)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -222,8 +221,7 @@ def validate(config, data_loader, model):
 
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
-    acc_f_meter = AverageMeter()
-    acc_b_meter = AverageMeter()
+    acc_meter = AverageMeter()
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
@@ -235,16 +233,10 @@ def validate(config, data_loader, model):
             output = model(images)
 
         loss = criterion(output, target)
-
-        f_output, b_output = torch.unbind(output.cpu(), dim=1)
-        f_y, b_y = torch.unbind(target.cpu(), dim=1)
-
-        f_acc = accuracy_score(f_y.numpy(), (f_output > 0).float().numpy()) * 100
-        b_acc = accuracy_score(b_y.numpy(), (b_output > 0).float().numpy()) * 100
+        acc = accuracy_score(target.cpu().numpy(), (output.cpu() > 0).float().numpy()) * 100
 
         loss_meter.update(loss.item(), target.size(0))
-        acc_f_meter.update(f_acc, target.size(0))
-        acc_b_meter.update(b_acc, target.size(0))
+        acc_meter.update(acc, target.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -256,11 +248,10 @@ def validate(config, data_loader, model):
                 f'Test: [{idx}/{len(data_loader)}]\t'
                 f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                 f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
-                f'Forward ACC {acc_f_meter.val:.3f} ({acc_f_meter.avg:.3f})\t'
-                f'Backward ACC {acc_b_meter.val:.3f} ({acc_b_meter.avg:.3f})\t'
+                f'Forward ACC {acc_meter.val:.3f} ({acc_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
 
-    return loss_meter.avg, acc_f_meter.avg, acc_b_meter.avg
+    return loss_meter.avg, acc_meter.avg
 
 
 @torch.no_grad()

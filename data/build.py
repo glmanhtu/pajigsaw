@@ -41,10 +41,10 @@ except:
 
 def build_loader(config):
     config.defrost()
-    dataset_train, config.MODEL.NUM_CLASSES = build_dataset(mode='train', config=config)
+    dataset_train = build_dataset(mode='train', config=config)
     config.freeze()
     print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
-    dataset_val, _ = build_dataset(mode='validation', config=config)
+    dataset_val = build_dataset(mode='validation', config=config)
     print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
 
     num_tasks = dist.get_world_size()
@@ -90,7 +90,7 @@ def build_loader(config):
 
 
 def build_test_loader(config):
-    dataset_test, _ = build_dataset(mode='test', config=config)
+    dataset_test = build_dataset(mode='test', config=config)
     print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build test dataset")
 
     if config.TEST.SEQUENTIAL:
@@ -121,16 +121,14 @@ def build_dataset(mode, config):
         split = JigSawImNet.Split.from_string(mode)
         dataset = JigSawImNet(config.DATA.DATA_PATH, split, transform=transform)
         dataset.generate_entries()
-        nb_classes = 1
     elif config.DATA.DATASET == 'imnet_patch':
         split = ImNetPatch.Split.from_string(mode)
         dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True)
         dataset.generate_entries()
-        nb_classes = 2
     else:
         raise NotImplementedError("We only support ImageNet Now.")
 
-    return dataset, nb_classes
+    return dataset
 
 
 def build_transform(is_train, config):

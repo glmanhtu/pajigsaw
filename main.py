@@ -99,7 +99,7 @@ def main(config):
 
     criterion = torch.nn.BCEWithLogitsLoss()
 
-    max_accuracy = 0.0
+    max_auc = 0.0
 
     if config.TRAIN.AUTO_RESUME:
         resume_file = auto_resume_helper(config.OUTPUT)
@@ -114,16 +114,16 @@ def main(config):
             logger.info(f'no checkpoint found in {config.OUTPUT}, ignoring auto resume')
 
     if config.MODEL.RESUME:
-        max_accuracy = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger)
-        loss, f_acc, b_acc = validate(config, data_loader_val, model)
-        logger.info(f"Avg ACC of the network on the {len(dataset_val)} test images: {(f_acc + b_acc) / 2:.2f}")
+        max_auc = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger)
+        loss, acc, auc = validate(config, data_loader_val, model)
+        logger.info(f"AUC of the network on the {len(dataset_val)} test images: {auc:.2f}")
         if config.EVAL_MODE:
             return
 
     if config.MODEL.PRETRAINED and (not config.MODEL.RESUME):
         load_pretrained(config, model_without_ddp, logger)
-        loss, f_acc, b_acc = validate(config, data_loader_val, model)
-        logger.info(f"Avg ACC of the network on the {len(dataset_val)} test images: {(f_acc + b_acc) / 2:.2f}")
+        loss, acc, auc = validate(config, data_loader_val, model)
+        logger.info(f"AUC of the network on the {len(dataset_val)} test images: {auc:.2f}")
 
     if config.THROUGHPUT_MODE:
         throughput(data_loader_val, model, logger)
@@ -137,18 +137,17 @@ def main(config):
         train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler,
                         loss_scaler)
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
-            save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
+            save_checkpoint(config, epoch, model_without_ddp, max_auc, optimizer, lr_scheduler, loss_scaler,
                             logger, 'checkpoint')
 
-        loss, f_acc, b_acc = validate(config, data_loader_val, model)
-        logger.info(f"Evaluation: Forward ACC: {f_acc:.2f}% Backward ACC: {b_acc:.2f}%, Loss: {loss}")
-        avg_acc = (f_acc + b_acc) / 2
-        if avg_acc > max_accuracy:
-            save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
+        loss, acc, auc = validate(config, data_loader_val, model)
+        logger.info(f"Evaluation: ACC: {acc:.2f}% AUC: {auc:.2f}%, Loss: {loss}")
+        if auc > max_auc:
+            save_checkpoint(config, epoch, model_without_ddp, max_auc, optimizer, lr_scheduler, loss_scaler,
                             logger, 'best_model')
-            logger.info(f"Avg acc is improved from {max_accuracy} to {avg_acc}")
+            logger.info(f"AUC is improved from {max_auc} to {auc}")
 
-        max_accuracy = max(max_accuracy, avg_acc)
+        max_auc = max(max_auc, auc)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -222,8 +221,8 @@ def validate(config, data_loader, model):
 
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
-    acc_f_meter = AverageMeter()
-    acc_b_meter = AverageMeter()
+    acc_meter = AverageMeter()
+    auc_meter = AverageMeter()
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
@@ -236,15 +235,22 @@ def validate(config, data_loader, model):
 
         loss = criterion(output, target)
 
-        f_output, b_output = torch.unbind(output.cpu(), dim=1)
-        f_y, b_y = torch.unbind(target.cpu(), dim=1)
+        outputs = torch.unbind(output.cpu(), dim=1)
+        targets = torch.unbind(target.cpu(), dim=1)
 
-        f_acc = accuracy_score(f_y.numpy(), (f_output > 0).float().numpy()) * 100
-        b_acc = accuracy_score(b_y.numpy(), (b_output > 0).float().numpy()) * 100
+        accuracies, aucs = [], []
+        for out, y in zip(outputs, targets):
+            pred, gt = (out > 0).float().numpy(), y.numpy()
+            acc = accuracy_score(gt, pred) * 100
+            auc = roc_auc_score(gt, pred) * 100
+            accuracies.append(acc)
+            aucs.append(auc)
 
+        auc = sum(aucs) / len(aucs)
+        acc = sum(accuracies) / len(accuracies)
         loss_meter.update(loss.item(), target.size(0))
-        acc_f_meter.update(f_acc, target.size(0))
-        acc_b_meter.update(b_acc, target.size(0))
+        acc_meter.update(acc, target.size(0))
+        auc_meter.update(auc, target.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -256,11 +262,11 @@ def validate(config, data_loader, model):
                 f'Test: [{idx}/{len(data_loader)}]\t'
                 f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                 f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
-                f'Forward ACC {acc_f_meter.val:.3f} ({acc_f_meter.avg:.3f})\t'
-                f'Backward ACC {acc_b_meter.val:.3f} ({acc_b_meter.avg:.3f})\t'
+                f'ACC {acc_meter.val:.3f} ({acc_meter.avg:.3f})\t'
+                f'AUC {auc_meter.val:.3f} ({auc_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
 
-    return loss_meter.avg, acc_f_meter.avg, acc_b_meter.avg
+    return loss_meter.avg, acc_meter.avg, auc_meter.avg
 
 
 @torch.no_grad()

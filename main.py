@@ -242,7 +242,7 @@ def validate(config, data_loader, model):
         for out, y in zip(outputs, targets):
             pred, gt = (out > 0).float().numpy(), y.numpy()
             acc = accuracy_score(gt, pred) * 100
-            auc = roc_auc_score(gt, pred) * 100
+            auc = roc_auc_score(gt, out.float().numpy()) * 100
             accuracies.append(acc)
             aucs.append(auc)
 

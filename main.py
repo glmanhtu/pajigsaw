@@ -216,7 +216,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
 @torch.no_grad()
 def validate(config, data_loader, model):
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion = torch.nn.CrossEntropyLoss()
     model.eval()
 
     batch_time = AverageMeter()
@@ -238,7 +238,7 @@ def validate(config, data_loader, model):
 
         pred, gt = predictions.cpu().numpy(), target.cpu().numpy()
         accuracy = accuracy_score(gt, pred)
-        f1 = f1_score(gt, pred)
+        f1 = f1_score(gt, pred, average="weighted")
 
         loss_meter.update(loss.item(), target.size(0))
         acc_meter.update(accuracy, target.size(0))

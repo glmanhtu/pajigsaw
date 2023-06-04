@@ -104,27 +104,27 @@ class ImNetPatch(VisionDataset):
 
         # For now, the second image connect forward to first image, and backward to third image
         # The first and third images have no connection
-        label = [1., 0., 0., 0.]
+        label = 0
 
         if 0.5 < torch.rand(1):
             # Swap second and four patches, the connection is still forwarding from the second to the first
             second_img, fourth_img = fourth_img, second_img
-            label = [0., 1., 0., 0.]
+            label = 1
 
         if 0.5 < torch.rand(1):
             first_img, second_img = second_img, first_img
             # When we swap the first and second image, then we also need to replace the third by the four image
             # to ensure that the first image have no connection to the third image
             third_img, fourth_img = fourth_img, third_img
-            if label[0] == 1:
-                label = [0., 0., 1., 0.]
+            if label == 0:
+                label = 2
             else:
-                label = [0., 0., 0., 1.]
+                label = 3
 
         if self.with_negative and 0.2 > torch.rand(1):
             # Negative pair for evaluation
             second_img, third_img = third_img, second_img
-            label = [0., 0., 0., 0.]
+            label = 4
 
         if self.transform is not None:
             first_img, second_img = self.transform(first_img, second_img)
@@ -133,7 +133,7 @@ class ImNetPatch(VisionDataset):
         assert isinstance(second_img, torch.Tensor)
 
         stacked_img = torch.stack([first_img, second_img], dim=0)
-        return stacked_img, torch.tensor(label, dtype=torch.float32)
+        return stacked_img, torch.tensor(label, dtype=torch.int64)
 
     def __len__(self) -> int:
         return len(self.dataset)

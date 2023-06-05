@@ -121,7 +121,7 @@ class ImNetPatch(VisionDataset):
             else:
                 label = 3
 
-        if self.with_negative and 0.2 > torch.rand(1):
+        if self.with_negative and 0.3 > torch.rand(1):
             # Negative pair for evaluation
             second_img, third_img = third_img, second_img
             label = 4

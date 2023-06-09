@@ -121,9 +121,11 @@ def testing(config, data_loader, model):
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             message = ""
             for metric in evaluation['class_0'].keys():
-                scores = [evaluation[cls][metric].avg for cls in evaluation.keys()]
-                avg_score = sum(scores) / len(scores)
-                message += f'{metric.upper()} {avg_score:.3f}\t'
+                scores = [evaluation[cls][metric].val for cls in evaluation.keys()]
+                score = sum(scores) / len(scores)
+                avg_scores = [evaluation[cls][metric].avg for cls in evaluation.keys()]
+                avg_score = sum(avg_scores) / len(avg_scores)
+                message += f'{metric.upper()} {score:.4f} ({avg_score:.3f})\t'
             logger.info(
                 f'Test: [{idx}/{len(data_loader)}]\t'
                 f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -131,6 +133,19 @@ def testing(config, data_loader, model):
 
     logger.info("Final test results:")
 
+    message = f'Loss: {loss_meter.avg:.4f}\t'
+    for metric in evaluation['class_0'].keys():
+        scores = [evaluation[cls][metric].avg for cls in evaluation.keys()]
+        avg_score = sum(scores) / len(scores)
+        message += f'{metric.upper()} {avg_score:.3f}\t'
+    logger.info(message)
+
+    logger.info("Per class results:")
+    for class_id in evaluation.keys():
+        message = f'{class_id.upper()}: '
+        for metric, indicator in evaluation[class_id].items():
+            message += f'{metric.upper()} {indicator.avg:.4f}\t'
+        logger.info(message)
 
 
 if __name__ == '__main__':

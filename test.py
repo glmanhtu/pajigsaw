@@ -9,9 +9,10 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
 from timm.utils import AverageMeter
 
+import torch.nn.functional as F
 from config import get_config
 from data.build import build_test_loader
 from logger import create_logger
@@ -67,41 +68,50 @@ def main(config):
 
     logger.info("Start testing")
     start_time = time.time()
-    loss, acc, auc = testing(config, data_loader_test, model)
-    logger.info(f"Evaluation: AUC: {auc:.2f}% ACC: {acc:.2f}%, Loss: {loss}")
+    testing(config, data_loader_test, model)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    logger.info('Training time {}'.format(total_time_str))
+    logger.info('Test time {}'.format(total_time_str))
 
 
 @torch.no_grad()
 def testing(config, data_loader, model):
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion = torch.nn.CrossEntropyLoss()
     model.eval()
 
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
-    acc_meter = AverageMeter()
-    auc_meter = AverageMeter()
 
     end = time.time()
+    evaluation = {}
     for idx, (images, target) in enumerate(data_loader):
         images = images.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True).view(-1, 1)
+        target = target.cuda(non_blocking=True)
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             output = model(images)
         loss = criterion(output, target)
-        y = target.cpu().numpy()
-        y_hat = (output > 0).float().cpu().numpy()  # sigmoid 0 = 0.5
-        acc = accuracy_score(y, y_hat) * 100
-        auc = roc_auc_score(y, y_hat) * 100
+
+        _, predictions = torch.max(output, 1)
+        outputs = torch.unbind(F.one_hot(predictions.cpu(), num_classes=5), dim=1)
+        targets = torch.unbind(F.one_hot(target.cpu(), num_classes=5), dim=1)
+
+        for out_id, (out, y) in enumerate(zip(outputs, targets)):
+            pred, gt = out.numpy(), y.numpy()
+            acc = accuracy_score(gt, pred) * 100
+            f1 = f1_score(gt, pred, average="macro")
+            precision = precision_score(gt, pred, average="macro")
+            recall = recall_score(gt, pred, average="macro")
+
+            indicator = evaluation.setdefault(f'class_{out_id}', {})
+            indicator.setdefault('acc', AverageMeter()).update(acc, target.size(0))
+            indicator.setdefault('f1', AverageMeter()).update(f1, target.size(0))
+            indicator.setdefault('precision', AverageMeter()).update(precision, target.size(0))
+            indicator.setdefault('recall', AverageMeter()).update(recall, target.size(0))
 
         loss_meter.update(loss.item(), target.size(0))
-        acc_meter.update(acc, target.size(0))
-        auc_meter.update(auc, target.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -109,15 +119,33 @@ def testing(config, data_loader, model):
 
         if idx % config.PRINT_FREQ == 0:
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+            message = ""
+            for metric in evaluation['class_0'].keys():
+                scores = [evaluation[cls][metric].val for cls in evaluation.keys()]
+                score = sum(scores) / len(scores)
+                avg_scores = [evaluation[cls][metric].avg for cls in evaluation.keys()]
+                avg_score = sum(avg_scores) / len(avg_scores)
+                message += f'{metric.upper()} {score:.4f} ({avg_score:.3f})\t'
             logger.info(
                 f'Test: [{idx}/{len(data_loader)}]\t'
                 f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
-                f'ACC {acc_meter.val:.3f} ({acc_meter.avg:.3f})\t'
-                f'AUC {auc_meter.val:.3f} ({auc_meter.avg:.3f})\t'
-                f'Mem {memory_used:.0f}MB')
+                f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t' + message + f'Mem {memory_used:.0f}MB')
 
-    return loss_meter.avg, acc_meter.avg, auc_meter.avg
+    logger.info("Final test results:")
+
+    message = f'Loss: {loss_meter.avg:.4f}\t'
+    for metric in evaluation['class_0'].keys():
+        scores = [evaluation[cls][metric].avg for cls in evaluation.keys()]
+        avg_score = sum(scores) / len(scores)
+        message += f'{metric.upper()} {avg_score:.3f}\t'
+    logger.info(message)
+
+    logger.info("Per class results:")
+    for class_id in evaluation.keys():
+        message = f'{class_id.upper()}: '
+        for metric, indicator in evaluation[class_id].items():
+            message += f'{metric.upper()} {indicator.avg:.4f}\t'
+        logger.info(message)
 
 
 if __name__ == '__main__':

@@ -113,17 +113,19 @@ def build_test_loader(config):
 
 
 def build_dataset(mode, config):
+    patch_size = config.DATA.IMG_SIZE
     if mode == 'train':
-        transform = TwoImgSyncAugmentation(config.DATA.IMG_SIZE)
+        transform = TwoImgSyncAugmentation(patch_size)
     else:
-        transform = TwoImgSyncEval(config.DATA.IMG_SIZE)
+        transform = TwoImgSyncEval(patch_size)
     if config.DATA.DATASET == 'jigsaw_imnet':
         split = JigSawImNet.Split.from_string(mode)
         dataset = JigSawImNet(config.DATA.DATA_PATH, split, transform=transform)
         dataset.generate_entries()
     elif config.DATA.DATASET == 'imnet_patch':
         split = ImNetPatch.Split.from_string(mode)
-        dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True)
+        dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
+                             image_size=patch_size)
         dataset.generate_entries()
     else:
         raise NotImplementedError("We only support ImageNet Now.")

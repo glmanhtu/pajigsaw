@@ -81,7 +81,7 @@ class ImNetPatch(VisionDataset):
             self.load_entries()
 
         image = self.dataset[index]['image'].convert('RGB')
-        gap = 30
+        gap = int(self.image_size * 0.035)
         ratio = (self.image_size * 3 + gap) / min(image.width, image.height)
         if ratio > 1:
             image = image.resize((math.ceil(ratio * image.width), math.ceil(ratio * image.height)), Image.LANCZOS)

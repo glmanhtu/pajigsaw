@@ -1,0 +1,12 @@
+MODEL:
+  TYPE: pjs
+  NAME: imnet_4bin_patch8_64
+  DROP_PATH_RATE: 0.1
+  NUM_CLASSES: 4
+  PJS:
+    EMBED_DIM: 384
+    PATCH_SIZE: 8
+DATA:
+  DATASET: imnet_patch
+  IMG_SIZE: 64
+  EROSION_RATIO: 0.14

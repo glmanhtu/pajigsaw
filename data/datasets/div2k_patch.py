@@ -2,6 +2,8 @@ import glob
 import logging
 import math
 import os
+import pickle
+import random
 from enum import Enum
 from typing import Callable, Optional, Union
 
@@ -52,11 +54,13 @@ class DIV2KPatch(VisionDataset):
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
-        self.images = glob.glob(os.path.join(root, split.sub_dir, '**', '*.png'), recursive=True)
-        self.dataset_path = os.path.join(root, split.sub_dir)
+        self.data_dir = os.path.join(root, split.sub_dir)
+        entry_file = os.path.join(root, split.sub_dir, 'data.pkl')
+        with open(entry_file, 'rb') as f:
+            data = pickle.load(f)
+        self.entries = data['entries']
+        self.entry_map = data['entry_map']
 
-        self.entries = {}
-        self.entry_id_map = {}
         self.image_size = image_size
         self.with_negative = with_negative
         self.erosion_ratio = erosion_ratio
@@ -69,61 +73,33 @@ class DIV2KPatch(VisionDataset):
     def split(self) -> "DIV2KPatch.Split":
         return self._split
 
-    def load_entries(self):
-        pass
-
-    def generate_entries(self):
-        pass
-
-    def __getitem__(self, index: int):
-        image_path = self.images[index]
-        with Image.open(image_path) as f:
+    def load_entry(self, entry):
+        with Image.open(os.path.join(self.data_dir, entry['img'])) as f:
             image = f.convert('RGB')
 
         gap = int(self.image_size * self.erosion_ratio)
-        # Resize the image if it does not fit the patch size that we want
-        ratio = (self.image_size * 3 + gap) / min(image.width, image.height)
-        if ratio > 1:
-            image = image.resize((math.ceil(ratio * image.width), math.ceil(ratio * image.height)), Image.LANCZOS)
-        cropper = self.cropper_class((self.image_size * 2 + gap, self.image_size * 2 + gap))
-        patch = cropper(image)
+        cropper = self.cropper_class((self.image_size - gap * 2, self.image_size - gap * 2))
+        return cropper(image)
 
-        # Crop the image into a grid of 2 x 2 patches
-        crops = list(transforms.crop(patch, 2, 2))
-        cropper = self.cropper_class(self.image_size)
-        first_img = cropper(crops[0])
-
-        # Second image is next to the first image
-        second_img = cropper(crops[1])
-
-        # Third image is right below the second image
-        third_img = cropper(crops[3])
-
-        # Fourth mage is right below the first image
-        fourth_img = cropper(crops[2])
-
-        # For now, the second image connect forward to first image, and backward to third image
-        # The first and third images have no connection
-        label = [1., 0., 0., 0.]
-
-        if 0.5 < torch.rand(1):
-            # Swap second and four patches, the connection is still forwarding from the second to the first
-            second_img, fourth_img = fourth_img, second_img
+    def __getitem__(self, index: int):
+        entry = self.entries[index]
+        first_img = self.load_entry(entry)
+        secondary_entry = random.choice(entry['positive'])
+        second_img = self.load_entry(secondary_entry)
+        if entry['row'] < secondary_entry['row']:
+            label = [1., 0., 0., 0.]
+        elif entry['col'] < secondary_entry['col']:
             label = [0., 1., 0., 0.]
-
-        if 0.5 < torch.rand(1):
-            first_img, second_img = second_img, first_img
-            # When we swap the first and second image, then we also need to replace the third by the four image
-            # to ensure that the first image have no connection to the third image
-            third_img, fourth_img = fourth_img, third_img
-            if label[0] == 1:
-                label = [0., 0., 1., 0.]
-            else:
-                label = [0., 0., 0., 1.]
+        elif entry['row'] > secondary_entry['row']:
+            label = [0., 0., 1., 0.]
+        else:
+            label = [0., 0., 0., 1.]
 
         if self.with_negative and 0.2 > torch.rand(1):
             # Negative pair for evaluation
-            second_img, third_img = third_img, second_img
+            secondary_entry = random.choice(entry['negative'])
+            second_img = self.load_entry(secondary_entry)
+
             label = [0., 0., 0., 0.]
 
         if self.transform is not None:
@@ -136,5 +112,5 @@ class DIV2KPatch(VisionDataset):
         return stacked_img, torch.tensor(label, dtype=torch.float32)
 
     def __len__(self) -> int:
-        return len(self.images)
+        return len(self.entries)
 

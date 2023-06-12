@@ -1,0 +1,11 @@
+MODEL:
+  TYPE: pjs
+  NAME: div2k_erosion7_4bin_patch8_64
+  DROP_PATH_RATE: 0.1
+  NUM_CLASSES: 4
+  PJS:
+    EMBED_DIM: 384
+    PATCH_SIZE: 8
+DATA:
+  DATASET: div2k
+  IMG_SIZE: 64

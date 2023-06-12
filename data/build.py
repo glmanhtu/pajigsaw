@@ -12,6 +12,7 @@ from timm.data import create_transform
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from torchvision import transforms
 
+from .datasets.div2k_patch import DIV2KPatch
 from .datasets.imnet_patch import ImNetPatch
 from .datasets.jigsaw_imnet import JigSawImNet
 from .transforms import TwoImgSyncAugmentation, TwoImgSyncEval
@@ -126,7 +127,11 @@ def build_dataset(mode, config):
         split = ImNetPatch.Split.from_string(mode)
         dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
-        dataset.generate_entries()
+    elif config.DATA.DATASET == 'div2k':
+        split = DIV2KPatch.Split.from_string(mode)
+        dataset = DIV2KPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
+                             image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
+
     else:
         raise NotImplementedError("We only support ImageNet Now.")
 

@@ -77,7 +77,7 @@ class DIV2KPatch(VisionDataset):
             image = f.convert('RGB')
 
         gap = int(self.image_size * self.erosion_ratio)
-        cropper = self.cropper_class((self.image_size - gap * 2, self.image_size - gap * 2))
+        cropper = self.cropper_class((self.image_size - gap, self.image_size - gap))
         return cropper(image)
 
     def __getitem__(self, index: int):

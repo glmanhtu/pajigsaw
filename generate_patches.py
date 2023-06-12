@@ -2,6 +2,7 @@ import argparse
 import os
 import pickle
 
+import tqdm
 from PIL import Image
 
 parser = argparse.ArgumentParser('Pajigsaw patch generating script', add_help=False)
@@ -20,7 +21,7 @@ for root, dirs, files in os.walk(args.data_path):
 
 
 fragment_map = {}
-for image_path in images:
+for image_path in tqdm.tqdm(images):
     with Image.open(image_path) as f:
         image = f.convert('RGB')
 
@@ -45,6 +46,7 @@ for image_path in images:
                                                             'positive': [], 'negative': []})
 
 entries = {}
+all_entries = []
 for image_name, fragments in fragment_map.items():
     for first in fragments:
         for second in fragments:
@@ -58,10 +60,12 @@ for image_name, fragments in fragment_map.items():
                 first['negative'].append(second)
         if len(first['positive']) > 0:
             entries.setdefault(image_name, []).append(first)
+            all_entries.append(first)
 entry_map = {i: k for i, k in enumerate(entries.keys())}
 entry_file = os.path.join(args.output_path, 'data.pkl')
 with open(entry_file, 'wb') as f:
     pickle.dump({
         'entries': entries,
-        'entry_map': entry_map
+        'entry_map': entry_map,
+        'all_entries': all_entries
     }, f)

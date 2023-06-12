@@ -58,8 +58,7 @@ class DIV2KPatch(VisionDataset):
         entry_file = os.path.join(root, split.sub_dir, 'data.pkl')
         with open(entry_file, 'rb') as f:
             data = pickle.load(f)
-        self.entries = data['entries']
-        self.entry_map = data['entry_map']
+        self.entries = data['all_entries']
 
         self.image_size = image_size
         self.with_negative = with_negative
@@ -95,7 +94,7 @@ class DIV2KPatch(VisionDataset):
         else:
             label = [0., 0., 0., 1.]
 
-        if self.with_negative and 0.2 > torch.rand(1):
+        if self.with_negative and 0.3 > torch.rand(1):
             # Negative pair for evaluation
             secondary_entry = random.choice(entry['negative'])
             second_img = self.load_entry(secondary_entry)

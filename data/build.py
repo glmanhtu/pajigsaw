@@ -125,7 +125,7 @@ def build_dataset(mode, config):
     elif config.DATA.DATASET == 'imnet_patch':
         split = ImNetPatch.Split.from_string(mode)
         dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
-                             image_size=patch_size)
+                             image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
         dataset.generate_entries()
     else:
         raise NotImplementedError("We only support ImageNet Now.")

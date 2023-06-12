@@ -50,6 +50,7 @@ class ImNetPatch(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         image_size=224,
+        erosion_ratio=0.07,
         with_negative=False
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
@@ -61,6 +62,7 @@ class ImNetPatch(VisionDataset):
         self.entry_id_map = {}
         self.image_size = image_size
         self.with_negative = with_negative
+        self.erosion_ratio = erosion_ratio
 
         self.cropper_class = torchvision.transforms.RandomCrop
         if split != _Split.TRAIN:
@@ -81,11 +83,13 @@ class ImNetPatch(VisionDataset):
             self.load_entries()
 
         image = self.dataset[index]['image'].convert('RGB')
-        gap = int(self.image_size * 0.035)
+        gap = int(self.image_size * self.erosion_ratio)
+
+        # Resize the image if it does not fit the patch size that we want
         ratio = (self.image_size * 3 + gap) / min(image.width, image.height)
         if ratio > 1:
             image = image.resize((math.ceil(ratio * image.width), math.ceil(ratio * image.height)), Image.LANCZOS)
-        cropper = self.cropper_class((self.image_size * 2 + gap * 2, self.image_size * 2 + gap * 2))
+        cropper = self.cropper_class((self.image_size * 2 + gap, self.image_size * 2 + gap))
         patch = cropper(image)
 
         # Crop the image into a grid of 2 x 2 patches

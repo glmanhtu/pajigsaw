@@ -543,7 +543,7 @@ class PaikinTalSolver(object):
 
         # Initialize the piece locations list
         shape = (len(self._pieces), len(self._pieces))
-        self._piece_locations.append(numpy.empty(shape).astype(bool))
+        self._piece_locations.append(numpy.empty(shape, dtype=bool))
         self._piece_locations[seed.puzzle_id].fill(False)
 
         # Place the piece unrotated in the center of the board.

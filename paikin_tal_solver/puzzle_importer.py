@@ -308,15 +308,6 @@ class Puzzle(object):
         # Return the minimum and maximum row/column information
         return min_row, max_row, min_col, max_col
 
-    def _assign_all_pieces_to_original_location(self):
-        """Piece Correct Assignment
-
-        Test Method Only. Assigns each piece to its original location for debug purposes.
-        """
-        for piece in self._pieces:
-            # noinspection PyProtectedMember
-            piece._assign_to_original_location()
-
     @property
     def grid_size(self):
         return self._grid_size

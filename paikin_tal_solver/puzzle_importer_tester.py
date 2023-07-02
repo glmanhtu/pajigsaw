@@ -59,8 +59,6 @@ class PuzzleImporterTester(unittest.TestCase):
             rand_loc = (random.randint(0, 9999), random.randint(0, 9999))
             piece.location = rand_loc
             assert(piece.location == rand_loc)
-            piece._assign_to_original_location()
-            assert(piece._orig_loc == piece.location)
 
     def test_puzzle_piece_maker(self):
         """

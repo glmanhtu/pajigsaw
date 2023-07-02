@@ -158,11 +158,6 @@ class PuzzlePiece(object):
         self._orig_loc = location
         self._assigned_loc = None
 
-        # Optionally calculate the identification numbers of the piece neighbors
-        self._actual_neighbor_ids = None
-        if puzzle_grid_size is not None:
-            self.calculate_actual_neighbor_id_numbers(puzzle_grid_size)
-
         # Store the image data
         self._img = lab_img
         (length, width, dim) = self._img.shape
@@ -174,76 +169,6 @@ class PuzzlePiece(object):
 
         # Rotation gets set later.
         self._rotation = None
-
-    def calculate_actual_neighbor_id_numbers(self, puzzle_grid_size):
-        """
-        Neighbor ID Calculator
-
-        Given a grid size, this function calculates the identification number of this piece's neighbors.  If a piece
-        has no neighbor, then location associated with that puzzle piece is filled with "None".
-
-        Args:
-            puzzle_grid_size ([int]): Grid size (number of rows, number of columns) for this piece's puzzle.
-        """
-
-        # Only need to calculate the actual neighbor id information once
-        if self._actual_neighbor_ids is not None:
-            return
-        # Initialize actual neighbor id information
-        self._actual_neighbor_ids = []
-
-        # Extract the information on the puzzle gride size
-        (numb_rows, numb_cols) = puzzle_grid_size
-
-        # Check the top location first
-        # If the row is 0, then it has no top neighbor
-        if self._orig_loc[0] == 0:
-            neighbor_id = None
-        else:
-            neighbor_id = self._piece_id - numb_cols
-        self._actual_neighbor_ids.append(neighbor_id)
-
-        # Check the right side
-        # If in the last column, it has no right neighbor
-        if self._orig_loc[1] + 1 == numb_cols:
-            neighbor_id = None
-        else:
-            neighbor_id = self._piece_id + 1
-        self._actual_neighbor_ids.append(neighbor_id)
-
-        # Check the bottom side
-        # If in the last column, it has no right neighbor
-        if self._orig_loc[0] + 1 == numb_rows:
-            neighbor_id = None
-        else:
-            neighbor_id = self._piece_id + numb_cols
-        self._actual_neighbor_ids.append(neighbor_id)
-
-        # Check the right side
-        # If in the last column, it has no right neighbor
-        if self._orig_loc[1] == 0:
-            neighbor_id = None
-        else:
-            neighbor_id = self._piece_id - 1
-        self._actual_neighbor_ids.append(neighbor_id)
-
-        # Convert the list to a tuple since it is immutable
-        self._actual_neighbor_ids = tuple(self._actual_neighbor_ids)
-
-    @ property
-    def original_neighbor_id_numbers(self):
-        """
-        Neighbor Identification Number Property
-
-        In a puzzle, each piece has up to four neighbors.  This function access that identification number information.
-
-        """
-        # Verify that the array containing the neighbor id numbers is not none
-        if PuzzlePiece._PERFORM_ASSERTION_CHECKS:
-            assert self._actual_neighbor_ids is not None
-
-        # Return the piece's neighbor identification numbers
-        return self._actual_neighbor_ids
 
     @property
     def width(self):
@@ -461,13 +386,6 @@ class PuzzlePiece(object):
             return self._img[::-1, col_numb, :]
         else:
             return self._img[:, col_numb, :]
-
-    def _assign_to_original_location(self):
-        """Loopback Assigner
-
-        Test Method Only.  Correctly assigns a piece to its original location.
-        """
-        self._assigned_loc = self._orig_loc
 
     @staticmethod
     def calculate_asymmetric_distance(piece_i, piece_i_side, piece_j, piece_j_side):

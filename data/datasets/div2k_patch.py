@@ -94,7 +94,7 @@ class DIV2KPatch(VisionDataset):
         else:
             label = [0., 0., 0., 1.]
 
-        if self.with_negative and 0.3 > torch.rand(1):
+        if self.with_negative and 0.4 > torch.rand(1):
             # Negative pair for evaluation
             secondary_entry = random.choice(entry['negative'])
             second_img = self.load_entry(secondary_entry)

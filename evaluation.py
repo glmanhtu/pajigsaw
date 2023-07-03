@@ -129,20 +129,21 @@ def testing(config, model):
                     distance_map[piece_i][piece_j] = 1. - pred
 
             def distance_function(piece_i, piece_i_side, piece_j, piece_j_side):
+                nonlocal distance_map
                 pred = distance_map[piece_i.origin_piece_id][piece_j.origin_piece_id]
                 if piece_j_side == PuzzlePieceSide.left:
                     if piece_i_side == PuzzlePieceSide.right:
-                        return pred[1].item() * 10000.
+                        return pred[1].item() * 1000.
                 if piece_j_side == PuzzlePieceSide.right:
                     if piece_i_side == PuzzlePieceSide.left:
-                        return pred[3].item() * 10000.
+                        return pred[3].item() * 1000.
                 if piece_j_side == PuzzlePieceSide.top:
                     if piece_i_side == PuzzlePieceSide.bottom:
-                        return pred[0].item() * 10000.
+                        return pred[0].item() * 1000.
                 if piece_j_side == PuzzlePieceSide.bottom:
                     if piece_i_side == PuzzlePieceSide.top:
-                        return pred[2].item() * 10000.
-                return 10000.
+                        return pred[2].item() * 1000.
+                return 1000.
 
             perfect_pred, direct_acc, neighbour_acc, new_puzzle = paikin_tal_driver(pieces, distance_function)
             perfect_predictions.append(perfect_pred)

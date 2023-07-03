@@ -6,6 +6,7 @@ import copy
 import os
 import math
 import random
+from typing import List
 
 import numpy
 import cv2  # OpenCV
@@ -76,7 +77,7 @@ class Puzzle(object):
         self._img_height = None
 
         # No pieces for the puzzle yet.
-        self._pieces = []
+        self._pieces: List[PuzzlePiece] = []
 
         if image_filename is None:
             self._filename = ""

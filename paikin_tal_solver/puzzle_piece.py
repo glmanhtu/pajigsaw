@@ -4,6 +4,7 @@ Created by Zayd Hammoudeh (zayd.hammoudeh@sjsu.edu)
 import random
 
 from enum import Enum
+
 import numpy
 import cv2  # Open CV
 
@@ -169,6 +170,25 @@ class PuzzlePiece(object):
 
         # Rotation gets set later.
         self._rotation = None
+
+    def is_correct_placement(self):
+        """
+        Verify if the placement is absolutely correct
+        """
+        return self._orig_loc == self.location
+
+    def is_neighbor(self, piece, side: PuzzlePieceSide):
+        current_loc = self._orig_loc
+        other_loc = piece._orig_loc
+        if side == PuzzlePieceSide.top:
+            return (current_loc[1] == other_loc[1]) and (current_loc[0] - other_loc[0] == 1)
+        if side == PuzzlePieceSide.bottom:
+            return (current_loc[1] == other_loc[1]) and (other_loc[0] - current_loc[0] == 1)
+        if side == PuzzlePieceSide.left:
+            return (current_loc[0] == other_loc[0]) and (current_loc[1] - other_loc[1] == 1)
+        if side == PuzzlePieceSide.right:
+            return (current_loc[0] == other_loc[0]) and (other_loc[1] - current_loc[1] == 1)
+        raise Exception(f'Side {side} does not exists!')
 
     @property
     def width(self):

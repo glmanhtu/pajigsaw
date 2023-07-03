@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import glob
 import json
 import os
 import random
@@ -11,11 +12,17 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
 from timm.utils import AverageMeter
+from torch.utils.data import Dataset
 
 from config import get_config
 from data.build import build_test_loader
+from data.datasets.pieces_dataset import PiecesDataset
+from data.transforms import TwoImgSyncEval
 from logger import create_logger
 from models import build_model
+from paikin_tal_solver.puzzle_importer import Puzzle
+from paikin_tal_solver.puzzle_piece import PuzzlePiece, PuzzlePieceSide
+from solver_driver import paikin_tal_driver
 from utils import load_pretrained
 
 
@@ -46,8 +53,6 @@ def parse_option():
 
 
 def main(config):
-    dataset_test, data_loader_test = build_test_loader(config)
-
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
     logger.info(str(model))
@@ -67,7 +72,7 @@ def main(config):
 
     logger.info("Start testing")
     start_time = time.time()
-    testing(config, data_loader_test, model)
+    testing(config, model)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -75,7 +80,7 @@ def main(config):
 
 
 @torch.no_grad()
-def testing(config, data_loader, model):
+def testing(config, model):
     criterion = torch.nn.BCEWithLogitsLoss()
     model.eval()
 
@@ -84,68 +89,73 @@ def testing(config, data_loader, model):
 
     end = time.time()
     evaluation = {}
-    for idx, (images, target) in enumerate(data_loader):
-        images = images.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True)
 
-        # compute output
-        with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            output = model(images)
-        loss = criterion(output, target)
+    for subset in ['BGU', 'Cho', 'McGill']:
+        images = glob.glob(os.path.join(config.DATA.DATA_PATH, subset, '*.jpg'))
+        images += glob.glob(os.path.join(config.DATA.DATA_PATH, subset, '*.png'))
 
-        outputs = torch.unbind(output.cpu(), dim=1)
-        targets = torch.unbind(target.cpu(), dim=1)
+        perfect_predictions, direct_accuracies, neighbour_accuracies = [], [], []
+        for img_path in images:
+            puzzle = Puzzle(0, img_path, config.DATA.IMG_SIZE, starting_piece_id=0)
+            pieces = puzzle.pieces
+            random.shuffle(pieces)
+            dataset = PiecesDataset(pieces, transform=TwoImgSyncEval(config.DATA.IMG_SIZE),
+                                    image_size=config.DATA.IMG_SIZE, erosion_ratio=config.DATA.EROSION_RATIO)
+            sampler_val = torch.utils.data.distributed.DistributedSampler(
+                dataset, shuffle=config.TEST.SHUFFLE
+            )
+            data_loader = torch.utils.data.DataLoader(
+                dataset, sampler=sampler_val,
+                batch_size=config.DATA.BATCH_SIZE,
+                shuffle=False,
+                num_workers=config.DATA.NUM_WORKERS,
+                pin_memory=config.DATA.PIN_MEMORY,
+                drop_last=False
+            )
 
-        for out_id, (out, y) in enumerate(zip(outputs, targets)):
-            pred, gt = (out > 0).float().numpy(), y.numpy()
-            acc = accuracy_score(gt, pred) * 100
-            auc = roc_auc_score(gt, out.float().numpy()) * 100
-            f1 = f1_score(gt, pred, average="macro")
-            precision = precision_score(gt, pred, average="macro")
-            recall = recall_score(gt, pred, average="macro")
+            distance_map = {}
+            for idx, (images, target) in enumerate(data_loader):
+                images = images.cuda(non_blocking=True)
 
-            indicator = evaluation.setdefault(f'class_{out_id}', {})
-            indicator.setdefault('acc', AverageMeter()).update(acc, target.size(0))
-            indicator.setdefault('auc', AverageMeter()).update(auc, target.size(0))
-            indicator.setdefault('f1', AverageMeter()).update(f1, target.size(0))
-            indicator.setdefault('precision', AverageMeter()).update(precision, target.size(0))
-            indicator.setdefault('recall', AverageMeter()).update(recall, target.size(0))
+                # compute output
+                with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                    output = model(images)
 
-        loss_meter.update(loss.item(), target.size(0))
+                for pred, entry_id in zip(torch.sigmoid(output), target):
+                    i, j = dataset.entries[entry_id]
+                    piece_i, piece_j = pieces[i].origin_piece_id, pieces[j].origin_piece_id
+                    if piece_i not in distance_map:
+                        distance_map[piece_i] = {}
+                    distance_map[piece_i][piece_j] = 1. - pred
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+            def distance_function(piece_i, piece_i_side, piece_j, piece_j_side):
+                pred = distance_map[piece_i.origin_piece_id][piece_j.origin_piece_id]
+                if piece_j_side == PuzzlePieceSide.left:
+                    if piece_i_side == PuzzlePieceSide.right:
+                        return pred[0].item()
+                if piece_j_side == PuzzlePieceSide.right:
+                    if piece_i_side == PuzzlePieceSide.left:
+                        return pred[2].item()
+                if piece_j_side == PuzzlePieceSide.top:
+                    if piece_i_side == PuzzlePieceSide.bottom:
+                        return pred[1].item()
+                if piece_j_side == PuzzlePieceSide.bottom:
+                    if piece_i_side == PuzzlePieceSide.top:
+                        return pred[3].item()
+                return 1.
 
-        if idx % config.PRINT_FREQ == 0:
-            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
-            message = ""
-            for metric in evaluation['class_0'].keys():
-                scores = [evaluation[cls][metric].val for cls in evaluation.keys()]
-                score = sum(scores) / len(scores)
-                avg_scores = [evaluation[cls][metric].avg for cls in evaluation.keys()]
-                avg_score = sum(avg_scores) / len(avg_scores)
-                message += f'{metric.upper()} {score:.4f} ({avg_score:.3f})\t'
-            logger.info(
-                f'Test: [{idx}/{len(data_loader)}]\t'
-                f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t' + message + f'Mem {memory_used:.0f}MB')
+            perfect_pred, direct_acc, neighbour_acc, new_puzzle = paikin_tal_driver(pieces, distance_function)
+            perfect_predictions.append(perfect_pred)
+            direct_accuracies.append(direct_acc)
+            neighbour_accuracies.append(neighbour_acc)
 
-    logger.info("Final test results:")
+            output_dir = os.path.join('output', 'reconstructed')
+            os.makedirs(output_dir, exist_ok=True)
+            new_puzzle.save_to_file(os.path.join(output_dir, os.path.basename(img_path)))
 
-    message = f'Loss: {loss_meter.avg:.4f}\t'
-    for metric in evaluation['class_0'].keys():
-        scores = [evaluation[cls][metric].avg for cls in evaluation.keys()]
-        avg_score = sum(scores) / len(scores)
-        message += f'{metric.upper()} {avg_score:.3f}\t'
-    logger.info(message)
-
-    logger.info("Per class results:")
-    for class_id in evaluation.keys():
-        message = f'{class_id.upper()}: '
-        for metric, indicator in evaluation[class_id].items():
-            message += f'{metric.upper()} {indicator.avg:.4f}\t'
-        logger.info(message)
+        print(f'Total perfect_acc: {sum(perfect_predictions)} / {len(perfect_predictions)}')
+        print(f'Avg direct_acc: {sum(direct_accuracies) / len(direct_accuracies)}')
+        print(f'Avg neighbour_acc: {sum(neighbour_accuracies) / len(neighbour_accuracies)}')
 
 
 if __name__ == '__main__':

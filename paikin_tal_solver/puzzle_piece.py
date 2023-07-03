@@ -151,6 +151,7 @@ class PuzzlePiece(object):
 
         # Piece ID is left to the solver to set
         self._piece_id = piece_id
+        self.origin_piece_id = piece_id
 
         self._orig_puzzle_id = puzzle_id
         self._assigned_puzzle_id = None

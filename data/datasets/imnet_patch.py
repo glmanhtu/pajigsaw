@@ -89,7 +89,7 @@ class ImNetPatch(VisionDataset):
         ratio = (self.image_size * 3 + gap) / min(image.width, image.height)
         if ratio > 1:
             image = image.resize((math.ceil(ratio * image.width), math.ceil(ratio * image.height)), Image.LANCZOS)
-        cropper = self.cropper_class((self.image_size * 2 + gap, self.image_size * 2 + gap))
+        cropper = self.cropper_class((self.image_size * 2 + gap * 2, self.image_size * 2 + gap * 2))
         patch = cropper(image)
 
         # Crop the image into a grid of 2 x 2 patches
@@ -125,7 +125,7 @@ class ImNetPatch(VisionDataset):
             else:
                 label = [0., 0., 0., 1.]
 
-        if self.with_negative and 0.2 > torch.rand(1):
+        if self.with_negative and 0.5 > torch.rand(1):
             # Negative pair for evaluation
             second_img, third_img = third_img, second_img
             label = [0., 0., 0., 0.]

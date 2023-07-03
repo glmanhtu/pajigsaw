@@ -11,6 +11,8 @@ import numpy
 import cv2  # OpenCV
 from enum import Enum
 
+import numpy as np
+
 from paikin_tal_solver.puzzle_piece import PuzzlePiece, PuzzlePieceRotation
 
 
@@ -108,6 +110,28 @@ class Puzzle(object):
 
         # Make a LAB version of the image.
         self._img_LAB = cv2.cvtColor(self._img, cv2.COLOR_BGR2LAB)
+
+    def build_placed_piece_info(self):
+        """
+        Placed Piece Info Builder
+
+        For a puzzle, this function builds a Numpy 2D matrix showing the PUZZLE PIECE ID NUMBER in each puzzle location.  If a puzzle
+        piece location has no assigned piece, then the cell is filled with the Puzzle class's static property
+        "MISSING_PIECE_PUZZLE_INFO_VALUE"
+
+        Returns (Tuple[Numpy[int]]):
+            Location of each puzzle piece in the grid
+        """
+
+        # Build a NumPy array that is by default "None" for each cell.
+        placed_piece_matrix = np.full(self._grid_size, -1, np.int32)
+
+        # For each element in the array,
+        for idx, piece in enumerate(self._pieces):
+            placed_piece_matrix[piece.location] = idx
+
+        # Return the built NumPy array
+        return placed_piece_matrix
 
     def make_pieces(self, starting_id_numb=0):
         """

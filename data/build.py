@@ -15,6 +15,7 @@ from torchvision import transforms
 from .datasets.div2k_patch import DIV2KPatch
 from .datasets.imnet_patch import ImNetPatch
 from .datasets.jigsaw_imnet import JigSawImNet
+from .datasets.pieces_dataset_eval import PuzzleDataset
 from .transforms import TwoImgSyncAugmentation, TwoImgSyncEval
 
 try:
@@ -131,6 +132,9 @@ def build_dataset(mode, config):
         split = DIV2KPatch.Split.from_string(mode)
         dataset = DIV2KPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
+    elif config.DATA.DATASET == 'puzzle':
+        dataset = PuzzleDataset(config.DATA.DATA_PATH, transform=transform,
+                                image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
 
     else:
         raise NotImplementedError("We only support ImageNet Now.")

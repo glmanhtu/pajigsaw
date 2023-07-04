@@ -5,7 +5,7 @@ import cv2
 import torch
 import torchvision
 from torchvision.datasets import VisionDataset
-
+import numpy as np
 from paikin_tal_solver.puzzle_piece import PuzzlePiece
 
 logger = logging.getLogger("pajisaw")
@@ -29,7 +29,6 @@ class PiecesDataset(VisionDataset):
 
         self.image_size = image_size
         self.erosion_ratio = erosion_ratio
-        self.cropper_class = torchvision.transforms.CenterCrop
         self.entries = []
         for i, _ in enumerate(pieces):
             for j, _ in enumerate(pieces):
@@ -40,7 +39,7 @@ class PiecesDataset(VisionDataset):
     def __getitem__(self, index: int):
 
         gap = int(self.image_size * self.erosion_ratio)
-        cropper = self.cropper_class((self.image_size - gap, self.image_size - gap))
+        cropper = torchvision.transforms.CenterCrop((self.image_size - gap, self.image_size - gap))
         img_converter = torchvision.transforms.Compose([
             lambda x: cv2.cvtColor(x, cv2.COLOR_LAB2RGB),
             torchvision.transforms.ToPILImage(),

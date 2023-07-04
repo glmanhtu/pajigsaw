@@ -99,14 +99,14 @@ def testing(config, data_loader, model):
         for out_id, (out, y) in enumerate(zip(outputs, targets)):
             pred, gt = (out > 0).float().numpy(), y.numpy()
             acc = accuracy_score(gt, pred) * 100
-            auc = roc_auc_score(gt, out.float().numpy()) * 100
+            # auc = roc_auc_score(gt, out.float().numpy()) * 100
             f1 = f1_score(gt, pred, average="macro")
             precision = precision_score(gt, pred, average="macro")
             recall = recall_score(gt, pred, average="macro")
 
             indicator = evaluation.setdefault(f'class_{out_id}', {})
             indicator.setdefault('acc', AverageMeter()).update(acc, target.size(0))
-            indicator.setdefault('auc', AverageMeter()).update(auc, target.size(0))
+            # indicator.setdefault('auc', AverageMeter()).update(auc, target.size(0))
             indicator.setdefault('f1', AverageMeter()).update(f1, target.size(0))
             indicator.setdefault('precision', AverageMeter()).update(precision, target.size(0))
             indicator.setdefault('recall', AverageMeter()).update(recall, target.size(0))

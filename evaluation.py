@@ -90,7 +90,7 @@ def testing(config, model):
     end = time.time()
     evaluation = {}
 
-    for subset in ['BGU', 'Cho', 'McGill']:
+    for subset in ['Cho', 'McGill', 'BGU']:
         images = glob.glob(os.path.join(config.DATA.DATA_PATH, subset, '*.jpg'))
         images += glob.glob(os.path.join(config.DATA.DATA_PATH, subset, '*.png'))
 
@@ -114,14 +114,14 @@ def testing(config, model):
             )
 
             distance_map = {}
-            for idx, (images, target) in enumerate(data_loader):
+            for images, targets in data_loader:
                 images = images.cuda(non_blocking=True)
 
                 # compute output
                 with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                     output = model(images)
 
-                for pred, entry_id in zip(torch.sigmoid(output), target):
+                for pred, entry_id in zip(torch.sigmoid(output), targets):
                     i, j = dataset.entries[entry_id]
                     piece_i, piece_j = pieces[i].origin_piece_id, pieces[j].origin_piece_id
                     if piece_i not in distance_map:
@@ -133,16 +133,16 @@ def testing(config, model):
                 pred = distance_map[piece_i.origin_piece_id][piece_j.origin_piece_id]
                 if piece_j_side == PuzzlePieceSide.left:
                     if piece_i_side == PuzzlePieceSide.right:
-                        return pred[1].item() * 1000.
+                        return pred[0].item() * 1000.
                 if piece_j_side == PuzzlePieceSide.right:
                     if piece_i_side == PuzzlePieceSide.left:
-                        return pred[3].item() * 1000.
+                        return pred[2].item() * 1000.
                 if piece_j_side == PuzzlePieceSide.top:
                     if piece_i_side == PuzzlePieceSide.bottom:
-                        return pred[0].item() * 1000.
+                        return pred[1].item() * 1000.
                 if piece_j_side == PuzzlePieceSide.bottom:
                     if piece_i_side == PuzzlePieceSide.top:
-                        return pred[2].item() * 1000.
+                        return pred[3].item() * 1000.
                 return 1000.
 
             perfect_pred, direct_acc, neighbour_acc, new_puzzle = paikin_tal_driver(pieces, distance_function)

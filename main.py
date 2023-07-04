@@ -56,11 +56,6 @@ def parse_option():
     parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
 
-    # for acceleration
-    parser.add_argument('--fused_window_process', action='store_true',
-                        help='Fused window shift & window partition, similar for reversed part.')
-    parser.add_argument('--fused_layernorm', action='store_true', help='Use fused layernorm.')
-
     # overwrite optimizer in config (*.yaml) if specified, e.g., fused_adam/fused_lamb
     parser.add_argument('--optim', type=str,
                         help='overwrite optimizer if provided, can be adamw/sgd/fused_adam/fused_lamb.')
@@ -141,7 +136,7 @@ def main(config):
                             logger, 'checkpoint')
 
         loss, acc, f1 = validate(config, data_loader_val, model)
-        logger.info(f"Evaluation: ACC: {acc:.2f}% F1: {f1:.2f}%, Loss: {loss}")
+        logger.info(f"Evaluation: ACC: {acc:.2f}% F1: {f1:.2f}, Loss: {loss}")
         if f1 > max_f1:
             save_checkpoint(config, epoch, model_without_ddp, max_f1, optimizer, lr_scheduler, loss_scaler,
                             logger, 'best_model')

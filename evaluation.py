@@ -81,15 +81,7 @@ def main(config):
 
 @torch.no_grad()
 def testing(config, model):
-    criterion = torch.nn.BCEWithLogitsLoss()
     model.eval()
-
-    batch_time = AverageMeter()
-    loss_meter = AverageMeter()
-
-    end = time.time()
-    evaluation = {}
-
     for subset in ['Cho', 'McGill', 'BGU']:
         images = glob.glob(os.path.join(config.DATA.DATA_PATH, subset, '*.jpg'))
         images += glob.glob(os.path.join(config.DATA.DATA_PATH, subset, '*.png'))

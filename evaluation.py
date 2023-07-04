@@ -113,7 +113,7 @@ def testing(config, model):
                 with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                     output = model(images)
 
-                for pred, entry_id in zip(torch.sigmoid(output), targets):
+                for pred, entry_id in zip(torch.sigmoid(output).cpu().numpy(), targets.numpy()):
                     i, j = dataset.entries[entry_id]
                     piece_i, piece_j = pieces[i].origin_piece_id, pieces[j].origin_piece_id
                     if piece_i not in distance_map:
@@ -125,17 +125,17 @@ def testing(config, model):
                 pred = distance_map[piece_i.origin_piece_id][piece_j.origin_piece_id]
                 if piece_j_side == PuzzlePieceSide.left:
                     if piece_i_side == PuzzlePieceSide.right:
-                        return pred[0].item() * 1000.
+                        return pred[0] * 1000.
                 if piece_j_side == PuzzlePieceSide.right:
                     if piece_i_side == PuzzlePieceSide.left:
-                        return pred[2].item() * 1000.
+                        return pred[2] * 1000.
                 if piece_j_side == PuzzlePieceSide.top:
                     if piece_i_side == PuzzlePieceSide.bottom:
-                        return pred[1].item() * 1000.
+                        return pred[1] * 1000.
                 if piece_j_side == PuzzlePieceSide.bottom:
                     if piece_i_side == PuzzlePieceSide.top:
-                        return pred[3].item() * 1000.
-                return 1000.
+                        return pred[3] * 1000.
+                return float('inf')
 
             perfect_pred, direct_acc, neighbour_acc, new_puzzle = paikin_tal_driver(pieces, distance_function)
             perfect_predictions.append(perfect_pred)

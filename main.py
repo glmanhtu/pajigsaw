@@ -142,7 +142,7 @@ def main(config):
                             logger, 'best_model')
             logger.info(f"Loss is reduced from {min_loss} to {loss}")
 
-        min_loss = min(min_loss, f1)
+        min_loss = min(min_loss, loss)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

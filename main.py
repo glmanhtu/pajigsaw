@@ -94,7 +94,7 @@ def main(config):
 
     criterion = torch.nn.BCEWithLogitsLoss()
 
-    max_f1 = 0.0
+    min_loss = 99999
 
     if config.TRAIN.AUTO_RESUME:
         resume_file = auto_resume_helper(config.OUTPUT)
@@ -109,7 +109,7 @@ def main(config):
             logger.info(f'no checkpoint found in {config.OUTPUT}, ignoring auto resume')
 
     if config.MODEL.RESUME:
-        max_f1 = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger)
+        min_loss = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger)
         loss, acc, f1 = validate(config, data_loader_val, model)
         logger.info(f"F1 of the network on the {len(dataset_val)} test images: {f1:.2f}")
         if config.EVAL_MODE:
@@ -132,17 +132,17 @@ def main(config):
         train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler,
                         loss_scaler)
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
-            save_checkpoint(config, epoch, model_without_ddp, max_f1, optimizer, lr_scheduler, loss_scaler,
+            save_checkpoint(config, epoch, model_without_ddp, min_loss, optimizer, lr_scheduler, loss_scaler,
                             logger, 'checkpoint')
 
         loss, acc, f1 = validate(config, data_loader_val, model)
         logger.info(f"Evaluation: ACC: {acc:.2f}% F1: {f1:.2f}, Loss: {loss}")
-        if f1 > max_f1:
-            save_checkpoint(config, epoch, model_without_ddp, max_f1, optimizer, lr_scheduler, loss_scaler,
+        if loss < min_loss:
+            save_checkpoint(config, epoch, model_without_ddp, min_loss, optimizer, lr_scheduler, loss_scaler,
                             logger, 'best_model')
-            logger.info(f"F1 is improved from {max_f1} to {f1}")
+            logger.info(f"Loss is reduced from {min_loss} to {loss}")
 
-        max_f1 = max(max_f1, f1)
+        min_loss = min(min_loss, f1)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

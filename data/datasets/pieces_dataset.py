@@ -38,7 +38,7 @@ class PiecesDataset(VisionDataset):
 
     def __getitem__(self, index: int):
 
-        gap = int(self.image_size * self.erosion_ratio)
+        gap = int(self.image_size * self.erosion_ratio / 2)
         cropper = torchvision.transforms.CenterCrop((self.image_size - gap, self.image_size - gap))
         img_converter = torchvision.transforms.Compose([
             lambda x: cv2.cvtColor(x, cv2.COLOR_LAB2RGB),

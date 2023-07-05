@@ -86,49 +86,52 @@ class ImNetPatch(VisionDataset):
         gap = int(self.image_size * self.erosion_ratio)
 
         # Resize the image if it does not fit the patch size that we want
-        ratio = (self.image_size * 3 + gap) / min(image.width, image.height)
+        ratio = (self.image_size * 4 + gap * 3) / min(image.width, image.height)
         if ratio > 1:
             image = image.resize((math.ceil(ratio * image.width), math.ceil(ratio * image.height)), Image.LANCZOS)
-        cropper = self.cropper_class((self.image_size * 2 + gap * 2, self.image_size * 2 + gap * 2))
+        cropper = self.cropper_class((self.image_size * 4 + gap * 3, self.image_size * 4 + gap * 3))
         patch = cropper(image)
 
-        # Crop the image into a grid of 2 x 2 patches
-        crops = list(transforms.crop(patch, 2, 2))
+        # Crop the image into a grid of 4 x 4 patches
+        crops = list(transforms.crop(patch, 4, 4))
         cropper = self.cropper_class(self.image_size)
-        first_img = cropper(crops[0])
+        first_img = cropper(crops[1])
 
         # Second image is next to the first image
-        second_img = cropper(crops[1])
+        second_img = cropper(crops[2])
 
         # Third image is right below the second image
-        third_img = cropper(crops[3])
+        third_img = cropper(crops[6])
 
         # Fourth mage is right below the first image
-        fourth_img = cropper(crops[2])
+        fourth_img = cropper(crops[5])
 
         # For now, the second image connect forward to first image, and backward to third image
         # The first and third images have no connection
         label = [1., 0., 0., 0.]
-
-        if 0.5 < torch.rand(1):
-            # Swap second and four patches, the connection is still forwarding from the second to the first
-            second_img, fourth_img = fourth_img, second_img
-            label = [0., 1., 0., 0.]
-
-        if 0.5 < torch.rand(1):
-            first_img, second_img = second_img, first_img
-            # When we swap the first and second image, then we also need to replace the third by the four image
-            # to ensure that the first image have no connection to the third image
-            third_img, fourth_img = fourth_img, third_img
-            if label[0] == 1:
-                label = [0., 0., 1., 0.]
-            else:
-                label = [0., 0., 0., 1.]
-
         if self.with_negative and 0.4 > torch.rand(1):
-            # Negative pair for evaluation
-            second_img, third_img = third_img, second_img
+            if 0.5 < torch.rand(1):
+                # Negative pair for evaluation
+                second_img, third_img = third_img, second_img
+            else:
+                second_img = cropper(crops[3])
+
+            if 0.5 < torch.rand(1):
+                second_img, first_img = first_img, second_img
+
             label = [0., 0., 0., 0.]
+
+        else:
+            if 0.5 < torch.rand(1):
+                second_img, fourth_img = fourth_img, second_img
+                label = [0., 1., 0., 0.]
+
+            if 0.5 < torch.rand(1):
+                first_img, second_img = second_img, first_img
+                if label[0] == 1:
+                    label = [0., 0., 1., 0.]
+                else:
+                    label = [0., 0., 0., 1.]
 
         if self.transform is not None:
             first_img, second_img = self.transform(first_img, second_img)

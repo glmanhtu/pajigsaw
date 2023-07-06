@@ -1,5 +1,6 @@
 import random
 
+import numpy as np
 from PIL import ImageOps, Image
 from torchvision import transforms
 
@@ -89,7 +90,9 @@ class UnNormalize(object):
 def crop(im: Image, n_cols, n_rows):
     width = im.width // n_cols
     height = im.height // n_rows
-    for i in range(n_cols):
-        for j in range(n_rows):
+    patches = []
+    for i in range(n_rows):
+        for j in range(n_cols):
             box = (j*width, i*height, (j+1)*width, (i+1)*height)
-            yield im.crop(box)
+            patches.append(im.crop(box))
+    return patches

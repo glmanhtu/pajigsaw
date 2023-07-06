@@ -31,6 +31,9 @@ class _Split(Enum):
         }
         return split_lengths[self]
 
+    def is_train(self):
+        return self.value == 'train'
+
     @staticmethod
     def from_string(name):
         for key in _Split:
@@ -55,66 +58,61 @@ class ImNetPatch(VisionDataset):
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
-        self.dataset = load_dataset("imagenet-1k", split=split.value, cache_dir=root)
-        self.dataset_path = os.path.join(root, split.value)
+        self.root_dir = root
 
-        self.entries = {}
-        self.entry_id_map = {}
         self.image_size = image_size
         self.with_negative = with_negative
         self.erosion_ratio = erosion_ratio
 
         self.cropper_class = torchvision.transforms.RandomCrop
-        if split != _Split.TRAIN:
+        if not split.is_train():
             self.cropper_class = torchvision.transforms.CenterCrop
+        self.dataset = self.load_dataset()
+
+    def load_dataset(self):
+        return load_dataset("imagenet-1k", split=self._split.value, cache_dir=self.root_dir)
 
     @property
     def split(self) -> "ImNetPatch.Split":
         return self._split
 
-    def load_entries(self):
-        pass
-
-    def generate_entries(self):
-        pass
-
-    def __getitem__(self, index: int):
-        if len(self.entries) == 0:
-            self.load_entries()
-
+    def read_image(self, index):
         image = self.dataset[index]['image'].convert('RGB')
         gap = int(self.image_size * self.erosion_ratio)
-
         # Resize the image if it does not fit the patch size that we want
         ratio = (self.image_size * 4 + gap * 3) / min(image.width, image.height)
         if ratio > 1:
             image = image.resize((math.ceil(ratio * image.width), math.ceil(ratio * image.height)), Image.LANCZOS)
-        cropper = self.cropper_class((self.image_size * 4 + gap * 3, self.image_size * 4 + gap * 3))
+        return image
+
+    def __getitem__(self, index: int):
+        image = self.read_image(index)
+        gap = int(self.image_size * self.erosion_ratio)
+
+        cropper = self.cropper_class((self.image_size * 2 + gap, self.image_size * 3 + gap * 2))
         patch = cropper(image)
 
-        # Crop the image into a grid of 4 x 4 patches
-        crops = list(transforms.crop(patch, 4, 4))
+        # Crop the image into a grid of 3 x 2 patches
+        crops = transforms.crop(patch, 3, 2)
         cropper = self.cropper_class(self.image_size)
-        first_img = cropper(crops[1])
+        first_img = cropper(crops[0])
 
         # Second image is next to the first image
-        second_img = cropper(crops[2])
+        second_img = cropper(crops[1])
 
         # Third image is right below the second image
-        third_img = cropper(crops[6])
+        third_img = cropper(crops[4])
 
         # Fourth mage is right below the first image
-        fourth_img = cropper(crops[5])
+        fourth_img = cropper(crops[3])
 
-        # For now, the second image connect forward to first image, and backward to third image
-        # The first and third images have no connection
         label = [1., 0., 0., 0.]
         if self.with_negative and 0.4 > torch.rand(1):
             if 0.5 < torch.rand(1):
                 # Negative pair for evaluation
                 second_img, third_img = third_img, second_img
             else:
-                second_img = cropper(crops[3])
+                second_img = cropper(crops[2])
 
             if 0.5 < torch.rand(1):
                 second_img, first_img = first_img, second_img

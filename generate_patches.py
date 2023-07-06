@@ -8,7 +8,7 @@ from PIL import Image
 parser = argparse.ArgumentParser('Pajigsaw patch generating script', add_help=False)
 parser.add_argument('--data-path', required=True, type=str, help='path to dataset')
 parser.add_argument('--output-path', required=True, type=str, help='path to output dataset')
-parser.add_argument('--patch-size', type=int, default=64)
+parser.add_argument('--patch-size', type=int, default=128)
 parser.add_argument('--erosion', type=float, default=0.07)
 args = parser.parse_args()
 

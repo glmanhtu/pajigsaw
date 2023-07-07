@@ -12,7 +12,7 @@ from paikin_tal_solver.puzzle_piece import PuzzlePiece
 from paikin_tal_solver.solver import PaikinTalSolver
 
 
-def paikin_tal_driver(pieces, distance_fn):
+def paikin_tal_driver(pieces, piece_width, distance_fn):
 
     # Create the Paikin Tal Solver
     paikin_tal_solver = PaikinTalSolver(1, pieces, distance_fn, PuzzleType.type1)
@@ -30,7 +30,7 @@ def paikin_tal_driver(pieces, distance_fn):
     puzzle_id = first_piece.puzzle_id
 
     # Reconstruct the puzzle
-    new_puzzle = Puzzle.reconstruct_from_pieces(puzzle_pieces, puzzle_id)
+    new_puzzle = Puzzle.reconstruct_from_pieces(puzzle_pieces, piece_width, puzzle_id)
     direct_accuracy = puzzle_evaluation.compute_direct_accuracy(new_puzzle)
     perfect_pred = direct_accuracy == 1
     neighbor_accuracy = puzzle_evaluation.compute_neighbor_accuracy(new_puzzle)
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     piece_width = 64
 
     for img_path in images:
-        puzzle = Puzzle(0, img_path, piece_width, starting_piece_id=0)
+        puzzle = Puzzle(0, img_path, piece_width, starting_piece_id=0, erosion=0.07)
         pieces = puzzle.pieces
         random.shuffle(pieces)
 
@@ -52,7 +52,7 @@ if __name__ == "__main__":
             return PuzzlePiece.calculate_asymmetric_distance(piece_i, piece_i_side, piece_j, piece_j_side)
 
 
-        perfect_pred, direct_acc, neighbour_acc, new_puzzle = paikin_tal_driver(pieces, distance_function)
+        perfect_pred, direct_acc, neighbour_acc, new_puzzle = paikin_tal_driver(pieces, piece_width, distance_function)
         perfect_predictions.append(perfect_pred)
         direct_accuracies.append(direct_acc)
         neighbour_accuracies.append(neighbour_acc)

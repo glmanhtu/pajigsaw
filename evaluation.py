@@ -88,11 +88,10 @@ def testing(config, model):
 
         perfect_predictions, direct_accuracies, neighbour_accuracies = [], [], []
         for img_path in images:
-            puzzle = Puzzle(0, img_path, config.DATA.IMG_SIZE, starting_piece_id=0)
+            puzzle = Puzzle(0, img_path, config.DATA.IMG_SIZE, starting_piece_id=0, erosion=config.DATA.EROSION_RATIO)
             pieces = puzzle.pieces
             random.shuffle(pieces)
-            dataset = PiecesDataset(pieces, transform=TwoImgSyncEval(config.DATA.IMG_SIZE),
-                                    image_size=config.DATA.IMG_SIZE, erosion_ratio=config.DATA.EROSION_RATIO)
+            dataset = PiecesDataset(pieces, transform=TwoImgSyncEval(config.DATA.IMG_SIZE))
             sampler_val = torch.utils.data.distributed.DistributedSampler(
                 dataset, shuffle=config.TEST.SHUFFLE
             )
@@ -137,7 +136,8 @@ def testing(config, model):
                         return pred[3] * 1000.
                 return float('inf')
 
-            perfect_pred, direct_acc, neighbour_acc, new_puzzle = paikin_tal_driver(pieces, distance_function)
+            perfect_pred, direct_acc, neighbour_acc, new_puzzle = paikin_tal_driver(pieces, config.DATA.IMG_SIZE,
+                                                                                    distance_function)
             perfect_predictions.append(perfect_pred)
             direct_accuracies.append(direct_acc)
             neighbour_accuracies.append(neighbour_acc)

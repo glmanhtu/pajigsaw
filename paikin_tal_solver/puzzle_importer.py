@@ -51,7 +51,7 @@ class Puzzle(object):
     border_width = 3
     border_outer_stripe_width = 1
 
-    def __init__(self, id_number, image_filename=None, piece_width=None, starting_piece_id=0):
+    def __init__(self, id_number, image_filename=None, piece_width=None, starting_piece_id=0, erosion=0):
         """Puzzle Constructor
 
         Constructor that will optionally load an image into the puzzle as well.
@@ -73,6 +73,7 @@ class Puzzle(object):
         # Initialize the puzzle information.
         self._grid_size = None
         self._piece_width = piece_width if piece_width is not None else Puzzle.DEFAULT_PIECE_WIDTH
+        self._erosion = erosion
         self._img_width = None
         self._img_height = None
 
@@ -176,10 +177,12 @@ class Puzzle(object):
             for col in range(0, numb_cols):
                 piece_upper_left = (row * piece_size[0], col * piece_size[1])  # No longer consider upper left since board shrunk above
                 piece_img = Puzzle.extract_subimage(self._img_LAB, piece_upper_left, piece_size)
+                piece_size_erosion = int(self.piece_width * (1 - self._erosion / 2))
+                piece_img_erosion = Puzzle.centre_crop(piece_img, (piece_size_erosion, piece_size_erosion))
 
                 # Create the puzzle piece and assign to the location.
                 location = (row, col)
-                self._pieces.append(PuzzlePiece(self._id, location, piece_img,
+                self._pieces.append(PuzzlePiece(self._id, location, piece_img_erosion,
                                                 piece_id=piece_id, puzzle_grid_size=self._grid_size))
                 # Increment the piece identification number
                 piece_id += 1
@@ -215,12 +218,13 @@ class Puzzle(object):
         return self._piece_width
 
     @staticmethod
-    def reconstruct_from_pieces(pieces, id_numb=-1, display_image=False):
+    def reconstruct_from_pieces(pieces, piece_width, id_numb=-1, display_image=False):
         """
         Constructs a puzzle from a set of pieces.
 
         Args:
             pieces ([PuzzlePiece]): Set of puzzle pieces that comprise the puzzle.
+            piece_width (int): Size of the pieces before applying erosion crop
             id_numb (Optional int): Identification number for the puzzle
             display_image (Optional Boolean): Select whether to display the eimage at the end of reconstruction
 
@@ -238,9 +242,7 @@ class Puzzle(object):
         # Create a copy of the pieces.
         output_puzzle._pieces = copy.deepcopy(pieces)
 
-        # Get the first piece and use its information
-        first_piece = output_puzzle._pieces[0]
-        output_puzzle._piece_width = first_piece.width
+        output_puzzle._piece_width = piece_width
 
         # Find the min and max row and column.
         (min_row, max_row, min_col, max_col) = output_puzzle.get_min_and_max_row_and_columns()
@@ -263,7 +265,9 @@ class Puzzle(object):
 
         # Insert the pieces into the puzzle
         for piece in output_puzzle._pieces:
-            output_puzzle.insert_piece_into_image(piece)
+            pad_size = (piece_width - piece.width) // 2
+
+            output_puzzle.insert_piece_into_image(piece, pad_size)
 
         # Convert the image to LAB format.
         output_puzzle._img_LAB = cv2.cvtColor(output_puzzle._img, cv2.COLOR_BGR2LAB)
@@ -315,8 +319,8 @@ class Puzzle(object):
         min_col = max_col = first_piece.location[1]
         for i in range(0, len(self._pieces)):
             # Verify all pieces are the same size
-            if Puzzle.print_debug_messages:
-                assert(self.piece_width == self._pieces[i].width)
+            # if Puzzle.print_debug_messages:
+            #     assert(self.piece_width == self._pieces[i].width)
             # Get the location of the piece
             temp_loc = self._pieces[i].location
             # Update the min and max row if needed
@@ -379,7 +383,25 @@ class Puzzle(object):
         # Return the sub image.
         return img[upper_left[0]:img_end[0], upper_left[1]:img_end[1], :]
 
-    def insert_piece_into_image(self, piece):
+    @staticmethod
+    def centre_crop(img, dim):
+        """Returns center cropped image
+
+          Args:
+          img: image to be center cropped
+          dim: dimensions (width, height) to be cropped from center
+          """
+        width, height = img.shape[1], img.shape[0]
+        # process crop width and height for max available dimension
+        crop_width = dim[0] if dim[0] < img.shape[1] else img.shape[1]
+        crop_height = dim[1] if dim[1] < img.shape[0] else img.shape[0]
+
+        mid_x, mid_y = int(width / 2), int(height / 2)
+        cw2, ch2 = int(crop_width / 2), int(crop_height / 2)
+        crop_img = img[mid_y - ch2:mid_y + ch2, mid_x - cw2:mid_x + cw2]
+        return crop_img
+
+    def insert_piece_into_image(self, piece, pad_size=0):
         """
         Takes a puzzle piece and converts its image into BGR then adds it to the master image.
 
@@ -389,10 +411,11 @@ class Puzzle(object):
         piece_loc = piece.location
 
         # Define the upper left corner of the piece to insert
-        upper_left = (piece_loc[0] * piece.width, piece_loc[1] * piece.width)
+        upper_left = (piece_loc[0] * self._piece_width, piece_loc[1] * self._piece_width)
 
         # Select whether to display the image rotated
         piece_bgr = piece.bgr_image()
+        piece_bgr = cv2.copyMakeBorder(piece_bgr, pad_size, pad_size, pad_size, pad_size, cv2.BORDER_CONSTANT)
         if piece.rotation is None or piece.rotation == PuzzlePieceRotation.degree_0:
             Puzzle.insert_subimage(self._img, upper_left, piece_bgr)
         else:

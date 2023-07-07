@@ -143,7 +143,7 @@ def testing(config, model):
             os.makedirs(output_dir, exist_ok=True)
             new_puzzle.save_to_file(os.path.join(output_dir, os.path.basename(img_path)))
 
-        print(f'Subset: {subset}')
+        print(f'Subset: {subset} {len(puzzles[0].pieces)}')
         results_information = PuzzleResultsCollection(PuzzleSolver.PaikinTal, PuzzleType.type1,
                                                       [x.pieces for x in puzzles], images)
 

@@ -4,6 +4,7 @@ import os
 from enum import Enum
 from typing import Callable, Optional, Union
 
+import torchvision
 from PIL import Image
 
 from data.datasets.imnet_patch import ImNetPatch
@@ -63,6 +64,15 @@ class DIV2KPatch(ImNetPatch):
         img_path = self.dataset[index]
         with Image.open(img_path) as f:
             image = f.convert('RGB')
+
+        if self.split.is_train():
+            transforms = torchvision.transforms.Compose([
+                torchvision.transforms.RandomApply(
+                    [torchvision.transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.2)],
+                    p=0.8
+                ),
+            ])
+            image = transforms(image)
         return image
 
 

@@ -46,7 +46,6 @@ class PieceSideBestBuddyAccuracyResult(Enum):
     open_best_buddy = (255, 0, 0)  # Blue
 
 
-
 class PieceSideNeighborAccuracyResult(Enum):
     """
     Defines the color for tuples of piece ids and sides according to the neighbor accuracy metric.
@@ -445,10 +444,10 @@ class Puzzle(object):
         crop_width = dim[0] if dim[0] < img.shape[1] else img.shape[1]
         crop_height = dim[1] if dim[1] < img.shape[0] else img.shape[0]
 
-        mid_x, mid_y = int(width / 2), int(height / 2)
-        cw2, ch2 = int(crop_width / 2), int(crop_height / 2)
-        crop_img = img[mid_y - ch2:mid_y + ch2, mid_x - cw2:mid_x + cw2]
-        return crop_img
+        crop_top = int(round((height - crop_height) / 2.0))
+        crop_left = int(round((width - crop_width) / 2.0))
+
+        return img[crop_top:crop_top + crop_height, crop_left:crop_left + crop_width, :]
 
     def insert_piece_into_image(self, piece, pad_size=0):
         """

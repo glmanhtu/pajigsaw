@@ -153,7 +153,7 @@ class PaikinTalSolver(object):
     # Used to simplify debugging without affecting test time by enabling assertion checks
     _PERFORM_ASSERTION_CHECK = True
 
-    _PRINT_PROGRESS_MESSAGES = True
+    _PRINT_PROGRESS_MESSAGES = False
 
     def __init__(self, numb_puzzles, pieces, distance_function, puzzle_type=None,
                  new_board_mutual_compatibility=None, fixed_puzzle_dimensions=None):
@@ -390,8 +390,8 @@ class PaikinTalSolver(object):
             return next_piece
 
         else:
-            print("\n\nNeed to recalculate the compatibilities.  Number of pieces left: " \
-                  + str(self._numb_unplaced_pieces) + "\n\n")
+            # print("\n\nNeed to recalculate the compatibilities.  Number of pieces left: " \
+            #       + str(self._numb_unplaced_pieces) + "\n\n")
 
             placed_and_open_pieces = copy.copy(self._piece_placed)
             for open_location in self._open_locations:

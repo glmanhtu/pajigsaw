@@ -26,9 +26,9 @@ if __name__ == '__main__':
         images = glob.glob(os.path.join(args.data_path, subset, '*.jpg'))
         images += glob.glob(os.path.join(args.data_path, subset, '*.png'))
 
-        perfect_predictions, direct_accuracies, neighbour_accuracies = [], [], []
-        for img_path in images:
-            puzzle = Puzzle(0, img_path, args.image_size, starting_piece_id=0, erosion=args.erosion)
+        puzzles = []
+        for idx, img_path in enumerate(images):
+            puzzle = Puzzle(idx, img_path, args.image_size, starting_piece_id=0, erosion=args.erosion)
             pieces = puzzle.pieces
             random.shuffle(pieces)
 
@@ -36,17 +36,16 @@ if __name__ == '__main__':
                 return PuzzlePiece.calculate_asymmetric_distance(piece_i, piece_i_side, piece_j, piece_j_side)
 
             new_puzzle = paikin_tal_driver(pieces, args.image_size, distance_function)
-            results_information = PuzzleResultsCollection(PuzzleSolver.PaikinTal, PuzzleType.type1,
-                                                          [new_puzzle.pieces], [img_path])
-            # Calculate and print the accuracy results
-            results_information.calculate_accuracies([new_puzzle])
-            # Print the results to the console
-            results_information.print_results()
+            puzzles.append(new_puzzle)
 
             output_dir = os.path.join('output', 'reconstructed')
             os.makedirs(output_dir, exist_ok=True)
             new_puzzle.save_to_file(os.path.join(output_dir, os.path.basename(img_path)))
 
-        print(f'Total perfect_acc: {sum(perfect_predictions)} / {len(perfect_predictions)}')
-        print(f'Avg direct_acc: {sum(direct_accuracies) / len(direct_accuracies)}')
-        print(f'Avg neighbour_acc: {sum(neighbour_accuracies) / len(neighbour_accuracies)}')
+        print(f'Subset: {subset} {len(puzzles[0].pieces)}')
+        results_information = PuzzleResultsCollection(PuzzleSolver.PaikinTal, PuzzleType.type1,
+                                                      [x.pieces for x in puzzles], images)
+        # Calculate and print the accuracy results
+        results_information.calculate_accuracies(puzzles)
+        # Print the results to the console
+        results_information.print_results()

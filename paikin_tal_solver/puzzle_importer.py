@@ -174,13 +174,15 @@ class Puzzle(object):
 
         # Build a NumPy array that is by default "None" for each cell.
         placed_piece_matrix = np.full(self._grid_size, -1, np.int32)
+        placed_piece_rotation = np.full(self._grid_size, -1, np.int32)
 
         # For each element in the array,
-        for idx, piece in enumerate(self._pieces):
-            placed_piece_matrix[piece.location] = idx
+        for piece in self._pieces:
+            placed_piece_matrix[piece.location] = piece.original_piece_id
+            placed_piece_rotation[piece.location] = piece.rotation.value
 
         # Return the built NumPy array
-        return placed_piece_matrix
+        return placed_piece_matrix, placed_piece_rotation
 
     def make_pieces(self, starting_id_numb=0):
         """
@@ -809,74 +811,42 @@ class PuzzleResultsCollection(object):
         Prints the accuracy results of a solver to the console.
         """
 
-        string_io = io.StringIO()
         # Iterate through each puzzle and print that puzzle's results
+        result = {'neighbor': []}
+        perfect_puzzles = []
         for results in self._puzzle_results:
-            # Print the header line
-            print("Original Filename: %s" % results.original_filename, file=string_io)
-            print("Puzzle Identification Number: " + str(results.original_id_number) + "\n", file=string_io)
-
             # Print the standard accuracy information
             for accuracy_type in [ResultAccuracyMetric.StandardDirectAccuracy, ResultAccuracyMetric.ModifiedDirectAccuracy]:
 
                 # Select the type of direct accuracy to print >>string_io, .
                 if accuracy_type == ResultAccuracyMetric.StandardDirectAccuracy:
-                    acc_name = "\tStandard"
+                    acc_name = "Direct_Standard"
                     direct_acc = results.standard_direct_accuracy
-                elif accuracy_type == ResultAccuracyMetric.ModifiedDirectAccuracy:
-                    acc_name = "\tModified"
+                else:
+                    acc_name = "Direct_Modified"
                     direct_acc = results.modified_direct_accuracy
+
+                if acc_name not in result:
+                    result[acc_name] = []
 
                 # Print the selected direct accuracy type
                 numb_pieces_in_original_puzzle = results.numb_pieces
                 piece_count_weight = direct_acc.numb_different_puzzle + numb_pieces_in_original_puzzle
-                print("\tSolved Puzzle ID #%d" % direct_acc.solved_puzzle_id, file=string_io)
-                print(acc_name + " Direct Accuracy:\t\t%d/%d\t(%3.2f%%)" % (direct_acc.numb_correct_placements,
-                                                                                         piece_count_weight,
-                                                                                         100.0 * direct_acc.numb_correct_placements / piece_count_weight), file=string_io)
-                print(acc_name + " Numb from Diff Puzzle:\t%d/%d\t(%3.2f%%)" % (direct_acc.numb_different_puzzle,
-                                                                                             piece_count_weight,
-                                                                                             100.0 * direct_acc.numb_different_puzzle / piece_count_weight), file=string_io)
-                print(acc_name + " Numb Wrong Location:\t%d/%d\t(%3.2f%%)" % (direct_acc.numb_wrong_location,
-                                                                                           piece_count_weight,
-                                                                                           100.0 * direct_acc.numb_wrong_location / piece_count_weight), file=string_io)
-                print(acc_name + " Numb Wrong Rotation:\t%d/%d\t(%3.2f%%)" % (direct_acc.numb_wrong_rotation,
-                                                                                           piece_count_weight,
-                                                                                           100.0 * direct_acc.numb_wrong_rotation / piece_count_weight), file=string_io)
-                # Calculate the number of missing pieces
-                numb_pieces_missing = (numb_pieces_in_original_puzzle
-                                       - direct_acc.numb_pieces_from_original_puzzle_in_solved_puzzle)
-                print(acc_name + " Numb Pieces Missing:\t%d/%d\t(%3.2f%%)" % (numb_pieces_missing,
-                                                                                           numb_pieces_in_original_puzzle,
-                                                                                           100.0 * numb_pieces_missing / numb_pieces_in_original_puzzle), file=string_io)
-                # Print a new line to separate the results
-                print("", file=string_io)
+                result[acc_name].append(direct_acc.numb_correct_placements / piece_count_weight)
+
+                if accuracy_type == ResultAccuracyMetric.StandardDirectAccuracy:
+                    perfect_puzzles.append(direct_acc.numb_correct_placements == piece_count_weight)
 
             # Print the modified neighbor accuracy
-            numb_pieces_in_original_puzzle = results.numb_pieces
             neighbor_acc = results.modified_neighbor_accuracy
             neighbor_count_weight = neighbor_acc.numb_pieces_in_original_puzzle + neighbor_acc.wrong_puzzle_id
             neighbor_count_weight *= PuzzlePieceSide.get_numb_sides()
-            print("\tSolved Puzzle ID #%d" % neighbor_acc.solved_puzzle_id, file=string_io)
-            print("\tNeighbor Accuracy:\t\t%d/%d\t(%3.2f%%)" % (neighbor_acc.correct_neighbor_count,
-                                                                             neighbor_count_weight,
-                                                                             100.0 * neighbor_acc.correct_neighbor_count / neighbor_count_weight), file=string_io)
-            numb_missing_pieces = (numb_pieces_in_original_puzzle
-                                   - neighbor_acc.numb_pieces_from_original_puzzle_in_solved_puzzle)
-            print("\tNumb Missing Pieces:\t%d/%d\t(%3.2f%%)" % (numb_missing_pieces,
-                                                                             results.numb_pieces,
-                                                                             100.0 * numb_missing_pieces / results.numb_pieces), file=string_io)
-            numb_from_wrong_puzzle = neighbor_acc.wrong_puzzle_id
-            numb_pieces_in_puzzle = neighbor_acc.total_numb_pieces_in_solved_puzzle
-            print("\tNumb from Diff Puzzle:\t%d/%d\t(%3.2f%%)" % (numb_from_wrong_puzzle,
-                                                                               numb_pieces_in_puzzle,
-                                                                               100.0 * numb_from_wrong_puzzle / numb_pieces_in_puzzle), file=string_io)
-            # Print a new line to separate the results
-            print("", file=string_io)
+            result['neighbor'].append(neighbor_acc.correct_neighbor_count / neighbor_count_weight)
 
-        # Log the result
-        logging.info(string_io.getvalue())
-        string_io.close()
+        print('Average_Results: ')
+        for key in result:
+            print(f'{key}: {sum(result[key]) / len(result[key])}')
+        print(f'Perfect: {sum(perfect_puzzles)}')
 
 
 class PuzzleResultsInformation(object):

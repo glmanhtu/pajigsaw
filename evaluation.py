@@ -20,7 +20,7 @@ from data.datasets.pieces_dataset import PiecesDataset
 from data.transforms import TwoImgSyncEval
 from logger import create_logger
 from models import build_model
-from paikin_tal_solver.puzzle_importer import Puzzle
+from paikin_tal_solver.puzzle_importer import Puzzle, PuzzleResultsCollection, PuzzleSolver, PuzzleType
 from paikin_tal_solver.puzzle_piece import PuzzlePiece, PuzzlePieceSide
 from solver_driver import paikin_tal_driver
 from utils import load_pretrained
@@ -86,9 +86,9 @@ def testing(config, model):
         images = glob.glob(os.path.join(config.DATA.DATA_PATH, subset, '*.jpg'))
         images += glob.glob(os.path.join(config.DATA.DATA_PATH, subset, '*.png'))
 
-        perfect_predictions, direct_accuracies, neighbour_accuracies = [], [], []
-        for img_path in images:
-            puzzle = Puzzle(0, img_path, config.DATA.IMG_SIZE, starting_piece_id=0, erosion=config.DATA.EROSION_RATIO)
+        puzzles = []
+        for idx, img_path in enumerate(images):
+            puzzle = Puzzle(idx, img_path, config.DATA.IMG_SIZE, starting_piece_id=0, erosion=config.DATA.EROSION_RATIO)
             pieces = puzzle.pieces
             random.shuffle(pieces)
             dataset = PiecesDataset(pieces, transform=TwoImgSyncEval(config.DATA.IMG_SIZE))
@@ -136,19 +136,21 @@ def testing(config, model):
                         return pred[3] * 1000.
                 return float('inf')
 
-            perfect_pred, direct_acc, neighbour_acc, new_puzzle = paikin_tal_driver(pieces, config.DATA.IMG_SIZE,
-                                                                                    distance_function)
-            perfect_predictions.append(perfect_pred)
-            direct_accuracies.append(direct_acc)
-            neighbour_accuracies.append(neighbour_acc)
+            new_puzzle = paikin_tal_driver(pieces, config.DATA.IMG_SIZE, distance_function)
+            puzzles.append(new_puzzle)
 
             output_dir = os.path.join('output', 'reconstructed')
             os.makedirs(output_dir, exist_ok=True)
             new_puzzle.save_to_file(os.path.join(output_dir, os.path.basename(img_path)))
 
-        print(f'Total perfect_acc: {sum(perfect_predictions)} / {len(perfect_predictions)}')
-        print(f'Avg direct_acc: {sum(direct_accuracies) / len(direct_accuracies)}')
-        print(f'Avg neighbour_acc: {sum(neighbour_accuracies) / len(neighbour_accuracies)}')
+        print(f'Subset: {subset}')
+        results_information = PuzzleResultsCollection(PuzzleSolver.PaikinTal, PuzzleType.type1,
+                                                      [x.pieces for x in puzzles], images)
+
+        # Calculate and print the accuracy results
+        results_information.calculate_accuracies(puzzles)
+        # Print the results to the console
+        results_information.print_results()
 
 
 if __name__ == '__main__':

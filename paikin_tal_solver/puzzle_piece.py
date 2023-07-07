@@ -293,6 +293,28 @@ class PuzzlePiece(object):
         return self._actual_neighbor_ids
 
     @property
+    def original_puzzle_id(self):
+        """
+        Direct Accuracy Original Puzzle ID Number Accessor
+
+        Returns (int):
+            The puzzle ID associated with the ORIGINAL set of puzzle results
+        """
+        return self._orig_puzzle_id
+
+    @property
+    def original_piece_id(self):
+        """
+        Original Piece ID Number
+
+        Gets the original (i.e., correct) piece identification number
+
+        Returns (int):
+            Original identification number assigned to the piece at its creation.  Should be globally unique.
+        """
+        return self._orig_piece_id
+
+    @property
     def width(self):
         """
         Gets the size of the square puzzle piece.  Since it is square, width its width equals its length.

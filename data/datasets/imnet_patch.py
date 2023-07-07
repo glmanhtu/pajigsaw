@@ -1,6 +1,8 @@
 import logging
 import math
 import os
+import random
+
 import numpy as np
 from enum import Enum
 from typing import Callable, Optional, Union
@@ -78,23 +80,24 @@ class ImNetPatch(VisionDataset):
 
     def read_image(self, index):
         image = self.dataset[index]['image'].convert('RGB')
-        gap = int(self.image_size * self.erosion_ratio)
         # Resize the image if it does not fit the patch size that we want
-        ratio = (self.image_size * 4 + gap * 3) / min(image.width, image.height)
+        ratio = (self.image_size * 3) / min(image.width, image.height)
         if ratio > 1:
             image = image.resize((math.ceil(ratio * image.width), math.ceil(ratio * image.height)), Image.LANCZOS)
         return image
 
     def __getitem__(self, index: int):
         image = self.read_image(index)
-        gap = int(self.image_size * self.erosion_ratio)
-
-        cropper = self.cropper_class((self.image_size * 2 + gap, self.image_size * 3 + gap * 2))
+        cropper = self.cropper_class((self.image_size * 2, self.image_size * 3))
         patch = cropper(image)
 
         # Crop the image into a grid of 3 x 2 patches
         crops = transforms.crop(patch, 3, 2)
-        cropper = self.cropper_class(self.image_size)
+        erosion_ratio = self.erosion_ratio
+        if self._split.is_train():
+            erosion_ratio = random.uniform(self.erosion_ratio, self.erosion_ratio * 2)
+        piece_size_erosion = round(self.image_size * (1 - erosion_ratio))
+        cropper = torchvision.transforms.CenterCrop(piece_size_erosion)
         first_img = cropper(crops[0])
 
         # Second image is next to the first image

@@ -52,11 +52,7 @@ class TwoImgSyncEval:
         self.image_size = image_size
 
     def __call__(self, first_img, second_img):
-        max_size = max(first_img.width, first_img.height, second_img.width, second_img.height)
         image_transformer = transforms.Compose([
-            lambda x: ImageOps.invert(x),
-            transforms.CenterCrop(max_size),    # CenterCrop will pad the image, but with value 0
-            lambda x: ImageOps.invert(x),
             transforms.Resize(self.image_size),
         ])
 

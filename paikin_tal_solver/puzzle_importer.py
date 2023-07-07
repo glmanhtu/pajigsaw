@@ -222,7 +222,7 @@ class Puzzle(object):
             for col in range(0, numb_cols):
                 piece_upper_left = (row * piece_size[0], col * piece_size[1])  # No longer consider upper left since board shrunk above
                 piece_img = Puzzle.extract_subimage(self._img_LAB, piece_upper_left, piece_size)
-                piece_size_erosion = int(self.piece_width * (1 - self._erosion / 2))
+                piece_size_erosion = round(self.piece_width * (1 - self._erosion))
                 piece_img_erosion = Puzzle.centre_crop(piece_img, (piece_size_erosion, piece_size_erosion))
 
                 # Create the puzzle piece and assign to the location.

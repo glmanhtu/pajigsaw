@@ -3,7 +3,7 @@ import glob
 import os
 import random
 
-from paikin_tal_solver.puzzle_importer import Puzzle
+from paikin_tal_solver.puzzle_importer import Puzzle, PuzzleSolver, PuzzleType, PuzzleResultsCollection
 from paikin_tal_solver.puzzle_piece import PuzzlePiece
 from solver_driver import paikin_tal_driver
 
@@ -35,11 +35,13 @@ if __name__ == '__main__':
             def distance_function(piece_i, piece_i_side, piece_j, piece_j_side):
                 return PuzzlePiece.calculate_asymmetric_distance(piece_i, piece_i_side, piece_j, piece_j_side)
 
-            perfect_pred, direct_acc, neighbour_acc, new_puzzle = paikin_tal_driver(pieces, args.image_size,
-                                                                                    distance_function)
-            perfect_predictions.append(perfect_pred)
-            direct_accuracies.append(direct_acc)
-            neighbour_accuracies.append(neighbour_acc)
+            new_puzzle = paikin_tal_driver(pieces, args.image_size, distance_function)
+            results_information = PuzzleResultsCollection(PuzzleSolver.PaikinTal, PuzzleType.type1,
+                                                          [new_puzzle.pieces], [img_path])
+            # Calculate and print the accuracy results
+            results_information.calculate_accuracies([new_puzzle])
+            # Print the results to the console
+            results_information.print_results()
 
             output_dir = os.path.join('output', 'reconstructed')
             os.makedirs(output_dir, exist_ok=True)

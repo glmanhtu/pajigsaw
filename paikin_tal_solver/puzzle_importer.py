@@ -3,6 +3,8 @@
 .. moduleauthor:: Zayd Hammoudeh <hammoudeh@gmail.com>
 """
 import copy
+import io
+import logging
 import os
 import math
 import random
@@ -721,6 +723,160 @@ class PuzzleTester(object):
         # Remake the puzzle pieces
         puzzle.make_pieces()
         return puzzle
+
+
+class PuzzleResultsCollection(object):
+    """
+    Stores all the puzzle results information in a single collection.
+    """
+
+    _PERFORM_ASSERT_CHECKS = True
+
+    def __init__(self, puzzle_solver_type, puzzle_type, solved_puzzles, image_file_paths):
+        """
+        Constructs the puzzle results information.
+
+        Args:
+            puzzle_solver_type (PuzzleSolver): Type of Solver
+            solved_puzzles (List[List[PuzzlePieces]]): List of pieces in each of the puzzles output by the solver
+            image_file_paths (List[Str])): Names of the image files.
+        """
+
+        self._puzzle_solver_type = puzzle_solver_type
+        self._puzzle_type = puzzle_type
+        self._image_filenames = image_file_paths
+        self._numb_output_puzzles = len(solved_puzzles)
+
+        self._puzzle_results = []
+
+        # Iterate through all the solved puzzles
+        for set_of_pieces in solved_puzzles:
+            # Iterate through all of the pieces in the puzzle
+            for piece in set_of_pieces:
+
+                # Iterate through all the pieces
+                puzzle_exists = False
+                for i in range(0, len(self._puzzle_results)):
+                    # Check if the puzzle ID matches this set of results information.
+                    if piece.original_puzzle_id == self._puzzle_results[i].original_id_number:
+                        puzzle_exists = True
+                        self._puzzle_results[i].numb_pieces += 1
+                        continue
+
+                # If the puzzle does not exist, then create a results information
+                if not puzzle_exists:
+                    new_puzzle = PuzzleResultsInformation(piece.original_puzzle_id,
+                                                          image_file_paths[piece.original_puzzle_id])
+                    new_puzzle.numb_pieces = 1
+                    self._puzzle_results.append(new_puzzle)
+
+        # Sort by original puzzle id
+        self._puzzle_results = sorted(self._puzzle_results, key=lambda result: result.original_id_number)
+
+    def calculate_accuracies(self, solved_puzzles):
+        """
+        Results Accuracy Calculator
+
+        Calculates the standard direct, modified direct, and modified neighbor accuracies for a set of solved
+        puzzles.
+
+        Args:
+            solved_puzzles (List[Puzzle]): A set of solved puzzles
+
+        """
+
+        # Go through all of the original puzzles
+        for i in range(0, len(self._puzzle_results)):
+            for puzzle in solved_puzzles:
+                # Update the puzzle results
+                self._puzzle_results[i].resolve_direct_accuracies(puzzle)
+                self._puzzle_results[i].resolve_neighbor_accuracies(puzzle)
+
+    @property
+    def results(self):
+        """
+        Puzzle Results Accessor
+
+        Returns (PuzzleResultsInformation):
+            Puzzle results information for a single puzzle.
+        """
+        return self._puzzle_results
+
+    def print_results(self):
+        """
+        Solver Accuracy Results Printer
+
+        Prints the accuracy results of a solver to the console.
+        """
+
+        string_io = io.StringIO()
+        # Iterate through each puzzle and print that puzzle's results
+        for results in self._puzzle_results:
+            # Print the header line
+            print("Original Filename: %s" % results.original_filename, file=string_io)
+            print("Puzzle Identification Number: " + str(results.original_id_number) + "\n", file=string_io)
+
+            # Print the standard accuracy information
+            for accuracy_type in [ResultAccuracyMetric.StandardDirectAccuracy, ResultAccuracyMetric.ModifiedDirectAccuracy]:
+
+                # Select the type of direct accuracy to print >>string_io, .
+                if accuracy_type == ResultAccuracyMetric.StandardDirectAccuracy:
+                    acc_name = "\tStandard"
+                    direct_acc = results.standard_direct_accuracy
+                elif accuracy_type == ResultAccuracyMetric.ModifiedDirectAccuracy:
+                    acc_name = "\tModified"
+                    direct_acc = results.modified_direct_accuracy
+
+                # Print the selected direct accuracy type
+                numb_pieces_in_original_puzzle = results.numb_pieces
+                piece_count_weight = direct_acc.numb_different_puzzle + numb_pieces_in_original_puzzle
+                print("\tSolved Puzzle ID #%d" % direct_acc.solved_puzzle_id, file=string_io)
+                print(acc_name + " Direct Accuracy:\t\t%d/%d\t(%3.2f%%)" % (direct_acc.numb_correct_placements,
+                                                                                         piece_count_weight,
+                                                                                         100.0 * direct_acc.numb_correct_placements / piece_count_weight), file=string_io)
+                print(acc_name + " Numb from Diff Puzzle:\t%d/%d\t(%3.2f%%)" % (direct_acc.numb_different_puzzle,
+                                                                                             piece_count_weight,
+                                                                                             100.0 * direct_acc.numb_different_puzzle / piece_count_weight), file=string_io)
+                print(acc_name + " Numb Wrong Location:\t%d/%d\t(%3.2f%%)" % (direct_acc.numb_wrong_location,
+                                                                                           piece_count_weight,
+                                                                                           100.0 * direct_acc.numb_wrong_location / piece_count_weight), file=string_io)
+                print(acc_name + " Numb Wrong Rotation:\t%d/%d\t(%3.2f%%)" % (direct_acc.numb_wrong_rotation,
+                                                                                           piece_count_weight,
+                                                                                           100.0 * direct_acc.numb_wrong_rotation / piece_count_weight), file=string_io)
+                # Calculate the number of missing pieces
+                numb_pieces_missing = (numb_pieces_in_original_puzzle
+                                       - direct_acc.numb_pieces_from_original_puzzle_in_solved_puzzle)
+                print(acc_name + " Numb Pieces Missing:\t%d/%d\t(%3.2f%%)" % (numb_pieces_missing,
+                                                                                           numb_pieces_in_original_puzzle,
+                                                                                           100.0 * numb_pieces_missing / numb_pieces_in_original_puzzle), file=string_io)
+                # Print a new line to separate the results
+                print("", file=string_io)
+
+            # Print the modified neighbor accuracy
+            numb_pieces_in_original_puzzle = results.numb_pieces
+            neighbor_acc = results.modified_neighbor_accuracy
+            neighbor_count_weight = neighbor_acc.numb_pieces_in_original_puzzle + neighbor_acc.wrong_puzzle_id
+            neighbor_count_weight *= PuzzlePieceSide.get_numb_sides()
+            print("\tSolved Puzzle ID #%d" % neighbor_acc.solved_puzzle_id, file=string_io)
+            print("\tNeighbor Accuracy:\t\t%d/%d\t(%3.2f%%)" % (neighbor_acc.correct_neighbor_count,
+                                                                             neighbor_count_weight,
+                                                                             100.0 * neighbor_acc.correct_neighbor_count / neighbor_count_weight), file=string_io)
+            numb_missing_pieces = (numb_pieces_in_original_puzzle
+                                   - neighbor_acc.numb_pieces_from_original_puzzle_in_solved_puzzle)
+            print("\tNumb Missing Pieces:\t%d/%d\t(%3.2f%%)" % (numb_missing_pieces,
+                                                                             results.numb_pieces,
+                                                                             100.0 * numb_missing_pieces / results.numb_pieces), file=string_io)
+            numb_from_wrong_puzzle = neighbor_acc.wrong_puzzle_id
+            numb_pieces_in_puzzle = neighbor_acc.total_numb_pieces_in_solved_puzzle
+            print("\tNumb from Diff Puzzle:\t%d/%d\t(%3.2f%%)" % (numb_from_wrong_puzzle,
+                                                                               numb_pieces_in_puzzle,
+                                                                               100.0 * numb_from_wrong_puzzle / numb_pieces_in_puzzle), file=string_io)
+            # Print a new line to separate the results
+            print("", file=string_io)
+
+        # Log the result
+        logging.info(string_io.getvalue())
+        string_io.close()
 
 
 class PuzzleResultsInformation(object):

@@ -7,7 +7,7 @@ import os.path
 import random
 
 from paikin_tal_solver import puzzle_evaluation
-from paikin_tal_solver.puzzle_importer import Puzzle, PuzzleType
+from paikin_tal_solver.puzzle_importer import Puzzle, PuzzleType, PuzzleResultsCollection, PuzzleSolver
 from paikin_tal_solver.puzzle_piece import PuzzlePiece
 from paikin_tal_solver.solver import PaikinTalSolver
 
@@ -30,12 +30,7 @@ def paikin_tal_driver(pieces, piece_width, distance_fn):
     puzzle_id = first_piece.puzzle_id
 
     # Reconstruct the puzzle
-    new_puzzle = Puzzle.reconstruct_from_pieces(puzzle_pieces, piece_width, puzzle_id)
-    direct_accuracy = puzzle_evaluation.compute_direct_accuracy(new_puzzle)
-    perfect_pred = direct_accuracy == 1
-    neighbor_accuracy = puzzle_evaluation.compute_neighbor_accuracy(new_puzzle)
-
-    return perfect_pred, direct_accuracy, neighbor_accuracy, new_puzzle
+    return Puzzle.reconstruct_from_pieces(puzzle_pieces, piece_width, puzzle_id)
 
 
 if __name__ == "__main__":
@@ -52,10 +47,13 @@ if __name__ == "__main__":
             return PuzzlePiece.calculate_asymmetric_distance(piece_i, piece_i_side, piece_j, piece_j_side)
 
 
-        perfect_pred, direct_acc, neighbour_acc, new_puzzle = paikin_tal_driver(pieces, piece_width, distance_function)
-        perfect_predictions.append(perfect_pred)
-        direct_accuracies.append(direct_acc)
-        neighbour_accuracies.append(neighbour_acc)
+        new_puzzle = paikin_tal_driver(pieces, piece_width, distance_function)
+        results_information = PuzzleResultsCollection(PuzzleSolver.PaikinTal, PuzzleType.type1,
+                                                      [new_puzzle.pieces], [img_path])
+        # Calculate and print the accuracy results
+        results_information.calculate_accuracies([new_puzzle])
+        # Print the results to the console
+        results_information.print_results()
 
         output_dir = os.path.join('output', 'reconstructed')
         os.makedirs(output_dir, exist_ok=True)

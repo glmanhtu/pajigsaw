@@ -121,6 +121,16 @@ class PuzzlePieceSide(Enum):
         if self == PuzzlePieceSide.left:
             return PuzzlePieceSide.right
 
+    @property
+    def side_name(self):
+        """
+        Gets the name of a puzzle piece side without the class name
+
+        Returns (str):
+            The name of the side as a string
+        """
+        return str(self).split(".")[1]
+
 
 class PuzzlePiece(object):
     """
@@ -152,6 +162,7 @@ class PuzzlePiece(object):
         # Piece ID is left to the solver to set
         self._piece_id = piece_id
         self.origin_piece_id = piece_id
+        self._orig_piece_id = piece_id
 
         self._orig_puzzle_id = puzzle_id
         self._assigned_puzzle_id = None
@@ -171,12 +182,85 @@ class PuzzlePiece(object):
 
         # Rotation gets set later.
         self._rotation = None
+        self._actual_neighbor_ids = None
+        if puzzle_grid_size is not None:
+            self.calculate_actual_neighbor_id_numbers(puzzle_grid_size)
 
-    def is_correct_placement(self):
+    def calculate_actual_neighbor_id_numbers(self, puzzle_grid_size):
         """
-        Verify if the placement is absolutely correct
+        Neighbor ID Calculator
+
+        Given a grid size, this function calculates the identification number of this piece's neighbors.  If a piece
+        has no neighbor, then location associated with that puzzle piece is filled with "None".
+
+        Args:
+            puzzle_grid_size (List[int]): Grid size (number of rows, number of columns) for this piece's puzzle.
         """
-        return self._orig_loc == self.location
+
+        # Only need to calculate the actual neighbor id information once
+        if self._actual_neighbor_ids is not None:
+            return
+        # Initialize actual neighbor id information
+        self._actual_neighbor_ids = []
+
+        # Extract the information on the puzzle grid size
+        (numb_rows, numb_cols) = puzzle_grid_size
+
+        # Check the top location first
+        # If the row is 0, then it has no top neighbor
+        if self._orig_loc[0] == 0:
+            neighbor_id = None
+        else:
+            neighbor_id = self._orig_piece_id - numb_cols
+        self._actual_neighbor_ids.append((neighbor_id, PuzzlePieceSide.top))
+
+        # Check the right side
+        # If in the last column, it has no right neighbor
+        if self._orig_loc[1] + 1 == numb_cols:
+            neighbor_id = None
+        else:
+            neighbor_id = self._orig_piece_id + 1
+        self._actual_neighbor_ids.append((neighbor_id, PuzzlePieceSide.right))
+
+        # Check the bottom side
+        # If in the last column, it has no right neighbor
+        if self._orig_loc[0] + 1 == numb_rows:
+            neighbor_id = None
+        else:
+            neighbor_id = self._orig_piece_id + numb_cols
+        self._actual_neighbor_ids.append((neighbor_id, PuzzlePieceSide.bottom))
+
+        # Check the right side
+        # If in the last column, it has no left neighbor
+        if self._orig_loc[1] == 0:
+            neighbor_id = None
+        else:
+            neighbor_id = self._orig_piece_id - 1
+        self._actual_neighbor_ids.append((neighbor_id, PuzzlePieceSide.left))
+
+        # Convert the list to a tuple since it is immutable
+        self._actual_neighbor_ids = tuple(self._actual_neighbor_ids)
+
+    def is_correctly_placed(self, puzzle_offset_upper_left_location):
+        """
+        Piece Placement Checker
+
+        Checks whether the puzzle piece is correctly placed.
+
+        Args:
+            puzzle_offset_upper_left_location (Tuple[int]): Modified location for the origin of the puzzle
+
+        Returns (bool):
+            True if the puzzle piece is in the correct location and False otherwise.
+        """
+
+        # Verify all dimensions
+        for i in range(0, len(self._orig_loc)):
+            # If for the current dimension
+            if self._assigned_loc[i] - self._orig_loc[i] - puzzle_offset_upper_left_location[i] != 0:
+                return False
+        # Mark as correctly placed
+        return True
 
     def is_neighbor(self, piece, side: PuzzlePieceSide):
         current_loc = self._orig_loc
@@ -190,6 +274,23 @@ class PuzzlePiece(object):
         if side == PuzzlePieceSide.right:
             return (current_loc[0] == other_loc[0]) and (other_loc[1] - current_loc[1] == 1)
         raise Exception(f'Side {side} does not exists!')
+
+    @property
+    def original_neighbor_id_numbers_and_sides(self):
+        """
+        Neighbor Identification Number Property
+
+        In a puzzle, each piece has up to four neighbors.  This function access that identification number information.
+
+        Returns (List[int, PuzzlePieceSide]):
+            Identification number for the puzzle piece on the specified side of the original object.
+
+        """
+        # Verify that the array containing the neighbor id numbers is not none
+        assert self._actual_neighbor_ids is not None
+
+        # Return the piece's neighbor identification numbers
+        return self._actual_neighbor_ids
 
     @property
     def width(self):

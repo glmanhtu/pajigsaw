@@ -63,7 +63,7 @@ class DIV2KPatch(ImNetPatch):
         return sorted(glob.glob(os.path.join(dataset_dir, '**', '*.jpg'), recursive=True))
 
     def read_image(self, index):
-        if index > len(self.dataset):
+        if index >= len(self.dataset):
             index = index % len(self.dataset)
         img_path = self.dataset[index]
         with Image.open(img_path) as f:

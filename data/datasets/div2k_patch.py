@@ -48,9 +48,11 @@ class DIV2KPatch(ImNetPatch):
         target_transform: Optional[Callable] = None,
         image_size=64,
         erosion_ratio=0.07,
-        with_negative=False
+        with_negative=False,
+        repeat=20
     ) -> None:
         super().__init__(root, split, transforms, transform, target_transform, image_size, erosion_ratio, with_negative)
+        self.repeat = repeat
 
     @property
     def split(self) -> "DIV2KPatch.Split":
@@ -61,6 +63,8 @@ class DIV2KPatch(ImNetPatch):
         return sorted(glob.glob(os.path.join(dataset_dir, '**', '*.jpg'), recursive=True))
 
     def read_image(self, index):
+        if index > len(self.dataset):
+            index = index % len(self.dataset)
         img_path = self.dataset[index]
         with Image.open(img_path) as f:
             image = f.convert('RGB')
@@ -74,6 +78,12 @@ class DIV2KPatch(ImNetPatch):
             ])
             image = transforms(image)
         return image
+
+    def __len__(self) -> int:
+        if self.split.is_train():
+            return len(self.dataset) * (self.repeat + 1)
+        else:
+            return len(self.dataset)
 
 
 

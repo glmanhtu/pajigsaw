@@ -10,6 +10,7 @@ import torch.distributed as dist
 from timm.data import Mixup
 from timm.data import create_transform
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
+from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from .datasets.div2k_patch import DIV2KPatch
@@ -62,12 +63,13 @@ def build_loader(config):
             dataset_val, shuffle=config.TEST.SHUFFLE
         )
 
-    data_loader_train = torch.utils.data.DataLoader(
+    data_loader_train = DataLoader(
         dataset_train, sampler=sampler_train,
         batch_size=config.DATA.BATCH_SIZE,
         num_workers=config.DATA.NUM_WORKERS,
         pin_memory=config.DATA.PIN_MEMORY,
         drop_last=True,
+        persistent_workers=True
     )
 
     data_loader_val = torch.utils.data.DataLoader(

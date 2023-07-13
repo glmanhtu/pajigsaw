@@ -1,6 +1,7 @@
 import glob
 import logging
 import os
+import random
 from enum import Enum
 from typing import Callable, Optional, Union
 
@@ -49,7 +50,7 @@ class DIV2KPatch(ImNetPatch):
         image_size=64,
         erosion_ratio=0.07,
         with_negative=False,
-        repeat=50
+        repeat=1
     ) -> None:
         super().__init__(root, split, transforms, transform, target_transform, image_size, erosion_ratio, with_negative)
         self.repeat = repeat
@@ -68,6 +69,18 @@ class DIV2KPatch(ImNetPatch):
         img_path = self.dataset[index]
         with Image.open(img_path) as f:
             image = f.convert('RGB')
+
+        if self.split.is_train():
+            scale = random.uniform(0.8, 1.2)
+            transforms = torchvision.transforms.Compose([
+                torchvision.transforms.RandomApply(
+                    [torchvision.transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.2)],
+                    p=0.8
+                ),
+                torchvision.transforms.Resize((int(scale * image.height), int(scale * image.width)))
+            ])
+
+            image = transforms(image)
 
         return image
 

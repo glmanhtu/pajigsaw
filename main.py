@@ -45,6 +45,7 @@ def parse_option():
                         help='pretrained weight from checkpoint, could be imagenet22k pretrained weight')
     parser.add_argument('--resume', help='resume from checkpoint')
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
+    parser.add_argument('--n_epochs_per_eval', type=int, default=1)
     parser.add_argument('--use-checkpoint', action='store_true',
                         help="whether to use gradient checkpointing to save memory")
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
@@ -134,6 +135,9 @@ def main(config):
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
             save_checkpoint(config, epoch, model_without_ddp, min_loss, optimizer, lr_scheduler, loss_scaler,
                             logger, 'checkpoint')
+
+        if epoch % args.n_epochs_per_eval != 0:
+            continue
 
         loss, acc, f1 = validate(config, data_loader_val, model)
         logger.info(f"Evaluation: ACC: {acc:.2f}% F1: {f1:.2f}, Loss: {loss}")

@@ -132,12 +132,13 @@ def main(config):
 
         train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler,
                         loss_scaler)
-        if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
-            save_checkpoint(config, epoch, model_without_ddp, min_loss, optimizer, lr_scheduler, loss_scaler,
-                            logger, 'checkpoint')
 
         if epoch % args.n_epochs_per_eval != 0:
             continue
+
+        if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
+            save_checkpoint(config, epoch, model_without_ddp, min_loss, optimizer, lr_scheduler, loss_scaler,
+                            logger, 'checkpoint')
 
         loss, acc, f1 = validate(config, data_loader_val, model)
         logger.info(f"Evaluation: ACC: {acc:.2f}% F1: {f1:.2f}, Loss: {loss}")

@@ -136,7 +136,7 @@ def testing(config, model):
                         return pred[3] * 1000.
                 return float('inf')
 
-            new_puzzle = paikin_tal_driver(pieces, config.DATA.IMG_SIZE, distance_function)
+            new_puzzle = paikin_tal_driver(pieces, config.DATA.IMG_SIZE, distance_function, puzzle.grid_size)
             puzzles.append(new_puzzle)
 
             output_dir = os.path.join('output', 'reconstructed', subset)

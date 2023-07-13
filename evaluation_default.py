@@ -35,7 +35,7 @@ if __name__ == '__main__':
             def distance_function(piece_i, piece_i_side, piece_j, piece_j_side):
                 return PuzzlePiece.calculate_asymmetric_distance(piece_i, piece_i_side, piece_j, piece_j_side)
 
-            new_puzzle = paikin_tal_driver(pieces, args.image_size, distance_function)
+            new_puzzle = paikin_tal_driver(pieces, args.image_size, distance_function, puzzle.grid_size)
             puzzles.append(new_puzzle)
 
             output_dir = os.path.join('output', 'reconstructed')

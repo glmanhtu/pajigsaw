@@ -139,7 +139,7 @@ def testing(config, model):
             new_puzzle = paikin_tal_driver(pieces, config.DATA.IMG_SIZE, distance_function)
             puzzles.append(new_puzzle)
 
-            output_dir = os.path.join('output', 'reconstructed')
+            output_dir = os.path.join('output', 'reconstructed', subset)
             os.makedirs(output_dir, exist_ok=True)
             new_puzzle.save_to_file(os.path.join(output_dir, os.path.basename(img_path)))
 

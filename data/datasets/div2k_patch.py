@@ -61,7 +61,12 @@ class DIV2KPatch(ImNetPatch):
 
     def load_dataset(self):
         dataset_dir = os.path.join(self.root_dir, self.split.sub_dir)
-        return sorted(glob.glob(os.path.join(dataset_dir, '**', '*.jpg'), recursive=True))
+        images = []
+        for root, dirs, files in os.walk(dataset_dir):
+            for file in files:
+                if file.lower().endswith((".jpg", ".png")):
+                    images.append(os.path.join(root, file))
+        return images
 
     def read_image(self, index):
         if index >= len(self.dataset):

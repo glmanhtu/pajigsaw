@@ -245,6 +245,7 @@ class PaikinTalSolver(object):
                     and next_piece.mutual_compatibility < self._new_board_mutual_compatibility:
                 # PickleHelper.exporter(self, "paikin_tal_board_spawn.pk")
                 # return
+                print('New board is spawned')
                 self._spawn_new_board()
             else:
                 # Place the next piece

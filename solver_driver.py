@@ -12,10 +12,10 @@ from paikin_tal_solver.puzzle_piece import PuzzlePiece
 from paikin_tal_solver.solver import PaikinTalSolver
 
 
-def paikin_tal_driver(pieces, piece_width, distance_fn):
+def paikin_tal_driver(pieces, piece_width, distance_fn, fixed_puzzle_dimensions):
 
     # Create the Paikin Tal Solver
-    paikin_tal_solver = PaikinTalSolver(1, pieces, distance_fn, PuzzleType.type1)
+    paikin_tal_solver = PaikinTalSolver(1, pieces, distance_fn, PuzzleType.type1, 0, fixed_puzzle_dimensions)
 
     # Run the Solver
     paikin_tal_solver.run()

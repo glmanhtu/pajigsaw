@@ -80,34 +80,6 @@ _C.MODEL.PJS.QKV_BIAS = True
 _C.MODEL.PJS.QK_SCALE = None
 _C.MODEL.PJS.KEEP_ATTN = False
 
-# Swin Transformer parameters
-_C.MODEL.SWIN = CN()
-_C.MODEL.SWIN.PATCH_SIZE = 4
-_C.MODEL.SWIN.IN_CHANS = 3
-_C.MODEL.SWIN.EMBED_DIM = 96
-_C.MODEL.SWIN.DEPTHS = [2, 2, 6, 2]
-_C.MODEL.SWIN.NUM_HEADS = [3, 6, 12, 24]
-_C.MODEL.SWIN.WINDOW_SIZE = 7
-_C.MODEL.SWIN.MLP_RATIO = 4.
-_C.MODEL.SWIN.QKV_BIAS = True
-_C.MODEL.SWIN.QK_SCALE = None
-_C.MODEL.SWIN.APE = False
-_C.MODEL.SWIN.PATCH_NORM = True
-
-# Swin Transformer V2 parameters
-_C.MODEL.SWINV2 = CN()
-_C.MODEL.SWINV2.PATCH_SIZE = 4
-_C.MODEL.SWINV2.IN_CHANS = 3
-_C.MODEL.SWINV2.EMBED_DIM = 96
-_C.MODEL.SWINV2.DEPTHS = [2, 2, 6, 2]
-_C.MODEL.SWINV2.NUM_HEADS = [3, 6, 12, 24]
-_C.MODEL.SWINV2.WINDOW_SIZE = 7
-_C.MODEL.SWINV2.MLP_RATIO = 4.
-_C.MODEL.SWINV2.QKV_BIAS = True
-_C.MODEL.SWINV2.APE = False
-_C.MODEL.SWINV2.PATCH_NORM = True
-_C.MODEL.SWINV2.PRETRAINED_WINDOW_SIZES = [0, 0, 0, 0]
-
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------

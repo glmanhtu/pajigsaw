@@ -93,10 +93,6 @@ class Puzzle(object):
     # Define the number of dimensions in the BGR space (i.e. blue, green, red)
     NUMBER_BGR_DIMENSIONS = 3
 
-    export_with_border = True
-    border_width = 3
-    border_outer_stripe_width = 1
-
     def __init__(self, id_number, image_filename=None, piece_width=None, starting_piece_id=0, erosion=0):
         """Puzzle Constructor
 

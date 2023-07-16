@@ -4,6 +4,9 @@ import os
 import random
 from enum import Enum
 from typing import Callable, Optional, Union
+import numpy as np
+import albumentations as A
+
 
 import torchvision
 from PIL import Image
@@ -77,11 +80,17 @@ class DIV2KPatch(ImNetPatch):
 
         if self.split.is_train():
             scale = random.uniform(0.8, 1.2)
+            train_transform = A.Compose(
+                [
+                    A.Rotate(limit=20, crop_border=True, p=0.3)
+                ]
+            )
             transforms = torchvision.transforms.Compose([
-                torchvision.transforms.RandomApply(
-                    [torchvision.transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.2)],
-                    p=0.8
-                ),
+                torchvision.transforms.RandomHorizontalFlip(),
+                torchvision.transforms.RandomVerticalFlip(),
+                lambda x: np.asarray(x),
+                lambda x: train_transform(image=x)['image'],
+                torchvision.transforms.ToPILImage(),
                 torchvision.transforms.Resize((int(scale * image.height), int(scale * image.width)))
             ])
 

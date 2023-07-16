@@ -39,9 +39,14 @@ for image_path in tqdm.tqdm(images):
     image_name = os.path.splitext(os.path.basename(image_path))[0]
     patch_dir = os.path.join(args.output_path, image_name)
     os.makedirs(patch_dir, exist_ok=True)
-    for i in range(n_rows):
-        for j in range(n_cols):
-            box = (j*group_patch_size[1], i*group_patch_size[0], (j+1)*group_patch_size[1], (i+1)*group_patch_size[0])
+    i = 0.
+    while (i+1) * group_patch_size[1] <= image.height:
+        j = 0
+        while (j+1) * group_patch_size[1] <= image.width:
+            box = (int(j*group_patch_size[1]), int(i*group_patch_size[0]),
+                   int((j+1)*group_patch_size[1]), int((i+1)*group_patch_size[0]))
             patch = image.crop(box)
             patch_name = f'{i}_{j}.jpg'
             patch.save(os.path.join(patch_dir, patch_name))
+            j += 0.5
+        i += 0.5

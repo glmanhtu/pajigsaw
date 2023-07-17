@@ -4,6 +4,9 @@ import os
 import random
 from enum import Enum
 from typing import Callable, Optional, Union
+import numpy as np
+import albumentations as A
+
 
 import torchvision
 from PIL import Image
@@ -50,7 +53,7 @@ class DIV2KPatch(ImNetPatch):
         image_size=64,
         erosion_ratio=0.07,
         with_negative=False,
-        repeat=10
+        repeat=5
     ) -> None:
         super().__init__(root, split, transforms, transform, target_transform, image_size, erosion_ratio, with_negative)
         self.repeat = repeat
@@ -61,7 +64,12 @@ class DIV2KPatch(ImNetPatch):
 
     def load_dataset(self):
         dataset_dir = os.path.join(self.root_dir, self.split.sub_dir)
-        return sorted(glob.glob(os.path.join(dataset_dir, '**', '*.jpg'), recursive=True))
+        images = []
+        for root, dirs, files in os.walk(dataset_dir):
+            for file in files:
+                if file.lower().endswith((".jpg", ".png")):
+                    images.append(os.path.join(root, file))
+        return images
 
     def read_image(self, index):
         if index >= len(self.dataset):
@@ -72,11 +80,17 @@ class DIV2KPatch(ImNetPatch):
 
         if self.split.is_train():
             scale = random.uniform(0.8, 1.2)
+            train_transform = A.Compose(
+                [
+                    A.Rotate(limit=20, crop_border=True, p=0.3)
+                ]
+            )
             transforms = torchvision.transforms.Compose([
-                torchvision.transforms.RandomApply(
-                    [torchvision.transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.2)],
-                    p=0.8
-                ),
+                torchvision.transforms.RandomHorizontalFlip(),
+                torchvision.transforms.RandomVerticalFlip(),
+                lambda x: np.asarray(x),
+                lambda x: train_transform(image=x)['image'],
+                torchvision.transforms.ToPILImage(),
                 torchvision.transforms.Resize((int(scale * image.height), int(scale * image.width)))
             ])
 

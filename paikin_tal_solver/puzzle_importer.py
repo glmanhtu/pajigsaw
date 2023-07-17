@@ -788,12 +788,9 @@ class PuzzleResultsCollection(object):
 
         """
 
-        # Go through all of the original puzzles
-        for i in range(0, len(self._puzzle_results)):
-            for puzzle in solved_puzzles:
-                # Update the puzzle results
-                self._puzzle_results[i].resolve_direct_accuracies(puzzle)
-                self._puzzle_results[i].resolve_neighbor_accuracies(puzzle)
+        for puzzle_results, puzzle in zip(self._puzzle_results, solved_puzzles):
+            puzzle_results.resolve_direct_accuracies(puzzle)
+            puzzle_results.resolve_neighbor_accuracies(puzzle)
 
     @property
     def results(self):

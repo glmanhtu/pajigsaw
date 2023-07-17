@@ -459,7 +459,13 @@ class Puzzle(object):
 
         # Select whether to display the image rotated
         piece_bgr = piece.bgr_image()
-        piece_bgr = cv2.copyMakeBorder(piece_bgr, pad_size, pad_size, pad_size, pad_size, cv2.BORDER_CONSTANT)
+        if not piece.is_correctly_placed((0, 0)):
+            piece_bgr = cv2.copyMakeBorder(piece_bgr, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=[0, 0, 255])
+            p = pad_size - 1
+            piece_bgr = cv2.copyMakeBorder(piece_bgr, p, p, p, p, cv2.BORDER_CONSTANT)
+        else:
+            p = pad_size
+            piece_bgr = cv2.copyMakeBorder(piece_bgr, p, p, p, p, cv2.BORDER_CONSTANT)
         if piece.rotation is None or piece.rotation == PuzzlePieceRotation.degree_0:
             Puzzle.insert_subimage(self._img, upper_left, piece_bgr)
         else:

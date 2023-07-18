@@ -53,7 +53,7 @@ class DIV2KPatch(ImNetPatch):
         image_size=64,
         erosion_ratio=0.07,
         with_negative=False,
-        repeat=5
+        repeat=2
     ) -> None:
         super().__init__(root, split, transforms, transform, target_transform, image_size, erosion_ratio, with_negative)
         self.repeat = repeat

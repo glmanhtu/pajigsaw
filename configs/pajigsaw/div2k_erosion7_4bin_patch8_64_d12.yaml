@@ -1,6 +1,6 @@
 MODEL:
   TYPE: pjs
-  NAME: div2k_erosion7_4bin_patch8_64
+  NAME: div2k_erosion7_4bin_patch8_64_d12
   DROP_PATH_RATE: 0.1
   NUM_CLASSES: 4
   PJS:

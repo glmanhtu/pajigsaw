@@ -79,6 +79,7 @@ _C.MODEL.PJS.MLP_RATIO = 4.
 _C.MODEL.PJS.QKV_BIAS = True
 _C.MODEL.PJS.QK_SCALE = None
 _C.MODEL.PJS.KEEP_ATTN = False
+_C.MODEL.PJS.ARCH_V2 = False
 
 # -----------------------------------------------------------------------------
 # Training settings

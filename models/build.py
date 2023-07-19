@@ -23,7 +23,8 @@ def build_model(config, is_pretrain=False):
             num_heads=config.MODEL.PJS.NUM_HEADS,
             mlp_ratio=config.MODEL.PJS.MLP_RATIO,
             qkv_bias=config.MODEL.PJS.QKV_BIAS,
-            keep_attn=config.MODEL.PJS.KEEP_ATTN
+            keep_attn=config.MODEL.PJS.KEEP_ATTN,
+            arch_v2=config.MODEL.PJS.ARCH_V2
         )
     else:
         raise NotImplementedError(f"Unkown model: {model_type}")

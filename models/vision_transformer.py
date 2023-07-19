@@ -345,6 +345,8 @@ class VisionTransformerCustom(VisionTransformer):
         self.cross_blocks[-1].cross_attn.keep_attn = keep_attn
         self.keep_attn = keep_attn
         self.arch_v2 = arch_v2
+        if arch_v2:
+            print('Using V2 Arch!')
 
     def _pos_embed_no_cls(self, x):
         x = x + self.pos_embed[:, 1:]

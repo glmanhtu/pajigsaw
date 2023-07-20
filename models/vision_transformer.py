@@ -147,8 +147,9 @@ class CrossAttention(nn.Module):
 
     def forward(self, x, context):
         B, N, C = x.shape
+        B, NC, C = context.shape
         q = self.q(x).reshape(B, N, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
-        kv = self.kv(context).reshape(B, N - 1, 2, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        kv = self.kv(context).reshape(B, NC, 2, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
         k, v = kv.unbind(0)
         q, k = self.q_norm(q), self.k_norm(k)
 
@@ -285,7 +286,7 @@ class VisionTransformerCustom(VisionTransformer):
             cross_block_fn: Callable = CrossBlock,
             mlp_layer: Callable = Mlp,
             keep_attn=False,
-            arch_v2=False,
+            arch_version='v1',
     ):
         """
         Args:
@@ -344,9 +345,25 @@ class VisionTransformerCustom(VisionTransformer):
         self.cross_blocks[-1].attn.keep_attn = keep_attn
         self.cross_blocks[-1].cross_attn.keep_attn = keep_attn
         self.keep_attn = keep_attn
-        self.arch_v2 = arch_v2
-        if arch_v2:
-            print('Using V2 Arch!')
+        self.arch_version = arch_version.lower()
+        print(f'Using {arch_version} Arch!')
+        if self.arch_version == 'v3':
+            self.blocks = nn.ModuleList([
+                cross_block_fn(
+                    dim=embed_dim,
+                    num_heads=num_heads,
+                    mlp_ratio=mlp_ratio,
+                    qkv_bias=qkv_bias,
+                    qk_norm=qk_norm,
+                    init_values=init_values,
+                    proj_drop=proj_drop_rate,
+                    attn_drop=attn_drop_rate,
+                    drop_path=dpr_cross[i],
+                    norm_layer=norm_layer,
+                    act_layer=act_layer,
+                    mlp_layer=mlp_layer,
+                )
+                for i in range(c_depth)])
 
     def _pos_embed_no_cls(self, x):
         x = x + self.pos_embed[:, 1:]
@@ -381,17 +398,35 @@ class VisionTransformerCustom(VisionTransformer):
         x2 = self.patch_drop(x2)
         x2 = self.norm_pre(x2)
 
-        x1 = self.blocks(x1)
-
         for blk, c_blk in zip(self.blocks, self.cross_blocks):
             x1 = blk(x1)
             x2 = c_blk(x2, x1)
         x = self.norm(x2)
         return x
 
+    def forward_features_v3(self, x):
+        x1, x2 = torch.unbind(x, 1)
+        x1 = self.patch_embed(x1)
+        x1 = self._pos_embed_no_cls(x1)
+        x1 = self.patch_drop(x1)
+        x1 = self.norm_pre(x1)
+
+        x2 = self.patch_embed(x2)
+        x2 = self._pos_embed(x2)
+        x2 = self.patch_drop(x2)
+        x2 = self.norm_pre(x2)
+
+        for blk, c_blk in zip(self.blocks, self.cross_blocks):
+            x1 = blk(x1, x2)
+            x2 = c_blk(x2, x1)
+        x = self.norm(x2)
+        return x
+
     def forward(self, x):
-        if self.arch_v2:
+        if self.arch_version == 'v2':
             x = self.forward_features_v2(x)
+        elif self.arch_version == 'v3':
+            x = self.forward_features_v3(x)
         else:
             x = self.forward_features(x)
         x = self.forward_head(x)

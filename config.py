@@ -103,6 +103,8 @@ _C.TRAIN.ACCUMULATION_STEPS = 1
 # could be overwritten by command line argument
 _C.TRAIN.USE_CHECKPOINT = False
 
+_C.TRAIN.LOAD_LR_SCHEDULER = True
+
 # LR scheduler
 _C.TRAIN.LR_SCHEDULER = CN()
 _C.TRAIN.LR_SCHEDULER.NAME = 'cosine'

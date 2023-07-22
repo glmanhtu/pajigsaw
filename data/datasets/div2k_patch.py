@@ -99,10 +99,7 @@ class DIV2KPatch(ImNetPatch):
         return image
 
     def __len__(self) -> int:
-        if self.split.is_train():
-            return len(self.dataset) * (self.repeat + 1)
-        else:
-            return len(self.dataset)
+        return len(self.dataset) * self.repeat
 
 
 

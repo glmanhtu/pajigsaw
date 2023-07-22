@@ -132,8 +132,9 @@ def build_dataset(mode, config):
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
     elif config.DATA.DATASET == 'div2k':
         split = DIV2KPatch.Split.from_string(mode)
+        repeat = 2 if split.is_train() else 50
         dataset = DIV2KPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
-                             image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
+                             image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO, repeat=repeat)
     elif config.DATA.DATASET == 'puzzle':
         dataset = PuzzleDataset(config.DATA.DATA_PATH, transform=transform,
                                 image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)

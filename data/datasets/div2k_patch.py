@@ -82,7 +82,8 @@ class DIV2KPatch(ImNetPatch):
             scale = random.uniform(0.8, 1.2)
             train_transform = A.Compose(
                 [
-                    A.Rotate(limit=20, crop_border=True, p=0.3)
+                    A.Rotate(limit=20, crop_border=True, p=0.4),
+                    A.RGBShift(r_shift_limit=15, g_shift_limit=15, b_shift_limit=15, p=0.5),
                 ]
             )
             transforms = torchvision.transforms.Compose([

@@ -79,20 +79,18 @@ class DIV2KPatch(ImNetPatch):
             image = f.convert('RGB')
 
         if self.split.is_train():
-            scale = random.uniform(0.8, 1.2)
             train_transform = A.Compose(
                 [
-                    A.Rotate(limit=20, crop_border=True, p=0.4),
+                    A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.15, rotate_limit=20, p=0.5),
                     A.RGBShift(r_shift_limit=15, g_shift_limit=15, b_shift_limit=15, p=0.5),
                 ]
             )
             transforms = torchvision.transforms.Compose([
                 torchvision.transforms.RandomHorizontalFlip(),
                 torchvision.transforms.RandomVerticalFlip(),
-                lambda x: np.asarray(x),
+                lambda x: np.array(x),
                 lambda x: train_transform(image=x)['image'],
                 torchvision.transforms.ToPILImage(),
-                torchvision.transforms.Resize((int(scale * image.height), int(scale * image.width)))
             ])
 
             image = transforms(image)

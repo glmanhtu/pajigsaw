@@ -118,10 +118,7 @@ def build_test_loader(config):
 
 def build_dataset(mode, config):
     patch_size = config.DATA.IMG_SIZE
-    if mode == 'train':
-        transform = TwoImgSyncAugmentation(patch_size)
-    else:
-        transform = TwoImgSyncEval(patch_size)
+    transform = TwoImgSyncEval(patch_size)
     if config.DATA.DATASET == 'jigsaw_imnet':
         split = JigSawImNet.Split.from_string(mode)
         dataset = JigSawImNet(config.DATA.DATA_PATH, split, transform=transform)

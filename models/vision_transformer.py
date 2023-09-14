@@ -417,8 +417,9 @@ class VisionTransformerCustom(VisionTransformer):
         x2 = self.norm_pre(x2)
 
         for blk, c_blk in zip(self.blocks, self.cross_blocks):
+            pre_x1 = x1
             x1 = blk(x1, x2)
-            x2 = c_blk(x2, x1)
+            x2 = c_blk(x2, pre_x1)
         x = self.norm(x2)
         return x
 

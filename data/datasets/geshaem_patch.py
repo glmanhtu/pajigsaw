@@ -14,6 +14,7 @@ import torchvision
 from PIL import Image
 from datasets import load_dataset
 from torchvision.datasets import VisionDataset
+import albumentations as A
 
 from data import transforms
 
@@ -141,6 +142,23 @@ class GeshaemPatch(VisionDataset):
         label = [1, 0, 0, 0]
         if image.height > image.width:
             label = [0, 1, 0, 0]
+
+        if self.split.is_train():
+            train_transform = A.Compose(
+                [
+                    A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.15, rotate_limit=20, p=0.5),
+                    A.RGBShift(r_shift_limit=15, g_shift_limit=15, b_shift_limit=15, p=0.5),
+                ]
+            )
+            img_transforms = torchvision.transforms.Compose([
+                torchvision.transforms.RandomHorizontalFlip(),
+                torchvision.transforms.RandomVerticalFlip(),
+                lambda x: np.array(x),
+                lambda x: train_transform(image=x)['image'],
+                torchvision.transforms.ToPILImage(),
+            ])
+
+            image = img_transforms(image)
 
         patches = transforms.split_with_gap(image, 0.5, 0)
         min_size = min([min(x.width, x.height) for x in patches])

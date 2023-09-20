@@ -24,7 +24,8 @@ _Target = int
 excluded = ["0567n_IRR.jpg", "0567p_IRR.jpg", "0567q_IRR.jpg", "0567t_IRR.jpg", "2881f_IRR.jpg"
             "0810a_IRR.jpg", "1306g_IRR.jpg", "1322i_IRR.jpg", "1374e_IRR.jpg", "1378d_IRR.jpg",
             "1378f_IRR.jpg", "2733t_IRR.jpg", "2849e_IRR.jpg", "2867e_IRR.jpg", "2867g_IRR.jpg",
-            "2843a_IRR.jpg", "2881f_IRR.jpg"]
+            "2843a_IRR.jpg", "2881f_IRR.jpg", "0810a_IRR.jpg", "1290u_IRR.jpg", "2842c_IRR.jpg",
+            "2849b_IRR.jpg", "2859a_IRR.jpg"]
 
 class _Split(Enum):
     TRAIN = "train"
@@ -45,7 +46,7 @@ class UnableToCrop(Exception):
 
 
 class CustomRandomCrop:
-    def __init__(self, crop_size, white_percentage_limit=0.45, max_retry=200):
+    def __init__(self, crop_size, white_percentage_limit=0.38, max_retry=200):
         self.cropper = torchvision.transforms.RandomCrop(crop_size, pad_if_needed=True, fill=255)
         self.white_percentage_limit = white_percentage_limit
         self.max_retry = max_retry
@@ -55,7 +56,7 @@ class CustomRandomCrop:
             raise UnableToCrop('Unable to crop')
         out = self.cropper(img)
         gray = np.array(out.convert('L'))
-        patch_bg_per = np.sum(gray > 250) / (gray.shape[0] * gray.shape[1])
+        patch_bg_per = np.sum(gray == 255) / (gray.shape[0] * gray.shape[1])
         if patch_bg_per > self.white_percentage_limit:
             return self.crop(img, current_retry + 1)
         return out
@@ -78,7 +79,7 @@ class GeshaemPatch(VisionDataset):
         image_size=512,
         erosion_ratio=0.07,
         with_negative=False,
-        repeat=0,
+        repeat=1,
         min_size_limit=290
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)

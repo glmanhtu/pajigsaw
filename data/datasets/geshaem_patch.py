@@ -160,12 +160,17 @@ class GeshaemPatch(VisionDataset):
                 label = [0, 0, 0, 1]
 
         if 0.3 > torch.rand(1):
-            other_index = random.choice([i for i in range(len(self.dataset)) if i != index])
-            with Image.open(self.dataset[other_index]) as f:
-                other_image = f.convert('RGB')
-            cropper = CustomRandomCrop((second_img.height, second_img.width))
-            second_img = cropper(other_image)
-            label = [0, 0, 0, 0]
+            while True:
+                try:
+                    other_index = random.choice([i for i in range(len(self.dataset)) if i != index])
+                    with Image.open(self.dataset[other_index]) as f:
+                        other_image = f.convert('RGB')
+                    cropper = CustomRandomCrop((second_img.height, second_img.width))
+                    second_img = cropper(other_image)
+                    label = [0, 0, 0, 0]
+                    break
+                except UnableToCrop:
+                    pass
 
         if self.transform is not None:
             first_img, second_img = self.transform(first_img, second_img)

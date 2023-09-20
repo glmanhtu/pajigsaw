@@ -1,3 +1,8 @@
+# ------------
+# Adopted from https://github.com/hila-chefer/Transformer-MM-Explainability
+# -------------
+
+
 import argparse
 import colorsys
 import logging

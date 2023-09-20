@@ -25,7 +25,7 @@ excluded = ["0567n_IRR.jpg", "0567p_IRR.jpg", "0567q_IRR.jpg", "0567t_IRR.jpg", 
             "0810a_IRR.jpg", "1306g_IRR.jpg", "1322i_IRR.jpg", "1374e_IRR.jpg", "1378d_IRR.jpg",
             "1378f_IRR.jpg", "2733t_IRR.jpg", "2849e_IRR.jpg", "2867e_IRR.jpg", "2867g_IRR.jpg",
             "2843a_IRR.jpg", "2881f_IRR.jpg", "0810a_IRR.jpg", "1290u_IRR.jpg", "2842c_IRR.jpg",
-            "2849b_IRR.jpg", "2859a_IRR.jpg"]
+            "2849b_IRR.jpg", "2859a_IRR.jpg", "2901g_IRR.jpg", "2967c_IRR.jpg"]
 
 class _Split(Enum):
     TRAIN = "train"

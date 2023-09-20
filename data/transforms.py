@@ -92,3 +92,18 @@ def crop(im: Image, n_cols, n_rows):
             box = (j*width, i*height, (j+1)*width, (i+1)*height)
             patches.append(im.crop(box))
     return patches
+
+
+def split_with_gap(im: Image, long_direction_ratio, gap: float):
+    patches = []
+    if im.width > im.height:
+        box = 0, 0, int(long_direction_ratio * im.width), im.height
+        patches.append(im.crop(box))
+        box = int((long_direction_ratio + gap) * im.width), 0, im.width, im.height
+        patches.append(im.crop(box))
+    else:
+        box = 0, 0, im.width, int(long_direction_ratio * im.height)
+        patches.append(im.crop(box))
+        box = 0, int((long_direction_ratio + gap) * im.height), im.width, im.height
+        patches.append(im.crop(box))
+    return patches

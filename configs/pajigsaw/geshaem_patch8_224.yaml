@@ -1,0 +1,11 @@
+MODEL:
+  TYPE: pjs
+  NAME: geshaem_patch8_224
+  DROP_PATH_RATE: 0.1
+  NUM_CLASSES: 2
+  PJS:
+    EMBED_DIM: 384
+    PATCH_SIZE: 8
+DATA:
+  DATASET: geshaem
+  IMG_SIZE: 224

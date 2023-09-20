@@ -7,6 +7,7 @@ import torch
 import torchvision.transforms
 
 from data.datasets.div2k_patch import DIV2KPatch
+from data.datasets.geshaem_patch import GeshaemPatch
 from data.transforms import TwoImgSyncEval, UnNormalize
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s :: %(levelname)s :: %(message)s')
@@ -16,7 +17,7 @@ parser.add_argument('--data-path', required=True, type=str, help='path to datase
 args = parser.parse_args()
 
 transform = TwoImgSyncEval(224)
-train_dataset = DIV2KPatch(args.data_path, split=DIV2KPatch.Split.TRAIN, transform=transform, with_negative=True)
+train_dataset = GeshaemPatch(args.data_path, split=GeshaemPatch.Split.TRAIN, transform=transform, with_negative=True)
 un_normaliser = torchvision.transforms.Compose([
     UnNormalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     torchvision.transforms.ToPILImage(),

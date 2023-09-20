@@ -1,5 +1,5 @@
 # ------------
-# Adopted from https://github.com/hila-chefer/Transformer-MM-Explainability
+# Adapted from https://github.com/hila-chefer/Transformer-MM-Explainability
 # -------------
 
 

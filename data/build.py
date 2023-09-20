@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from .datasets.div2k_patch import DIV2KPatch
+from .datasets.geshaem_patch import GeshaemPatch
 from .datasets.imnet_patch import ImNetPatch
 from .datasets.jigsaw_imnet import JigSawImNet
 from .datasets.pieces_dataset_eval import PuzzleDataset
@@ -132,6 +133,11 @@ def build_dataset(mode, config):
         repeat = 5 if split.is_train() else 10
         dataset = DIV2KPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO, repeat=repeat)
+    elif config.DATA.DATASET == 'geshaem':
+        split = GeshaemPatch.Split.from_string(mode)
+        repeat = 5 if split.is_train() else 10
+        dataset = GeshaemPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
+                               erosion_ratio=config.DATA.EROSION_RATIO, repeat=repeat)
     elif config.DATA.DATASET == 'puzzle':
         dataset = PuzzleDataset(config.DATA.DATA_PATH, transform=transform,
                                 image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)

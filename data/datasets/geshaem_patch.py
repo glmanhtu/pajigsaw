@@ -47,20 +47,21 @@ class UnableToCrop(Exception):
 
 
 class CustomRandomCrop:
-    def __init__(self, crop_size, white_percentage_limit=0.38, max_retry=200):
+    def __init__(self, crop_size, white_percentage_limit=0.38, max_retry=1000):
         self.cropper = torchvision.transforms.RandomCrop(crop_size, pad_if_needed=True, fill=255)
         self.white_percentage_limit = white_percentage_limit
         self.max_retry = max_retry
 
-    def crop(self, img, current_retry=0):
-        if current_retry > self.max_retry:
-            raise UnableToCrop('Unable to crop')
-        out = self.cropper(img)
-        gray = np.array(out.convert('L'))
-        patch_bg_per = np.sum(gray == 255) / (gray.shape[0] * gray.shape[1])
-        if patch_bg_per > self.white_percentage_limit:
-            return self.crop(img, current_retry + 1)
-        return out
+    def crop(self, img):
+        current_retry = 0
+        while current_retry < self.max_retry:
+            out = self.cropper(img)
+            gray = np.array(out.convert('L'))
+            patch_bg_per = np.sum(gray == 255) / (gray.shape[0] * gray.shape[1])
+            if patch_bg_per <= self.white_percentage_limit:
+                return out
+            current_retry += 1
+        raise UnableToCrop('Unable to crop')
 
     def __call__(self, img):
         return self.crop(img)

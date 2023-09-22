@@ -46,7 +46,7 @@ class UnableToCrop(Exception):
 
 
 class CustomRandomCrop:
-    def __init__(self, crop_size, white_percentage_limit=0.5, max_retry=1000):
+    def __init__(self, crop_size, white_percentage_limit=0.45, max_retry=1000):
         self.cropper = torchvision.transforms.RandomCrop(crop_size, pad_if_needed=True, fill=255)
         self.white_percentage_limit = white_percentage_limit
         self.max_retry = max_retry
@@ -135,6 +135,7 @@ class GeshaemPatch(VisionDataset):
             cropper = CustomRandomCrop((height, width))
             cropper_candidates.append(cropper)
 
+        height, width = image.height, image.width
         if image.height > self.image_size * 2:
             height = random.randint(self.image_size * 2, min(self.image_size * 4, image.height))
             if width > self.image_size:

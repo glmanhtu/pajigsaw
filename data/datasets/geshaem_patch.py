@@ -3,18 +3,16 @@ import logging
 import math
 import os
 import random
-
-import imagesize
-import numpy as np
 from enum import Enum
 from typing import Callable, Optional, Union
 
+import albumentations as A
+import imagesize
+import numpy as np
 import torch
 import torchvision
 from PIL import Image
-from datasets import load_dataset
 from torchvision.datasets import VisionDataset
-import albumentations as A
 
 from data import transforms
 
@@ -27,6 +25,7 @@ excluded = ["0567n_IRR.jpg", "0567p_IRR.jpg", "0567q_IRR.jpg", "0567t_IRR.jpg", 
             "1378f_IRR.jpg", "2733t_IRR.jpg", "2849e_IRR.jpg", "2867e_IRR.jpg", "2867g_IRR.jpg",
             "2843a_IRR.jpg", "2881f_IRR.jpg", "0810a_IRR.jpg", "1290u_IRR.jpg", "2842c_IRR.jpg",
             "2849b_IRR.jpg", "2859a_IRR.jpg", "2901g_IRR.jpg", "2967c_IRR.jpg"]
+
 
 class _Split(Enum):
     TRAIN = "train"
@@ -128,14 +127,19 @@ class GeshaemPatch(VisionDataset):
             image = f.convert('RGB')
 
         cropper_candidates = []
+        height, width = image.height, image.width
         if image.width > self.image_size * 2:
             width = random.randint(self.image_size * 2, min(self.image_size * 4, image.width))
-            cropper = CustomRandomCrop((self.image_size, width))
+            if height > self.image_size:
+                height = random.randint(self.image_size, min(width // 2, image.height))
+            cropper = CustomRandomCrop((height, width))
             cropper_candidates.append(cropper)
 
         if image.height > self.image_size * 2:
             height = random.randint(self.image_size * 2, min(self.image_size * 4, image.height))
-            cropper = CustomRandomCrop((height, self.image_size))
+            if width > self.image_size:
+                width = random.randint(self.image_size, min(height // 2, image.width))
+            cropper = CustomRandomCrop((height, width))
             cropper_candidates.append(cropper)
 
         cropper = random.choice(cropper_candidates)

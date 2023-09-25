@@ -3,6 +3,7 @@ import csv
 import datetime
 import json
 import os
+import pickle
 import random
 import time
 
@@ -12,6 +13,7 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import tqdm
 from torch.utils.data import Dataset
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from config import get_config
 from data.datasets.geshaem_test import GeshaemTest
@@ -91,15 +93,23 @@ def testing(config, model):
         drop_last=False
     )
 
+    preds, entries = [], []
+    logger.info('Starting to analyse images...')
+    with logging_redirect_tqdm():
+        for images, targets in tqdm.tqdm(data_loader):
+            images = images.cuda(non_blocking=True)
+
+            # compute output
+            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                output = model(images)
+
+            preds.append(torch.sigmoid(output).cpu())
+            entries.append(targets)
+
     similarity_map = {}
-    for images, targets in tqdm.tqdm(data_loader):
-        images = images.cuda(non_blocking=True)
-
-        # compute output
-        with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            output = model(images)
-
-        for pred, entry_id in zip(torch.sigmoid(output).cpu().numpy(), targets.numpy()):
+    logger.info('Starting to create similarity matrix...')
+    for output, targets in zip(preds, entries):
+        for pred, entry_id in zip(output.numpy(), targets.numpy()):
             im_1, im_2 = dataset.dataset[entry_id]
             im_1, im_2 = os.path.basename(im_1), os.path.basename(im_2)
             if im_1 not in similarity_map:
@@ -107,13 +117,16 @@ def testing(config, model):
             if im_2 not in similarity_map[im_1]:
                 similarity_map[im_1][im_2] = []
 
-            similarity_map[im_1][im_2].append(np.max(pred))
+            similarity_map[im_1][im_2].append(pred)
+
+    with open('similarity_matrix.pkl', 'wb') as f:
+        pickle.dump(similarity_map, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     records = []
     for im_1 in similarity_map:
         record = {'#': im_1}
         for im_2 in similarity_map[im_1]:
-            record[im_2] = similarity_map[im_1][im_2]
+            record[im_2] = max([np.max(x) for x in similarity_map[im_1][im_2]])
         records.append(record)
 
     with open('similarity_matrix.csv', 'w') as f:

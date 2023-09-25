@@ -99,7 +99,7 @@ def testing(config, model):
         drop_last=False
     )
 
-    preds, entries = [], []
+    preds, entries = torch.empty((0, 4)), torch.empty((0,))
     logger.info('Starting to analyse images...')
     for i in range(50):
         logger.info(f'Epoch {i}')
@@ -110,21 +110,20 @@ def testing(config, model):
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                 output = model(images)
 
-            preds.append(torch.sigmoid(output).cpu())
-            entries.append(targets)
+            preds = torch.cat([preds, torch.sigmoid(output).cpu()])
+            entries = torch.cat([entries, targets])
 
     similarity_map = {}
     logger.info('Starting to create similarity matrix...')
-    for output, targets in zip(preds, entries):
-        for pred, entry_id in zip(output.numpy(), targets.numpy()):
-            im_1, im_2 = dataset.dataset[entry_id]
-            im_1, im_2 = os.path.basename(im_1), os.path.basename(im_2)
-            if im_1 not in similarity_map:
-                similarity_map[im_1] = {}
-            if im_2 not in similarity_map[im_1]:
-                similarity_map[im_1][im_2] = []
+    for pred, entry_id in zip(preds.numpy(), entries.numpy()):
+        im_1, im_2 = dataset.dataset[entry_id]
+        im_1, im_2 = os.path.basename(im_1), os.path.basename(im_2)
+        if im_1 not in similarity_map:
+            similarity_map[im_1] = {}
+        if im_2 not in similarity_map[im_1]:
+            similarity_map[im_1][im_2] = []
 
-            similarity_map[im_1][im_2].append(pred)
+        similarity_map[im_1][im_2].append(pred)
 
     with open('similarity_matrix.pkl', 'wb') as f:
         pickle.dump(similarity_map, f, protocol=pickle.HIGHEST_PROTOCOL)

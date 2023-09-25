@@ -122,7 +122,6 @@ def testing(config, model):
         csv_writer.writerows(records)
 
 
-
 if __name__ == '__main__':
     args, config = parse_option()
     local_rank = int(os.environ["LOCAL_RANK"])

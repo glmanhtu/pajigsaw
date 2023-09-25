@@ -15,13 +15,6 @@ logger = logging.getLogger("pajisaw")
 _Target = int
 
 
-excluded = ["0567n_IRR.jpg", "0567p_IRR.jpg", "0567q_IRR.jpg", "0567t_IRR.jpg", "2881f_IRR.jpg"
-            "0810a_IRR.jpg", "1306g_IRR.jpg", "1322i_IRR.jpg", "1374e_IRR.jpg", "1378d_IRR.jpg",
-            "1378f_IRR.jpg", "2733t_IRR.jpg", "2849e_IRR.jpg", "2867e_IRR.jpg", "2867g_IRR.jpg",
-            "2843a_IRR.jpg", "2881f_IRR.jpg", "0810a_IRR.jpg", "1290u_IRR.jpg", "2842c_IRR.jpg",
-            "2849b_IRR.jpg", "2859a_IRR.jpg", "2901g_IRR.jpg", "2967c_IRR.jpg"]
-
-
 class GeshaemTest(VisionDataset):
     Target = Union[_Target]
 
@@ -51,8 +44,6 @@ class GeshaemTest(VisionDataset):
     def load_dataset(self):
         images = []
         for img in glob.iglob(os.path.join(self.root_dir, '**', '*_IRR.jpg'), recursive=True):
-            if os.path.basename(img) in excluded:
-                continue
             width, height = imagesize.get(img)
             if width < self.min_size_limit or height < self.min_size_limit:
                 continue
@@ -76,7 +67,7 @@ class GeshaemTest(VisionDataset):
         if width > self.image_size:
             width = random.randint(self.image_size, min(self.image_size * 2, width))
         size = min(height, width)
-        cropper = CustomRandomCrop((size, size))
+        cropper = CustomRandomCrop((size, size), im_path=img_path)
         return cropper(image)
 
     def __getitem__(self, index: int):

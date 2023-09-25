@@ -113,10 +113,11 @@ def split_with_gap(im: Image, long_direction_ratio, gap: float):
 
 
 class CustomRandomCrop:
-    def __init__(self, crop_size, white_percentage_limit=0.6, max_retry=1000):
+    def __init__(self, crop_size, white_percentage_limit=0.6, max_retry=1000, im_path=''):
         self.cropper = torchvision.transforms.RandomCrop(crop_size, pad_if_needed=True, fill=255)
         self.white_percentage_limit = white_percentage_limit
         self.max_retry = max_retry
+        self.im_path = im_path
 
     def crop(self, img):
         current_retry = 0
@@ -127,7 +128,7 @@ class CustomRandomCrop:
             if patch_bg_per <= self.white_percentage_limit:
                 return out
             current_retry += 1
-        raise UnableToCrop('Unable to crop')
+        raise UnableToCrop('Unable to crop ', im_path=self.im_path)
 
     def __call__(self, img):
         return self.crop(img)

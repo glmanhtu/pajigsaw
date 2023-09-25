@@ -10,6 +10,7 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
+import tqdm
 from torch.utils.data import Dataset
 
 from config import get_config
@@ -91,7 +92,7 @@ def testing(config, model):
     )
 
     similarity_map = {}
-    for images, targets in data_loader:
+    for images, targets in tqdm.tqdm(data_loader):
         images = images.cuda(non_blocking=True)
 
         # compute output

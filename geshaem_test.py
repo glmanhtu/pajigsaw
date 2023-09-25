@@ -101,7 +101,7 @@ def testing(config, model):
 
     preds, entries = torch.empty((0, 4)), torch.empty((0,))
     logger.info('Starting to analyse images...')
-    for i in range(50):
+    for i in range(20):
         logger.info(f'Epoch {i}')
         for images, targets in tqdm.tqdm(data_loader):
             images = images.cuda(non_blocking=True)

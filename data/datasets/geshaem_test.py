@@ -73,7 +73,7 @@ class GeshaemTest(VisionDataset):
         if width > self.image_size:
             width = random.randint(self.image_size, min(self.image_size * 2, width))
         size = min(height, width)
-        cropper = CustomRandomCrop((size, size), im_path=img_path, max_retry=100)
+        cropper = CustomRandomCrop((size, size), im_path=img_path, max_retry=10)
         return cropper(image)
 
     def __getitem__(self, index: int):

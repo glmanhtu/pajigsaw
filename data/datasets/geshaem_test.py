@@ -10,16 +10,13 @@ from PIL import Image
 from torchvision.datasets import VisionDataset
 
 from data.transforms import CustomRandomCrop
+from data.utils import UnableToCrop
 
 logger = logging.getLogger("pajisaw")
 _Target = int
 
 
-excluded = ["0567n_IRR.jpg", "0567p_IRR.jpg", "0567q_IRR.jpg", "0567t_IRR.jpg", "2881f_IRR.jpg"
-            "0810a_IRR.jpg", "1306g_IRR.jpg", "1322i_IRR.jpg", "1374e_IRR.jpg", "1378d_IRR.jpg",
-            "1378f_IRR.jpg", "2733t_IRR.jpg", "2849e_IRR.jpg", "2867e_IRR.jpg", "2867g_IRR.jpg",
-            "2843a_IRR.jpg", "2881f_IRR.jpg", "0810a_IRR.jpg", "1290u_IRR.jpg", "2842c_IRR.jpg",
-            "2849b_IRR.jpg", "2859a_IRR.jpg", "2901g_IRR.jpg", "2967c_IRR.jpg"]
+excluded = ['1374e_IRR.jpg']
 
 
 class GeshaemTest(VisionDataset):
@@ -76,7 +73,7 @@ class GeshaemTest(VisionDataset):
         if width > self.image_size:
             width = random.randint(self.image_size, min(self.image_size * 2, width))
         size = min(height, width)
-        cropper = CustomRandomCrop((size, size), im_path=img_path)
+        cropper = CustomRandomCrop((size, size), im_path=img_path, max_retry=100)
         return cropper(image)
 
     def __getitem__(self, index: int):
@@ -85,16 +82,19 @@ class GeshaemTest(VisionDataset):
 
         im1, im2 = self.dataset[index]
 
-        first_img, second_img = self.read_patch(im1), self.read_patch(im2)
+        try:
+            first_img, second_img = self.read_patch(im1), self.read_patch(im2)
 
-        if self.transform is not None:
-            first_img, second_img = self.transform(first_img, second_img)
+            if self.transform is not None:
+                first_img, second_img = self.transform(first_img, second_img)
 
-        assert isinstance(first_img, torch.Tensor)
-        assert isinstance(second_img, torch.Tensor)
+            assert isinstance(first_img, torch.Tensor)
+            assert isinstance(second_img, torch.Tensor)
 
-        stacked_img = torch.stack([first_img, second_img], dim=0)
-        return stacked_img, torch.tensor(index, dtype=torch.long)
+            stacked_img = torch.stack([first_img, second_img], dim=0)
+            return stacked_img, torch.tensor(index, dtype=torch.long)
+        except UnableToCrop:
+            return None
 
     def __len__(self) -> int:
         return len(self.dataset) * self.repeat

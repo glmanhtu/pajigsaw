@@ -76,16 +76,22 @@ def main(config):
     logger.info('Test time {}'.format(total_time_str))
 
 
+def collate_fn(batch):
+    batch = list(filter(lambda x: x is not None, batch))
+    return torch.utils.data.dataloader.default_collate(batch)
+
+
 @torch.no_grad()
 def testing(config, model):
     model.eval()
 
-    dataset = GeshaemTest(root=config.DATA.DATA_PATH, transform=TwoImgSyncEval(config.DATA.IMG_SIZE), repeat=20)
+    dataset = GeshaemTest(root=config.DATA.DATA_PATH, transform=TwoImgSyncEval(config.DATA.IMG_SIZE), repeat=50)
     sampler_val = torch.utils.data.distributed.DistributedSampler(
         dataset, shuffle=config.TEST.SHUFFLE
     )
     data_loader = torch.utils.data.DataLoader(
         dataset, sampler=sampler_val,
+        collate_fn=collate_fn,
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
@@ -95,16 +101,15 @@ def testing(config, model):
 
     preds, entries = [], []
     logger.info('Starting to analyse images...')
-    with logging_redirect_tqdm():
-        for images, targets in tqdm.tqdm(data_loader):
-            images = images.cuda(non_blocking=True)
+    for images, targets in tqdm.tqdm(data_loader):
+        images = images.cuda(non_blocking=True)
 
-            # compute output
-            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-                output = model(images)
+        # compute output
+        with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+            output = model(images)
 
-            preds.append(torch.sigmoid(output).cpu())
-            entries.append(targets)
+        preds.append(torch.sigmoid(output).cpu())
+        entries.append(targets)
 
     similarity_map = {}
     logger.info('Starting to create similarity matrix...')

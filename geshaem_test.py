@@ -85,7 +85,7 @@ def collate_fn(batch):
 def testing(config, model):
     model.eval()
 
-    dataset = GeshaemTest(root=config.DATA.DATA_PATH, transform=TwoImgSyncEval(config.DATA.IMG_SIZE), repeat=50)
+    dataset = GeshaemTest(root=config.DATA.DATA_PATH, transform=TwoImgSyncEval(config.DATA.IMG_SIZE))
     sampler_val = torch.utils.data.distributed.DistributedSampler(
         dataset, shuffle=config.TEST.SHUFFLE
     )
@@ -101,15 +101,17 @@ def testing(config, model):
 
     preds, entries = [], []
     logger.info('Starting to analyse images...')
-    for images, targets in tqdm.tqdm(data_loader):
-        images = images.cuda(non_blocking=True)
+    for i in range(50):
+        logger.info(f'Epoch {i}')
+        for images, targets in tqdm.tqdm(data_loader):
+            images = images.cuda(non_blocking=True)
 
-        # compute output
-        with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            output = model(images)
+            # compute output
+            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                output = model(images)
 
-        preds.append(torch.sigmoid(output).cpu())
-        entries.append(targets)
+            preds.append(torch.sigmoid(output).cpu())
+            entries.append(targets)
 
     similarity_map = {}
     logger.info('Starting to create similarity matrix...')

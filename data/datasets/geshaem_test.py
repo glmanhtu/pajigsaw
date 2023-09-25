@@ -15,6 +15,9 @@ logger = logging.getLogger("pajisaw")
 _Target = int
 
 
+excluded = ['1374e_IRR.jpg']
+
+
 class GeshaemTest(VisionDataset):
     Target = Union[_Target]
 
@@ -44,6 +47,8 @@ class GeshaemTest(VisionDataset):
     def load_dataset(self):
         images = []
         for img in glob.iglob(os.path.join(self.root_dir, '**', '*_IRR.jpg'), recursive=True):
+            if os.path.basename(img) in excluded:
+                continue
             width, height = imagesize.get(img)
             if width < self.min_size_limit or height < self.min_size_limit:
                 continue

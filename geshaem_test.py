@@ -116,7 +116,7 @@ def testing(config, model):
     similarity_map = {}
     logger.info('Starting to create similarity matrix...')
     for pred, entry_id in zip(preds.numpy(), entries.numpy()):
-        im_1, im_2 = dataset.dataset[entry_id]
+        im_1, im_2 = dataset.dataset[int(entry_id)]
         im_1, im_2 = os.path.basename(im_1), os.path.basename(im_2)
         if im_1 not in similarity_map:
             similarity_map[im_1] = {}

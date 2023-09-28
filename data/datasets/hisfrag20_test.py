@@ -57,7 +57,6 @@ class HisFrag20Test(VisionDataset):
         self.samples = samples
 
         self.writer_map = writer_map
-        self.writers = sorted(self.writer_map.keys())
 
     def get_group_id(self, index):
         img_path = self.samples[index]

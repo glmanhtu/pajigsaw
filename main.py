@@ -219,6 +219,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
 
+@torch.no_grad()
 def hisfrag_validate(config, model):
     dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE,
                             transform=TwoImgSyncEval(config.DATA.IMG_SIZE))

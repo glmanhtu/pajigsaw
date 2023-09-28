@@ -228,7 +228,7 @@ def hisfrag_validate(config, model):
     )
     data_loader = torch.utils.data.DataLoader(
         dataset, sampler=sampler_val,
-        batch_size=config.DATA.BATCH_SIZE,
+        batch_size=config.DATA.TEST_BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
         pin_memory=config.DATA.PIN_MEMORY,

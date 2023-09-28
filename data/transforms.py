@@ -112,6 +112,14 @@ def split_with_gap(im: Image, long_direction_ratio, gap: float):
     return patches
 
 
+def make_square(im, fill_color=(0, 0, 0)):
+    x, y = im.size
+    size = max(x, y)
+    new_im = Image.new('RGB', (size, size), fill_color)
+    new_im.paste(im, (int((size - x) / 2), int((size - y) / 2)))
+    return new_im
+
+
 def compute_white_percentage(img, ref_size=224):
     gray = img.convert('L')
     if gray.width > ref_size:

@@ -15,6 +15,7 @@ from torchvision import transforms
 
 from .datasets.div2k_patch import DIV2KPatch
 from .datasets.geshaem_patch import GeshaemPatch
+from .datasets.hisfrag20 import HisFrag20
 from .datasets.imnet_patch import ImNetPatch
 from .datasets.jigsaw_imnet import JigSawImNet
 from .datasets.pieces_dataset_eval import PuzzleDataset
@@ -128,6 +129,10 @@ def build_dataset(mode, config):
         split = ImNetPatch.Split.from_string(mode)
         dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
+    elif config.DATA.DATASET == 'hisfrag20':
+        split = HisFrag20.Split.from_string(mode)
+        repeat = 2 if split.is_train() else 1
+        dataset = HisFrag20(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size, repeat=repeat)
     elif config.DATA.DATASET == 'div2k':
         split = DIV2KPatch.Split.from_string(mode)
         repeat = 5 if split.is_train() else 10

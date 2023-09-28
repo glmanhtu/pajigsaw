@@ -13,19 +13,24 @@ import random
 import time
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
+import tqdm
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from timm.utils import AverageMeter
 
 from config import get_config
 from data.build import build_loader
+from data.datasets.hisfrag20_test import HisFrag20Test
+from data.transforms import TwoImgSyncEval
 from logger import create_logger
 from lr_scheduler import build_scheduler
 from models import build_model
 from optimizer import build_optimizer
 from utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper
+import wi19_evaluate
 
 
 def parse_option():
@@ -128,13 +133,13 @@ def main(config):
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
-        data_loader_train.sampler.set_epoch(epoch)
 
+        if config.DATA.DATASET == 'hisfrag20' and epoch % args.n_epochs_per_eval == 0:
+            hisfrag_validate(config, model)
+
+        data_loader_train.sampler.set_epoch(epoch)
         train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler,
                         loss_scaler)
-
-        if epoch % args.n_epochs_per_eval != 0:
-            continue
 
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
             save_checkpoint(config, epoch, model_without_ddp, min_loss, optimizer, lr_scheduler, loss_scaler,
@@ -213,6 +218,43 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
     epoch_time = time.time() - start
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
+
+def hisfrag_validate(config, model):
+    dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE,
+                            transform=TwoImgSyncEval(config.DATA.IMG_SIZE))
+    sampler_val = torch.utils.data.distributed.DistributedSampler(
+        dataset, shuffle=config.TEST.SHUFFLE
+    )
+    data_loader = torch.utils.data.DataLoader(
+        dataset, sampler=sampler_val,
+        batch_size=config.DATA.BATCH_SIZE,
+        shuffle=False,
+        num_workers=config.DATA.NUM_WORKERS,
+        pin_memory=config.DATA.PIN_MEMORY,
+        drop_last=False
+    )
+
+    distance_map = {}
+    for images, targets in tqdm.tqdm(data_loader):
+        images = images.cuda(non_blocking=True)
+
+        # compute output
+        with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+            output = model(images)
+
+        for pred, entry_id in zip(torch.sigmoid(output).cpu().numpy(), targets.numpy()):
+            i, j = entry_id
+            distance_map.setdefault(i, {})[j] = pred
+
+    matrix = pd.DataFrame.from_dict(distance_map, orient='index').sort_index()
+    matrix = matrix.reindex(sorted(matrix.columns), axis=1)
+    m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(matrix, dataset.get_group_id)
+
+    logger.info(
+        f'mAP {m_ap:.3f}\t'
+        f'Top 1 {top1:.3f}\t'
+        f'Pr@k10 {pr_a_k10:.3f}\t'
+        f'Pr@k100 {pr_a_k100:.3f}')
 
 @torch.no_grad()
 def validate(config, data_loader, model):

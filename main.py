@@ -217,46 +217,6 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
 
 @torch.no_grad()
-def hisfrag_validate(config, model):
-    model.eval()
-
-    dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE,
-                            transform=TwoImgSyncEval(config.DATA.IMG_SIZE))
-    sampler_val = torch.utils.data.distributed.DistributedSampler(
-        dataset, shuffle=config.TEST.SHUFFLE
-    )
-    data_loader = torch.utils.data.DataLoader(
-        dataset, sampler=sampler_val,
-        batch_size=config.DATA.TEST_BATCH_SIZE,
-        shuffle=False,
-        num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=config.DATA.PIN_MEMORY,
-        drop_last=False
-    )
-
-    distance_map = {}
-    for images, targets in tqdm.tqdm(data_loader):
-        images = images.cuda(non_blocking=True)
-
-        # compute output
-        with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            output = model(images)
-
-        for pred, entry_id in zip(torch.sigmoid(output).cpu().numpy(), targets.numpy()):
-            i, j = entry_id
-            distance_map.setdefault(i, {})[j] = pred
-
-    matrix = pd.DataFrame.from_dict(distance_map, orient='index').sort_index()
-    matrix = matrix.reindex(sorted(matrix.columns), axis=1)
-    m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(matrix, dataset.get_group_id)
-
-    logger.info(
-        f'mAP {m_ap:.3f}\t'
-        f'Top 1 {top1:.3f}\t'
-        f'Pr@k10 {pr_a_k10:.3f}\t'
-        f'Pr@k100 {pr_a_k100:.3f}')
-
-@torch.no_grad()
 def validate(config, data_loader, model):
     criterion = torch.nn.BCEWithLogitsLoss()
     model.eval()

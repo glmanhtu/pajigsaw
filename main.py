@@ -13,24 +13,19 @@ import random
 import time
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-import tqdm
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from timm.utils import AverageMeter
 
 from config import get_config
 from data.build import build_loader
-from data.datasets.hisfrag20_test import HisFrag20Test
-from data.transforms import TwoImgSyncEval
 from logger import create_logger
 from lr_scheduler import build_scheduler
 from models import build_model
 from optimizer import build_optimizer
 from utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper
-import wi19_evaluate
 
 
 def parse_option():

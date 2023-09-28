@@ -68,6 +68,10 @@ class HisFrag20(VisionDataset):
             samples.append(img)
         self.writer_map = writer_map
         self.samples = samples
+        self.writers = list(writer_map.keys())
+        self.writers_page = {}
+        for writer_id in self.writers:
+            self.writers_page[writer_id] = list(writer_map[writer_id].keys())
 
     @property
     def split(self) -> "HisFrag20.Split":
@@ -92,13 +96,13 @@ class HisFrag20(VisionDataset):
         else:
             writer_id_2 = writer_id
             while writer_id_2 == writer_id:
-                writer_id_2 = random.choice(list(self.writer_map.keys()))
+                writer_id_2 = random.choice(self.writers)
             label = 0
 
         img_path_2 = img_path
         while img_path_2 == img_path:
-            page_id_2 = random.choice(list(self.writer_map[writer_id_2].keys()))
-            img_path_2 = random.choice(list(self.writer_map[writer_id_2][page_id_2]))
+            page_id_2 = random.choice(self.writers_page[writer_id_2])
+            img_path_2 = random.choice(self.writer_map[writer_id_2][page_id_2])
 
         with Image.open(img_path_2) as f:
             image = f.convert('RGB')
@@ -107,7 +111,7 @@ class HisFrag20(VisionDataset):
         if self.split.is_train():
             train_transform = A.Compose(
                 [
-                    A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.15, rotate_limit=20, p=0.5),
+                    A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.15, rotate_limit=15, p=0.5),
                     A.RGBShift(r_shift_limit=15, g_shift_limit=15, b_shift_limit=15, p=0.5),
                 ]
             )

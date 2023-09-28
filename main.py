@@ -134,9 +134,6 @@ def main(config):
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
 
-        if config.DATA.DATASET == 'hisfrag20' and epoch % args.n_epochs_per_eval == 0:
-            hisfrag_validate(config, model)
-
         data_loader_train.sampler.set_epoch(epoch)
         train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler,
                         loss_scaler)
@@ -221,6 +218,8 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
 @torch.no_grad()
 def hisfrag_validate(config, model):
+    model.eval()
+
     dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE,
                             transform=TwoImgSyncEval(config.DATA.IMG_SIZE))
     sampler_val = torch.utils.data.distributed.DistributedSampler(

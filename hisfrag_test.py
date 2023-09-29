@@ -106,6 +106,7 @@ def testing(config, model):
         for pred, entry_id in zip(torch.sigmoid(output).cpu().numpy(), targets.numpy()):
             i, j = entry_id
             distance_map.setdefault(i, {})[j] = pred
+            distance_map.setdefault(j, {})[i] = pred
 
     matrix = pd.DataFrame.from_dict(distance_map, orient='index').sort_index()
     matrix = matrix.reindex(sorted(matrix.columns), axis=1)

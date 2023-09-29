@@ -8,8 +8,9 @@ import torchvision
 import tqdm
 from PIL import Image
 from torch.utils.data import Dataset
-from torchvision.datasets import VisionDataset
 from torchlmdb import LMDBDataset
+from torchvision.datasets import VisionDataset
+
 from data.transforms import make_square
 
 logger = logging.getLogger("pajisaw")
@@ -80,7 +81,8 @@ class HisFrag20Test(VisionDataset):
         assert j == j_1
 
         if self.transform is not None:
-            first_img, second_img = self.transform(first_img, second_img)
+            first_img = self.transform(first_img)
+            second_img = self.transform(second_img)
 
         assert isinstance(first_img, torch.Tensor)
         assert isinstance(second_img, torch.Tensor)

@@ -10,6 +10,7 @@ import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
+import torchvision
 import tqdm
 from torch.utils.data import Dataset
 
@@ -81,7 +82,7 @@ def testing(config, model):
     model.eval()
     dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE,
                             cache_dir=args.cache_path,
-                            transform=TwoImgSyncEval(config.DATA.IMG_SIZE))
+                            transform=torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),)
     sampler_val = torch.utils.data.distributed.DistributedSampler(
         dataset, shuffle=config.TEST.SHUFFLE
     )

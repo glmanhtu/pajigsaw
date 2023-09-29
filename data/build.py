@@ -14,6 +14,8 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from .datasets.div2k_patch import DIV2KPatch
+from .datasets.geshaem_patch import GeshaemPatch
+from .datasets.hisfrag20 import HisFrag20
 from .datasets.imnet_patch import ImNetPatch
 from .datasets.jigsaw_imnet import JigSawImNet
 from .datasets.pieces_dataset_eval import PuzzleDataset
@@ -74,7 +76,7 @@ def build_loader(config):
 
     data_loader_val = torch.utils.data.DataLoader(
         dataset_val, sampler=sampler_val,
-        batch_size=config.DATA.BATCH_SIZE,
+        batch_size=config.DATA.TEST_BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
         pin_memory=config.DATA.PIN_MEMORY,
@@ -127,11 +129,19 @@ def build_dataset(mode, config):
         split = ImNetPatch.Split.from_string(mode)
         dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
+    elif config.DATA.DATASET == 'hisfrag20':
+        split = HisFrag20.Split.from_string(mode)
+        dataset = HisFrag20(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
     elif config.DATA.DATASET == 'div2k':
         split = DIV2KPatch.Split.from_string(mode)
         repeat = 5 if split.is_train() else 10
         dataset = DIV2KPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO, repeat=repeat)
+    elif config.DATA.DATASET == 'geshaem':
+        split = GeshaemPatch.Split.from_string(mode)
+        repeat = 50 if split.is_train() else 100
+        dataset = GeshaemPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
+                               erosion_ratio=config.DATA.EROSION_RATIO, repeat=repeat)
     elif config.DATA.DATASET == 'puzzle':
         dataset = PuzzleDataset(config.DATA.DATA_PATH, transform=transform,
                                 image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)

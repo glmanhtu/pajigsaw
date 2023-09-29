@@ -1,0 +1,11 @@
+MODEL:
+  TYPE: pjs
+  NAME: hisfrag20_patch16_512
+  DROP_PATH_RATE: 0.1
+  NUM_CLASSES: 1
+  PJS:
+    EMBED_DIM: 384
+    PATCH_SIZE: 16
+DATA:
+  DATASET: hisfrag20
+  IMG_SIZE: 512

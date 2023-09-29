@@ -38,7 +38,20 @@ class Attention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
         self.keep_attn = keep_attn
-        self.last_attn_map = None
+        self.attn = None
+        self.attn_gradients = None
+
+    def save_attn(self, attn):
+        self.attn = attn
+
+    def get_attn(self):
+        return self.attn
+
+    def save_attn_gradients(self, attn_gradients):
+        self.attn_gradients = attn_gradients
+
+    def get_attn_gradients(self):
+        return self.attn_gradients
 
     def forward(self, x):
         B, N, C = x.shape
@@ -55,10 +68,10 @@ class Attention(nn.Module):
             q = q * self.scale
             attn = q @ k.transpose(-2, -1)
             attn = attn.softmax(dim=-1)
-            if self.keep_attn:
-                # Not the best solution, but it works
-                self.last_attn_map = attn.detach()
             attn = self.attn_drop(attn)
+            if self.keep_attn:
+                self.save_attn(attn)
+                attn.register_hook(self.save_attn_gradients)
             x = attn @ v
 
         x = x.transpose(1, 2).reshape(B, N, C)
@@ -143,7 +156,20 @@ class CrossAttention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
         self.keep_attn = keep_attn
-        self.last_attn_map = None
+        self.attn = None
+        self.attn_gradients = None
+
+    def save_attn(self, attn):
+        self.attn = attn
+
+    def get_attn(self):
+        return self.attn
+
+    def save_attn_gradients(self, attn_gradients):
+        self.attn_gradients = attn_gradients
+
+    def get_attn_gradients(self):
+        return self.attn_gradients
 
     def forward(self, x, context):
         B, N, C = x.shape
@@ -162,10 +188,10 @@ class CrossAttention(nn.Module):
             q = q * self.scale
             attn = q @ k.transpose(-2, -1)
             attn = attn.softmax(dim=-1)
-            if self.keep_attn:
-                # Not the best solution, but it works
-                self.last_attn_map = attn.detach()
             attn = self.attn_drop(attn)
+            if self.keep_attn:
+                self.save_attn(attn)
+                attn.register_hook(self.save_attn_gradients)
             x = attn @ v
 
         x = x.transpose(1, 2).reshape(B, N, C)
@@ -340,10 +366,11 @@ class VisionTransformerCustom(VisionTransformer):
                 mlp_layer=mlp_layer,
             )
             for i in range(c_depth)])
-
-        self.blocks[-1].attn.keep_attn = keep_attn
-        self.cross_blocks[-1].attn.keep_attn = keep_attn
-        self.cross_blocks[-1].cross_attn.keep_attn = keep_attn
+        for block in self.blocks:
+            block.attn.keep_attn = keep_attn
+        for block in self.cross_blocks:
+            block.attn.keep_attn = keep_attn
+            block.cross_attn.keep_attn = keep_attn
         self.keep_attn = keep_attn
         self.arch_version = arch_version.lower()
         print(f'Using {arch_version} Arch!')
@@ -430,11 +457,6 @@ class VisionTransformerCustom(VisionTransformer):
         else:
             x = self.forward_features(x)
         x = self.forward_head(x)
-        if self.keep_attn:
-            x1_attn = self.blocks[-1].attn.last_attn_map
-            x2_attn = self.cross_blocks[-1].attn.last_attn_map
-            cross_attn = self.cross_blocks[-1].cross_attn.last_attn_map
-            return x, x1_attn, x2_attn, cross_attn
         return x
 
 

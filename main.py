@@ -16,16 +16,16 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from timm.utils import AverageMeter
 
 from config import get_config
 from data.build import build_loader
-from logger import create_logger
-from lr_scheduler import build_scheduler
+from misc.logger import create_logger
+from misc.lr_scheduler import build_scheduler
 from models import build_model
-from optimizer import build_optimizer
-from utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper
+from misc.optimizer import build_optimizer
+from misc.utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper
 
 
 def parse_option():
@@ -128,13 +128,10 @@ def main(config):
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
-        data_loader_train.sampler.set_epoch(epoch)
 
+        data_loader_train.sampler.set_epoch(epoch)
         train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler,
                         loss_scaler)
-
-        if epoch % args.n_epochs_per_eval != 0:
-            continue
 
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
             save_checkpoint(config, epoch, model_without_ddp, min_loss, optimizer, lr_scheduler, loss_scaler,

@@ -10,20 +10,17 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
-from timm.utils import AverageMeter
 from torch.utils.data import Dataset
 
 from config import get_config
-from data.build import build_test_loader
 from data.datasets.pieces_dataset import PiecesDataset
 from data.transforms import TwoImgSyncEval
-from logger import create_logger
+from misc.logger import create_logger
 from models import build_model
 from paikin_tal_solver.puzzle_importer import Puzzle, PuzzleResultsCollection, PuzzleSolver, PuzzleType
-from paikin_tal_solver.puzzle_piece import PuzzlePiece, PuzzlePieceSide
+from paikin_tal_solver.puzzle_piece import PuzzlePieceSide
 from solver_driver import paikin_tal_driver
-from utils import load_pretrained
+from misc.utils import load_pretrained
 
 
 def parse_option():

@@ -6,17 +6,20 @@ import random
 import time
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
-from timm.utils import AverageMeter
+import tqdm
+from torch.utils.data import Dataset
 
+from misc import wi19_evaluate
 from config import get_config
-from data.build import build_test_loader
-from logger import create_logger
+from data.datasets.hisfrag20_test import HisFrag20Test
+from data.transforms import TwoImgSyncEval
+from misc.logger import create_logger
 from models import build_model
-from utils import load_pretrained
+from misc.utils import load_pretrained
 
 
 def parse_option():
@@ -46,8 +49,6 @@ def parse_option():
 
 
 def main(config):
-    dataset_test, data_loader_test = build_test_loader(config)
-
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
     logger.info(str(model))
@@ -67,7 +68,7 @@ def main(config):
 
     logger.info("Start testing")
     start_time = time.time()
-    testing(config, data_loader_test, model)
+    testing(config, model)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -75,77 +76,43 @@ def main(config):
 
 
 @torch.no_grad()
-def testing(config, data_loader, model):
-    criterion = torch.nn.BCEWithLogitsLoss()
+def testing(config, model):
     model.eval()
+    dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE,
+                            transform=TwoImgSyncEval(config.DATA.IMG_SIZE))
+    sampler_val = torch.utils.data.distributed.DistributedSampler(
+        dataset, shuffle=config.TEST.SHUFFLE
+    )
+    data_loader = torch.utils.data.DataLoader(
+        dataset, sampler=sampler_val,
+        batch_size=config.DATA.TEST_BATCH_SIZE,
+        shuffle=False,
+        num_workers=config.DATA.NUM_WORKERS,
+        pin_memory=config.DATA.PIN_MEMORY,
+        drop_last=False
+    )
 
-    batch_time = AverageMeter()
-    loss_meter = AverageMeter()
-
-    end = time.time()
-    evaluation = {}
-    for idx, (images, target) in enumerate(data_loader):
+    distance_map = {}
+    for images, targets in tqdm.tqdm(data_loader):
         images = images.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True)
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             output = model(images)
-        loss = criterion(output, target)
 
-        outputs = torch.unbind(output.cpu(), dim=1)
-        targets = torch.unbind(target.cpu(), dim=1)
+        for pred, entry_id in zip(torch.sigmoid(output).cpu().numpy(), targets.numpy()):
+            i, j = entry_id
+            distance_map.setdefault(i, {})[j] = pred
 
-        for out_id, (out, y) in enumerate(zip(outputs, targets)):
-            pred, gt = (out > 0).float().numpy(), y.numpy()
-            acc = accuracy_score(gt, pred) * 100
-            # auc = roc_auc_score(gt, out.float().numpy()) * 100
-            f1 = f1_score(gt, pred, average="macro")
-            precision = precision_score(gt, pred, average="macro")
-            recall = recall_score(gt, pred, average="macro")
+    matrix = pd.DataFrame.from_dict(distance_map, orient='index').sort_index()
+    matrix = matrix.reindex(sorted(matrix.columns), axis=1)
+    m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(matrix, dataset.get_group_id)
 
-            indicator = evaluation.setdefault(f'class_{out_id}', {})
-            indicator.setdefault('acc', AverageMeter()).update(acc, target.size(0))
-            # indicator.setdefault('auc', AverageMeter()).update(auc, target.size(0))
-            indicator.setdefault('f1', AverageMeter()).update(f1, target.size(0))
-            indicator.setdefault('precision', AverageMeter()).update(precision, target.size(0))
-            indicator.setdefault('recall', AverageMeter()).update(recall, target.size(0))
-
-        loss_meter.update(loss.item(), target.size(0))
-
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
-
-        if idx % config.PRINT_FREQ == 0:
-            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
-            message = ""
-            for metric in evaluation['class_0'].keys():
-                scores = [evaluation[cls][metric].val for cls in evaluation.keys()]
-                score = sum(scores) / len(scores)
-                avg_scores = [evaluation[cls][metric].avg for cls in evaluation.keys()]
-                avg_score = sum(avg_scores) / len(avg_scores)
-                message += f'{metric.upper()} {score:.4f} ({avg_score:.3f})\t'
-            logger.info(
-                f'Test: [{idx}/{len(data_loader)}]\t'
-                f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t' + message + f'Mem {memory_used:.0f}MB')
-
-    logger.info("Final test results:")
-
-    message = f'Loss: {loss_meter.avg:.4f}\t'
-    for metric in evaluation['class_0'].keys():
-        scores = [evaluation[cls][metric].avg for cls in evaluation.keys()]
-        avg_score = sum(scores) / len(scores)
-        message += f'{metric.upper()} {avg_score:.3f}\t'
-    logger.info(message)
-
-    logger.info("Per class results:")
-    for class_id in evaluation.keys():
-        message = f'{class_id.upper()}: '
-        for metric, indicator in evaluation[class_id].items():
-            message += f'{metric.upper()} {indicator.avg:.4f}\t'
-        logger.info(message)
+    logger.info(
+        f'mAP {m_ap:.3f}\t'
+        f'Top 1 {top1:.3f}\t'
+        f'Pr@k10 {pr_a_k10:.3f}\t'
+        f'Pr@k100 {pr_a_k100:.3f}')
 
 
 if __name__ == '__main__':

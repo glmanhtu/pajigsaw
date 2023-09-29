@@ -9,18 +9,16 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
-import torch.distributed as dist
 import torchvision
 import tqdm
 from torch.utils.data import Dataset
 
-from misc import wi19_evaluate
 from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test
-from data.transforms import TwoImgSyncEval
+from misc import wi19_evaluate
 from misc.logger import create_logger
-from models import build_model
 from misc.utils import load_pretrained
+from models import build_model
 
 
 def parse_option():
@@ -36,7 +34,6 @@ def parse_option():
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
     parser.add_argument('--data-path', type=str, help='path to dataset')
-    parser.add_argument('--cache-path', type=str, help='path to cache dir')
     parser.add_argument('--pretrained', required=True, help='pretrained weight from checkpoint')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
@@ -59,12 +56,9 @@ def main(config):
     logger.info(f"number of params: {n_parameters}")
 
     model.cuda()
-    model_without_ddp = model
-
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False)
 
     if os.path.isfile(config.MODEL.PRETRAINED):
-        load_pretrained(config, model_without_ddp, logger)
+        load_pretrained(config, model, logger)
     else:
         raise Exception(f'Pretrained model is not exists {config.MODEL.PRETRAINED}')
 
@@ -80,33 +74,45 @@ def main(config):
 @torch.no_grad()
 def testing(config, model):
     model.eval()
-    dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE,
-                            cache_dir=args.cache_path,
-                            transform=torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),)
-    sampler_val = torch.utils.data.distributed.DistributedSampler(
-        dataset, shuffle=config.TEST.SHUFFLE
-    )
-    data_loader = torch.utils.data.DataLoader(
-        dataset, sampler=sampler_val,
-        batch_size=config.DATA.TEST_BATCH_SIZE,
-        shuffle=False,
-        num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=config.DATA.PIN_MEMORY,
-        drop_last=False
-    )
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+    dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE, transform=transform)
 
     distance_map = {}
-    for images, targets in tqdm.tqdm(data_loader):
-        images = images.cuda(non_blocking=True)
+    pbar = tqdm.tqdm(dataset)
+    for image, index in pbar:
+        x1_id = index.item()
+        image = image.cuda(non_blocking=True)
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            output = model(images)
+            x1 = model.forward_first_part(image[None])
 
-        for pred, entry_id in zip(torch.sigmoid(output).cpu().numpy(), targets.numpy()):
-            i, j = entry_id
-            distance_map.setdefault(i, {})[j] = pred
-            distance_map.setdefault(j, {})[i] = pred
+        sub_dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE,
+                                    transform=transform, samples=dataset.samples[x1_id:])
+        data_loader = torch.utils.data.DataLoader(
+            sub_dataset,
+            batch_size=config.DATA.BATCH_SIZE,
+            shuffle=False,
+            num_workers=config.DATA.NUM_WORKERS,
+            pin_memory=config.DATA.PIN_MEMORY,
+            drop_last=False
+        )
+
+        count = 0
+        for images, indexes in data_loader:
+            images = images.cuda(non_blocking=True)
+            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                x2 = model.forward_second_part(x1.repeat(images.shape[0], 1, 1), images)
+                output = model.forward_head(x2)
+
+            for pred, x2_id in zip(torch.sigmoid(output).cpu().numpy(), indexes.numpy() + x1_id):
+                distance_map.setdefault(x1_id, {})[x2_id] = pred
+                distance_map.setdefault(x2_id, {})[x1_id] = pred
+            count += 1
+            pbar.set_description(f"Processing {count}/{len(data_loader)}")
 
     matrix = pd.DataFrame.from_dict(distance_map, orient='index').sort_index()
     matrix = matrix.reindex(sorted(matrix.columns), axis=1)
@@ -121,20 +127,7 @@ def testing(config, model):
 
 if __name__ == '__main__':
     args, config = parse_option()
-    local_rank = int(os.environ["LOCAL_RANK"])
-
-    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
-        rank = int(os.environ["RANK"])
-        world_size = int(os.environ['WORLD_SIZE'])
-        print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
-    else:
-        rank = -1
-        world_size = -1
-    torch.cuda.set_device(local_rank)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-    torch.distributed.barrier()
-
-    seed = config.SEED + dist.get_rank()
+    seed = config.SEED
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     np.random.seed(seed)
@@ -142,8 +135,7 @@ if __name__ == '__main__':
     cudnn.benchmark = True
 
     os.makedirs(config.OUTPUT, exist_ok=True)
-    logger = create_logger(output_dir=config.OUTPUT, dist_rank=dist.get_rank(), name=f"{config.MODEL.NAME}",
-                           affix="_test")
+    logger = create_logger(output_dir=config.OUTPUT, name=f"{config.MODEL.NAME}", affix="_test")
 
     # print config
     logger.info(config.dump())

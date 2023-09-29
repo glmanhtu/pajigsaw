@@ -396,14 +396,15 @@ class VisionTransformerCustom(VisionTransformer):
         x = x + self.pos_embed[:, 1:]
         return self.pos_drop(x)
 
-    def forward_features(self, x):
-        x1, x2 = torch.unbind(x, 1)
+    def forward_first_part(self, x1):
         x1 = self.patch_embed(x1)
         x1 = self._pos_embed_no_cls(x1)
         x1 = self.patch_drop(x1)
         x1 = self.norm_pre(x1)
         x1 = self.blocks(x1)
+        return x1
 
+    def forward_second_part(self, x1, x2):
         x2 = self.patch_embed(x2)
         x2 = self._pos_embed(x2)
         x2 = self.patch_drop(x2)
@@ -413,49 +414,13 @@ class VisionTransformerCustom(VisionTransformer):
         x = self.norm(x2)
         return x
 
-    def forward_features_v2(self, x):
+    def forward_features(self, x):
         x1, x2 = torch.unbind(x, 1)
-        x1 = self.patch_embed(x1)
-        x1 = self._pos_embed_no_cls(x1)
-        x1 = self.patch_drop(x1)
-        x1 = self.norm_pre(x1)
-
-        x2 = self.patch_embed(x2)
-        x2 = self._pos_embed(x2)
-        x2 = self.patch_drop(x2)
-        x2 = self.norm_pre(x2)
-
-        for blk, c_blk in zip(self.blocks, self.cross_blocks):
-            x1 = blk(x1)
-            x2 = c_blk(x2, x1)
-        x = self.norm(x2)
-        return x
-
-    def forward_features_v3(self, x):
-        x1, x2 = torch.unbind(x, 1)
-        x1 = self.patch_embed(x1)
-        x1 = self._pos_embed_no_cls(x1)
-        x1 = self.patch_drop(x1)
-        x1 = self.norm_pre(x1)
-
-        x2 = self.patch_embed(x2)
-        x2 = self._pos_embed(x2)
-        x2 = self.patch_drop(x2)
-        x2 = self.norm_pre(x2)
-
-        for blk, c_blk in zip(self.blocks, self.cross_blocks):
-            x1 = blk(x1, x2)
-            x2 = c_blk(x2, x1)
-        x = self.norm(x2)
-        return x
+        x1 = self.forward_first_part(x1)
+        return self.forward_second_part(x1, x2)
 
     def forward(self, x):
-        if self.arch_version == 'v2':
-            x = self.forward_features_v2(x)
-        elif self.arch_version == 'v3':
-            x = self.forward_features_v3(x)
-        else:
-            x = self.forward_features(x)
+        x = self.forward_features(x)
         x = self.forward_head(x)
         return x
 

@@ -35,6 +35,7 @@ def parse_option():
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
     parser.add_argument('--data-path', type=str, help='path to dataset')
+    parser.add_argument('--cache-path', type=str, help='path to cache dir')
     parser.add_argument('--pretrained', required=True, help='pretrained weight from checkpoint')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
@@ -79,6 +80,7 @@ def main(config):
 def testing(config, model):
     model.eval()
     dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE,
+                            cache_dir=args.cache_path,
                             transform=TwoImgSyncEval(config.DATA.IMG_SIZE))
     sampler_val = torch.utils.data.distributed.DistributedSampler(
         dataset, shuffle=config.TEST.SHUFFLE

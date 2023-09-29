@@ -6,6 +6,8 @@
 # --------------------------------------------------------
 
 import os
+
+import numpy as np
 import torch
 import torch.distributed as dist
 from torch import inf

@@ -21,11 +21,11 @@ from timm.utils import AverageMeter
 
 from config import get_config
 from data.build import build_loader
-from logger import create_logger
-from lr_scheduler import build_scheduler
+from misc.logger import create_logger
+from misc.lr_scheduler import build_scheduler
 from models import build_model
-from optimizer import build_optimizer
-from utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper
+from misc.optimizer import build_optimizer
+from misc.utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper
 
 
 def parse_option():

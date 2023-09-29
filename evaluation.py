@@ -15,12 +15,12 @@ from torch.utils.data import Dataset
 from config import get_config
 from data.datasets.pieces_dataset import PiecesDataset
 from data.transforms import TwoImgSyncEval
-from logger import create_logger
+from misc.logger import create_logger
 from models import build_model
 from paikin_tal_solver.puzzle_importer import Puzzle, PuzzleResultsCollection, PuzzleSolver, PuzzleType
 from paikin_tal_solver.puzzle_piece import PuzzlePieceSide
 from solver_driver import paikin_tal_driver
-from utils import load_pretrained
+from misc.utils import load_pretrained
 
 
 def parse_option():

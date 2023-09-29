@@ -6,7 +6,6 @@
 import argparse
 import colorsys
 import logging
-import math
 import os
 import random
 
@@ -14,17 +13,13 @@ import cv2
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import torchvision
 from PIL import Image
-import torch.nn.functional as F
 from matplotlib import pyplot as plt
-from matplotlib.patches import Polygon
-from skimage.measure import find_contours
 
 from config import get_config
 from data.transforms import TwoImgSyncEval
 from models import build_model
-from utils import load_pretrained
+from misc.utils import load_pretrained
 
 
 def parse_option():

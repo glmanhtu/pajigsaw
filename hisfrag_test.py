@@ -1,9 +1,7 @@
 import argparse
-import csv
 import datetime
 import json
 import os
-import pickle
 import random
 import time
 
@@ -14,16 +12,14 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import tqdm
 from torch.utils.data import Dataset
-from tqdm.contrib.logging import logging_redirect_tqdm
 
-import wi19_evaluate
+from misc import wi19_evaluate
 from config import get_config
-from data.datasets.geshaem_test import GeshaemTest
 from data.datasets.hisfrag20_test import HisFrag20Test
 from data.transforms import TwoImgSyncEval
-from logger import create_logger
+from misc.logger import create_logger
 from models import build_model
-from utils import load_pretrained
+from misc.utils import load_pretrained
 
 
 def parse_option():

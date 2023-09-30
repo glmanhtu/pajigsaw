@@ -80,7 +80,8 @@ def testing(config, model):
     ])
     dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE, transform=transform)
 
-    distance_map = {}
+    predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
+    indexes = torch.zeros((0, 2), dtype=torch.int32)
     pbar = tqdm.tqdm(dataset)
     for image, index in pbar:
         x1_id = index.item()
@@ -102,18 +103,21 @@ def testing(config, model):
         )
 
         count = 0
-        for images, indexes in data_loader:
+        for images, x2_indexes in data_loader:
             images = images.cuda(non_blocking=True)
+
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                 x2 = model.forward_second_part(x1.repeat(images.shape[0], 1, 1), images)
                 output = model.forward_head(x2)
-
-            for pred, x2_id in zip(torch.sigmoid(output).cpu().numpy(), indexes.numpy() + x1_id):
-                distance_map.setdefault(x1_id, {})[x2_id] = pred
-                distance_map.setdefault(x2_id, {})[x1_id] = pred
+            predicts = torch.cat([predicts, output])
+            indexes = torch.cat([indexes, torch.column_stack([index.repeat(x2_indexes.shape[0]), x2_indexes + x1_id])])
             count += 1
             pbar.set_description(f"Processing {count}/{len(data_loader)}")
 
+    distance_map = {}
+    for pred, index in zip(torch.sigmoid(predicts).cpu().numpy(), indexes.numpy()):
+        distance_map.setdefault(index[0], {})[index[1]] = pred
+        distance_map.setdefault(index[1], {})[index[0]] = pred
     matrix = pd.DataFrame.from_dict(distance_map, orient='index').sort_index()
     matrix = matrix.reindex(sorted(matrix.columns), axis=1)
     m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(matrix, dataset.get_group_id)

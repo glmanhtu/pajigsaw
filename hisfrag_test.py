@@ -78,7 +78,7 @@ def testing(config, model):
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
-    dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE, transform=transform)
+    dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
 
     predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
     indexes = torch.zeros((0, 2), dtype=torch.int32)
@@ -91,7 +91,7 @@ def testing(config, model):
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             x1 = model.forward_first_part(image[None])
 
-        sub_dataset = HisFrag20Test(config.DATA.DATA_PATH, image_size=config.DATA.IMG_SIZE,
+        sub_dataset = HisFrag20Test(config.DATA.DATA_PATH,
                                     transform=transform, samples=dataset.samples[x1_id:])
         data_loader = torch.utils.data.DataLoader(
             sub_dataset,
@@ -107,10 +107,10 @@ def testing(config, model):
             images = images.cuda(non_blocking=True)
 
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-                x2 = model.forward_second_part(x1.repeat(images.shape[0], 1, 1), images)
+                x2 = model.forward_second_part(x1.expand(images.shape[0], -1, -1), images)
                 output = model.forward_head(x2)
             predicts = torch.cat([predicts, output])
-            indexes = torch.cat([indexes, torch.column_stack([index.repeat(x2_indexes.shape[0]), x2_indexes + x1_id])])
+            indexes = torch.cat([indexes, torch.column_stack([index.expand(x2_indexes.shape[0]), x2_indexes + x1_id])])
             count += 1
             pbar.set_description(f"Processing {count}/{len(data_loader)}")
 

@@ -67,7 +67,7 @@ def main(config):
 
     logger.info("Start testing")
     start_time = time.time()
-    testing(config, model, model_without_ddp)
+    testing(config, model)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -75,7 +75,7 @@ def main(config):
 
 
 @torch.no_grad()
-def testing(config, model, model_without_ddp):
+def testing(config, model):
     model.eval()
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
@@ -92,7 +92,7 @@ def testing(config, model, model_without_ddp):
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            x1 = model_without_ddp.forward_first_part(image[None])
+            x1 = model(image[None], forward_first_part=True)
 
         sub_dataset = HisFrag20Test(config.DATA.DATA_PATH,
                                     transform=transform, samples=dataset.samples[x1_id:])

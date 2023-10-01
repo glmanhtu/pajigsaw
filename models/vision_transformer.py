@@ -374,23 +374,6 @@ class VisionTransformerCustom(VisionTransformer):
         self.keep_attn = keep_attn
         self.arch_version = arch_version.lower()
         print(f'Using {arch_version} Arch!')
-        if self.arch_version == 'v3':
-            self.blocks = nn.ModuleList([
-                cross_block_fn(
-                    dim=embed_dim,
-                    num_heads=num_heads,
-                    mlp_ratio=mlp_ratio,
-                    qkv_bias=qkv_bias,
-                    qk_norm=qk_norm,
-                    init_values=init_values,
-                    proj_drop=proj_drop_rate,
-                    attn_drop=attn_drop_rate,
-                    drop_path=dpr_cross[i],
-                    norm_layer=norm_layer,
-                    act_layer=act_layer,
-                    mlp_layer=mlp_layer,
-                )
-                for i in range(c_depth)])
 
     def _pos_embed_no_cls(self, x):
         x = x + self.pos_embed[:, 1:]
@@ -419,10 +402,16 @@ class VisionTransformerCustom(VisionTransformer):
         x1 = self.forward_first_part(x1)
         return self.forward_second_part(x1, x2)
 
-    def forward(self, x):
-        x = self.forward_features(x)
-        x = self.forward_head(x)
-        return x
+    def forward(self, x2, x1=None):
+        if x1 is not None:
+            x1 = x1.to(x2.get_device())
+            x1 = x1.expand(x2.shape[0], -1, -1)
+            x2 = self.forward_second_part(x1, x2)
+            return self.forward_head(x2)
+
+        x2 = self.forward_features(x2)
+        x2 = self.forward_head(x2)
+        return x2
 
 
 if __name__ == '__main__':

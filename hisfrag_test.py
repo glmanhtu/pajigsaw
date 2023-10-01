@@ -136,12 +136,14 @@ def testing(config, model):
             count += 1
             pbar.set_description(f"Processing {count}/{len(data_loader)}")
 
-    distance_map = {}
+    similarity_map = {}
     for pred, index in zip(torch.sigmoid(predicts).numpy(), indexes.numpy()):
-        distance_map.setdefault(index[0], {})[index[1]] = pred
-        distance_map.setdefault(index[1], {})[index[0]] = pred
-    matrix = pd.DataFrame.from_dict(distance_map, orient='index').sort_index()
+        similarity_map.setdefault(index[0], {})[index[1]] = pred
+        similarity_map.setdefault(index[1], {})[index[0]] = pred
+    matrix = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
     matrix = matrix.reindex(sorted(matrix.columns), axis=1)
+
+    matrix.to_csv(os.path.join(config.OUTPUT, 'similarity_matrix.csv'))
     m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(matrix, dataset.get_group_id)
 
     logger.info(

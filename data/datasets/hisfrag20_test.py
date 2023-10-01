@@ -50,3 +50,37 @@ class HisFrag20Test(VisionDataset):
     def __len__(self) -> int:
         return len(self.samples)
 
+
+class HisFrag20X1(VisionDataset):
+    Target = Union[_Target]
+
+    def __init__(
+        self,
+        root: str,
+        samples,
+        x1_features,
+        x1_offset,
+        transforms: Optional[Callable] = None,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+    ) -> None:
+        super().__init__(root, transforms, transform, target_transform)
+        self.root_dir = root
+        self.samples = samples
+        self.x1_features = x1_features
+        self.x1_offset = x1_offset
+
+    def __getitem__(self, index: int):
+        img_path = self.samples[index]
+
+        with Image.open(img_path) as f:
+            image = f.convert('RGB')
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, torch.tensor(index, dtype=torch.int), self.x1_features, torch.tensor(self.x1_offset)
+
+    def __len__(self) -> int:
+        return len(self.samples)
+

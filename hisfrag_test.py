@@ -11,10 +11,10 @@ import torch
 import torch.backends.cudnn as cudnn
 import torchvision
 import tqdm
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, ConcatDataset
 import torch.distributed as dist
 from config import get_config
-from data.datasets.hisfrag20_test import HisFrag20Test
+from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X1
 from misc import wi19_evaluate
 from misc.logger import create_logger
 from misc.utils import load_pretrained
@@ -82,20 +82,36 @@ def testing(config, model):
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
     dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
+    sampler = torch.utils.data.distributed.DistributedSampler(
+        dataset, shuffle=config.TEST.SHUFFLE
+    )
+    data_loader_1 = torch.utils.data.DataLoader(
+        dataset, sampler=sampler,
+        batch_size=config.DATA.BATCH_SIZE,
+        shuffle=False,
+        num_workers=config.DATA.NUM_WORKERS,
+        pin_memory=config.DATA.PIN_MEMORY,
+        drop_last=False
+    )
 
     predicts = torch.zeros((0, 1), dtype=torch.float16)
     indexes = torch.zeros((0, 2), dtype=torch.int32)
-    pbar = tqdm.tqdm(dataset)
-    for image, index in pbar:
-        x1_id = index.item()
-        image = image.cuda(non_blocking=True)
+    pbar = tqdm.tqdm(data_loader_1)
+    for images_1, indexes_1 in pbar:
+        images_1 = images_1.cuda(non_blocking=True)
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            x1 = model(image[None], forward_first_part=True)
+            features_x1 = model(images_1, forward_first_part=True)
 
-        sub_dataset = HisFrag20Test(config.DATA.DATA_PATH,
-                                    transform=transform, samples=dataset.samples[x1_id:])
+        sub_datasets = []
+        for x1, id1 in zip(features_x1.cpu(), indexes_1):
+            x1_offset = id1.item()
+            sub_dataset = HisFrag20X1(config.DATA.DATA_PATH, transform=transform, samples=dataset.samples[x1_offset:],
+                                      x1_features=x1, x1_offset=x1_offset)
+            sub_datasets.append(sub_dataset)
+
+        sub_dataset = ConcatDataset(sub_datasets)
         sampler_val = torch.utils.data.distributed.DistributedSampler(
             sub_dataset, shuffle=config.TEST.SHUFFLE
         )
@@ -109,13 +125,14 @@ def testing(config, model):
         )
 
         count = 0
-        for images, x2_indexes in data_loader:
+        for images, x2_indexes, x1, x1_id in data_loader:
             images = images.cuda(non_blocking=True)
+            x1 = x1.cuda(non_blocking=True)
 
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                 output = model(images, x1)
             predicts = torch.cat([predicts, output.cpu()])
-            indexes = torch.cat([indexes, torch.column_stack([index.expand(x2_indexes.shape[0]), x2_indexes + x1_id])])
+            indexes = torch.cat([indexes, torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id])])
             count += 1
             pbar.set_description(f"Processing {count}/{len(data_loader)}")
 

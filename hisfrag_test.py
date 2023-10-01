@@ -97,7 +97,7 @@ def testing(config, model, model_without_ddp):
         sub_dataset = HisFrag20Test(config.DATA.DATA_PATH,
                                     transform=transform, samples=dataset.samples[x1_id:])
         sampler_val = torch.utils.data.distributed.DistributedSampler(
-            dataset, shuffle=config.TEST.SHUFFLE
+            sub_dataset, shuffle=config.TEST.SHUFFLE
         )
         data_loader = torch.utils.data.DataLoader(
             sub_dataset, sampler=sampler_val,

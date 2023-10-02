@@ -2,20 +2,20 @@ import argparse
 import datetime
 import json
 import os
+import pickle
 import random
 import time
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
-import torchvision
-import tqdm
-from torch.utils.data import Dataset, ConcatDataset
 import torch.distributed as dist
+import torchvision
+from timm.utils import AverageMeter
+from torch.utils.data import Dataset, ConcatDataset
+
 from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X1
-from misc import wi19_evaluate
 from misc.logger import create_logger
 from misc.utils import load_pretrained
 from models import build_model
@@ -81,12 +81,12 @@ def testing(config, model):
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
-    dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
-    sampler = torch.utils.data.distributed.DistributedSampler(
-        dataset, shuffle=config.TEST.SHUFFLE
+    x1_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
+    x1_sampler = torch.utils.data.distributed.DistributedSampler(
+        x1_dataset, shuffle=config.TEST.SHUFFLE
     )
-    data_loader_1 = torch.utils.data.DataLoader(
-        dataset, sampler=sampler,
+    x1_dataloader = torch.utils.data.DataLoader(
+        x1_dataset, sampler=x1_sampler,
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
@@ -96,27 +96,30 @@ def testing(config, model):
 
     predicts = torch.zeros((0, 1), dtype=torch.float16)
     indexes = torch.zeros((0, 2), dtype=torch.int32)
-    pbar = tqdm.tqdm(data_loader_1)
-    for images_1, indexes_1 in pbar:
-        images_1 = images_1.cuda(non_blocking=True)
+    batch_time = AverageMeter()
+    start = time.time()
+    end = time.time()
+
+    for x1_idx, (x1_images, x1_indexes) in enumerate(x1_dataloader):
+        x1_images = x1_images.cuda(non_blocking=True)
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            features_x1 = model(images_1, forward_first_part=True)
+            features_x1 = model(x1_images, forward_first_part=True)
 
         sub_datasets = []
-        for x1, id1 in zip(features_x1.cpu(), indexes_1):
+        for x1_features, id1 in zip(features_x1.cpu(), x1_indexes):
             x1_offset = id1.item()
-            sub_dataset = HisFrag20X1(config.DATA.DATA_PATH, transform=transform, samples=dataset.samples[x1_offset:],
-                                      x1_features=x1, x1_offset=x1_offset)
-            sub_datasets.append(sub_dataset)
+            x2_dataset = HisFrag20X1(config.DATA.DATA_PATH, transform=transform, samples=x1_dataset.samples[x1_offset:],
+                                     x1_features=x1_features, x1_offset=x1_offset)
+            sub_datasets.append(x2_dataset)
 
-        sub_dataset = ConcatDataset(sub_datasets)
+        x2_dataset = ConcatDataset(sub_datasets)
         sampler_val = torch.utils.data.distributed.DistributedSampler(
-            sub_dataset, shuffle=config.TEST.SHUFFLE
+            x2_dataset, shuffle=config.TEST.SHUFFLE
         )
-        data_loader = torch.utils.data.DataLoader(
-            sub_dataset, sampler=sampler_val,
+        x2_dataloader = torch.utils.data.DataLoader(
+            x2_dataset, sampler=sampler_val,
             batch_size=config.DATA.BATCH_SIZE,
             shuffle=False,
             num_workers=config.DATA.NUM_WORKERS,
@@ -124,33 +127,51 @@ def testing(config, model):
             drop_last=False
         )
 
-        count = 0
-        for images, x2_indexes, x1, x1_id in data_loader:
-            images = images.cuda(non_blocking=True)
-            x1 = x1.cuda(non_blocking=True)
+        for x2_idx, (x2_images, x2_indexes, x1_features, x1_id) in enumerate(x2_dataloader):
+            x2_images = x2_images.cuda(non_blocking=True)
+            x1_features = x1_features.cuda(non_blocking=True)
 
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-                output = model(images, x1)
-            predicts = torch.cat([predicts, output.cpu()])
+                output = model(x2_images, x1_features)
+            predicts = torch.cat([predicts, torch.sigmoid(output).cpu()])
             indexes = torch.cat([indexes, torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id])])
-            count += 1
-            pbar.set_description(f"Processing {count}/{len(data_loader)}")
+            batch_time.update(time.time() - end)
+            end = time.time()
+
+            if x2_idx % config.PRINT_FREQ == 0:
+                memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+                etas = batch_time.avg * (len(x2_dataloader) * len(x1_dataloader) - x1_idx * len(x1_dataloader) - x2_idx)
+                logger.info(
+                    f'Testing: [{x1_idx}/{len(x1_dataloader)}][{x2_idx}/{len(x2_dataloader)}]\t'
+                    f'eta {datetime.timedelta(seconds=int(etas))}\t'
+                    f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                    f'mem {memory_used:.0f}MB')
 
     similarity_map = {}
-    for pred, index in zip(torch.sigmoid(predicts).numpy(), indexes.numpy()):
-        similarity_map.setdefault(index[0], {})[index[1]] = pred
-        similarity_map.setdefault(index[1], {})[index[0]] = pred
-    matrix = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
-    matrix = matrix.reindex(sorted(matrix.columns), axis=1)
+    for pred, index in zip(predicts.numpy(), indexes.numpy()):
+        img_1 = os.path.splitext(os.path.basename(x1_dataset.samples[index[0]]))[0]
+        img_2 = os.path.splitext(os.path.basename(x1_dataset.samples[index[0]]))[0]
+        similarity_map.setdefault(img_1, {})[img_2] = pred
+        similarity_map.setdefault(img_2, {})[img_1] = pred
 
-    matrix.to_csv(os.path.join(config.OUTPUT, 'similarity_matrix.csv'))
-    m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(matrix, dataset.get_group_id)
+    result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank_{rank}.pkl')
+    with open(result_file, 'wb') as f:
+        pickle.dump(similarity_map, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    logger.info(
-        f'mAP {m_ap:.3f}\t'
-        f'Top 1 {top1:.3f}\t'
-        f'Pr@k10 {pr_a_k10:.3f}\t'
-        f'Pr@k100 {pr_a_k100:.3f}')
+    # matrix = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
+    # matrix = matrix.reindex(sorted(matrix.columns), axis=1)
+    #
+    # matrix.to_csv(os.path.join(config.OUTPUT, 'similarity_matrix.csv'))
+    # m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(matrix, lambda x: x.split("_")[0])
+    #
+    # logger.info(
+    #     f'mAP {m_ap:.3f}\t'
+    #     f'Top 1 {top1:.3f}\t'
+    #     f'Pr@k10 {pr_a_k10:.3f}\t'
+    #     f'Pr@k100 {pr_a_k100:.3f}')
+
+    epoch_time = time.time() - start
+    logger.info(f"Testing takes {datetime.timedelta(seconds=int(epoch_time))}")
 
 
 if __name__ == '__main__':

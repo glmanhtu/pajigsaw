@@ -30,12 +30,6 @@ class HisFrag20Test(VisionDataset):
             samples = sorted(samples)
         self.samples = samples
 
-    def get_group_id(self, index):
-        img_path = self.samples[index]
-        file_name = os.path.basename(img_path)
-        writer_id, page_id, _ = tuple(file_name.split("_"))
-        return writer_id
-
     def __getitem__(self, index: int):
         img_path = self.samples[index]
 

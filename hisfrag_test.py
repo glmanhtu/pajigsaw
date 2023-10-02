@@ -127,14 +127,15 @@ def testing(config, model):
             drop_last=False
         )
 
+        batch_predicts, batch_indexes = [], []
         for x2_idx, (x2_images, x2_indexes, x1_features, x1_id) in enumerate(x2_dataloader):
             x2_images = x2_images.cuda(non_blocking=True)
             x1_features = x1_features.cuda(non_blocking=True)
 
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                 output = model(x2_images, x1_features)
-            predicts = torch.cat([predicts, output])
-            indexes = torch.cat([indexes, torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id])])
+            batch_predicts.append(output)
+            batch_indexes.append(torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id]))
             batch_time.update(time.time() - end)
             end = time.time()
 
@@ -147,8 +148,10 @@ def testing(config, model):
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
 
+        predicts = torch.cat([predicts, torch.cat(batch_predicts)])
+        indexes = torch.cat([indexes, torch.cat(batch_indexes)])
     similarity_map = {}
-    predicts = torch.sigmoid(predicts.cuda()).cpu()
+    predicts = torch.sigmoid(predicts).cpu()
     for pred, index in zip(predicts.numpy(), indexes.numpy()):
         img_1 = os.path.splitext(os.path.basename(x1_dataset.samples[index[0]]))[0]
         img_2 = os.path.splitext(os.path.basename(x1_dataset.samples[index[1]]))[0]

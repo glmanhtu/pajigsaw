@@ -89,19 +89,19 @@ def testing(config, model):
         x1_dataset, sampler=x1_sampler,
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
-        num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=config.DATA.PIN_MEMORY,
+        num_workers=0,
+        pin_memory=False,
         drop_last=False
     )
 
-    predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
+    predicts = torch.zeros((0, 1), dtype=torch.float16)
     indexes = torch.zeros((0, 2), dtype=torch.int32)
     batch_time = AverageMeter()
     start = time.time()
     end = time.time()
 
     for x1_idx, (x1_images, x1_indexes) in enumerate(x1_dataloader):
-        x1_images = x1_images.cuda(non_blocking=True)
+        x1_images = x1_images.cuda()
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
@@ -133,7 +133,7 @@ def testing(config, model):
 
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                 output = model(x2_images, x1_features)
-            predicts = torch.cat([predicts, output])
+            predicts = torch.cat([predicts, output.cpu()])
             indexes = torch.cat([indexes, torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id])])
             batch_time.update(time.time() - end)
             end = time.time()
@@ -148,7 +148,7 @@ def testing(config, model):
                     f'mem {memory_used:.0f}MB')
 
     similarity_map = {}
-    predicts = torch.sigmoid(predicts).cpu()
+    predicts = torch.sigmoid(predicts.cuda()).cpu()
     for pred, index in zip(predicts.numpy(), indexes.numpy()):
         img_1 = os.path.splitext(os.path.basename(x1_dataset.samples[index[0]]))[0]
         img_2 = os.path.splitext(os.path.basename(x1_dataset.samples[index[1]]))[0]

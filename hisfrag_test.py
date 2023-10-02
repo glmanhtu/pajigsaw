@@ -17,6 +17,7 @@ from torch.utils.data import Dataset, ConcatDataset
 from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X1
 from misc.logger import create_logger
+from misc.sampler import DistributedEvalSampler
 from misc.utils import load_pretrained
 from models import build_model
 
@@ -82,9 +83,7 @@ def testing(config, model):
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
     x1_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
-    x1_sampler = torch.utils.data.distributed.DistributedSampler(
-        x1_dataset, shuffle=config.TEST.SHUFFLE
-    )
+    x1_sampler = DistributedEvalSampler(x1_dataset)
     x1_dataloader = torch.utils.data.DataLoader(
         x1_dataset, sampler=x1_sampler,
         batch_size=config.DATA.BATCH_SIZE,
@@ -113,11 +112,9 @@ def testing(config, model):
             sub_datasets.append(x2_dataset)
 
         x2_dataset = ConcatDataset(sub_datasets)
-        sampler_val = torch.utils.data.distributed.DistributedSampler(
-            x2_dataset, shuffle=config.TEST.SHUFFLE
-        )
+        x2_sampler = DistributedEvalSampler(x2_dataset)
         x2_dataloader = torch.utils.data.DataLoader(
-            x2_dataset, sampler=sampler_val,
+            x2_dataset, sampler=x2_sampler,
             batch_size=config.DATA.TEST_BATCH_SIZE,
             shuffle=False,
             num_workers=config.DATA.NUM_WORKERS,

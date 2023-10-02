@@ -133,7 +133,7 @@ def testing(config, model):
 
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                 output = model(x2_images, x1_features)
-            predicts = torch.cat([predicts, output()])
+            predicts = torch.cat([predicts, output])
             indexes = torch.cat([indexes, torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id])])
             batch_time.update(time.time() - end)
             end = time.time()

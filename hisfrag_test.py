@@ -96,9 +96,7 @@ def testing(config, model):
 
     predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
     indexes = torch.zeros((0, 2), dtype=torch.int32)
-    batch_time = AverageMeter()
     start = time.time()
-    end = time.time()
 
     for x1_idx, (x1_images, x1_indexes) in enumerate(x1_dataloader):
         x1_images = x1_images.cuda()
@@ -127,15 +125,19 @@ def testing(config, model):
             drop_last=False
         )
 
+        batch_time = AverageMeter()
+        data_time = AverageMeter()
+        end = time.time()
         batch_predicts, batch_indexes = [], []
         for x2_idx, (x2_images, x2_indexes, x1_features, x1_id) in enumerate(x2_dataloader):
+            data_time.update(time.time() - end)
             x2_images = x2_images.cuda(non_blocking=True)
             x1_features = x1_features.cuda(non_blocking=True)
 
+            batch_indexes.append(torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id]))
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                 output = model(x2_images, x1_features)
             batch_predicts.append(output)
-            batch_indexes.append(torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id]))
             batch_time.update(time.time() - end)
             end = time.time()
 
@@ -145,6 +147,7 @@ def testing(config, model):
                 logger.info(
                     f'Testing: [{x1_idx}/{len(x1_dataloader)}][{x2_idx}/{len(x2_dataloader)}]\t'
                     f'eta {datetime.timedelta(seconds=int(etas))}\t'
+                    f'data {data_time.val:.4f} ({data_time.avg:.4f})\t'
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
 

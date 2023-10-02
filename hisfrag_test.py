@@ -120,7 +120,7 @@ def testing(config, model):
         )
         x2_dataloader = torch.utils.data.DataLoader(
             x2_dataset, sampler=sampler_val,
-            batch_size=config.DATA.BATCH_SIZE,
+            batch_size=config.DATA.TEST_BATCH_SIZE,
             shuffle=False,
             num_workers=config.DATA.NUM_WORKERS,
             pin_memory=config.DATA.PIN_MEMORY,

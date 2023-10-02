@@ -150,7 +150,7 @@ def testing(config, model):
     similarity_map = {}
     for pred, index in zip(predicts.numpy(), indexes.numpy()):
         img_1 = os.path.splitext(os.path.basename(x1_dataset.samples[index[0]]))[0]
-        img_2 = os.path.splitext(os.path.basename(x1_dataset.samples[index[0]]))[0]
+        img_2 = os.path.splitext(os.path.basename(x1_dataset.samples[index[1]]))[0]
         similarity_map.setdefault(img_1, {})[img_2] = pred
         similarity_map.setdefault(img_2, {})[img_1] = pred
 

@@ -131,8 +131,7 @@ def testing(config, model):
             if len(batch_pairs) == 0:
                 continue
 
-            n_chunks = int(len(batch_pairs) / args.batch_size_gpu)
-            for chunk_mask_pairs in torch.split(batch_pairs, n_chunks):
+            for chunk_mask_pairs in torch.split(batch_pairs, args.batch_size_gpu):
                 x1_indexes = chunk_mask_pairs[:, 0] - x1_lower_bound
                 x2_indexes = chunk_mask_pairs[:, 1] - x2_lower_bound
 

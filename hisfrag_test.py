@@ -129,14 +129,16 @@ def testing(config, model):
             end = time.time()
             if x2_id % config.PRINT_FREQ == 0:
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+                etas = batch_time.avg * (len(x2_dataloader) - x2_id)
                 logger.info(
                     f'Testing: [{x1_idx}/{len(x1_dataloader)}][{x2_id}/{len(x2_dataloader)}]\t'
+                    f'X2 eta {datetime.timedelta(seconds=int(etas))}\t'
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
 
     similarity_map = {}
     predicts = torch.sigmoid(predicts).cpu()
-    for pred, index in zip(predicts.numpy(), pairs.numpy()):
+    for pred, index in zip(predicts.numpy(), pair_indexes.numpy()):
         img_1 = os.path.splitext(os.path.basename(dataset.samples[index[0]]))[0]
         img_2 = os.path.splitext(os.path.basename(dataset.samples[index[1]]))[0]
         similarity_map.setdefault(img_1, {})[img_2] = pred

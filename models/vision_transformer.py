@@ -407,7 +407,7 @@ class VisionTransformerCustom(VisionTransformer):
             return self.forward_first_part(x2)
         
         if x1 is not None:
-            x1 = x1.expand(x2.shape[0], -1, -1)
+            x1 = self.forward_first_part(x1)
             x2 = self.forward_second_part(x1, x2)
             return self.forward_head(x2)
 

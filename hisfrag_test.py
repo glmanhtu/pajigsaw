@@ -15,7 +15,7 @@ from timm.utils import AverageMeter
 from torch.utils.data import Dataset, ConcatDataset
 
 from config import get_config
-from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X1
+from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X2
 from misc.logger import create_logger
 from misc.sampler import DistributedEvalSampler
 from misc.utils import load_pretrained
@@ -84,86 +84,55 @@ def testing(config, model):
     ])
     x1_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
     x1_sampler = DistributedEvalSampler(x1_dataset)
-    x1_dataloader = torch.utils.data.DataLoader(
+    dataloader = torch.utils.data.DataLoader(
         x1_dataset, sampler=x1_sampler,
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
-        num_workers=0,
-        pin_memory=False,
+        num_workers=config.DATA.NUM_WORKERS,
+        pin_memory=True,
         drop_last=False
     )
 
-    predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
-    indexes = torch.zeros((0, 2), dtype=torch.int32)
-    start = time.time()
+    indicates = torch.arange(len(x1_dataset)).type(torch.int)
+    pairs = torch.combinations(indicates, r=2)
 
-    for x1_idx, (x1_images, x1_indexes) in enumerate(x1_dataloader):
-        x1_images = x1_images.cuda()
+    predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
+    pair_indexes = torch.zeros((0, 2), dtype=torch.int32)
+    start = time.time()
+    end = time.time()
+    batch_time = AverageMeter()
+    for idx, (images, indexes) in enumerate(dataloader):
+        images = images.cuda(non_blocking=True)
+        lower_bound, higher_bound = torch.min(indexes), torch.max(indexes)
+        mask_pairs = torch.logical_and(
+            torch.all(torch.less_equal(pairs, higher_bound), dim=1),
+            torch.all(torch.greater_equal(pairs, lower_bound), dim=1)
+        )
+        batch_pairs = pairs[mask_pairs]
+        assert len(batch_pairs) > 0
+        x1_indexes = batch_pairs[:, 0] - lower_bound
+        x2_indexes = batch_pairs[:, 1] - lower_bound
 
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            features_x1 = model(x1_images, forward_first_part=True)
+            output = model(images[x1_indexes], images[x2_indexes])
+        predicts = torch.cat([predicts, output])
+        pair_indexes = torch.cat([pair_indexes, batch_pairs])
 
-        sub_datasets = []
-        for x1_features, id1 in zip(features_x1.cpu(), x1_indexes):
-            x1_offset = id1.item()
-            x2_dataset = HisFrag20X1(config.DATA.DATA_PATH, transform=transform, samples=x1_dataset.samples[x1_offset:],
-                                     x1_features=x1_features, x1_offset=x1_offset)
-            sub_datasets.append(x2_dataset)
-
-        x2_dataset = ConcatDataset(sub_datasets)
-        x2_sampler = DistributedEvalSampler(x2_dataset)
-        x2_dataloader = torch.utils.data.DataLoader(
-            x2_dataset, sampler=x2_sampler,
-            batch_size=config.DATA.TEST_BATCH_SIZE,
-            shuffle=False,
-            num_workers=config.DATA.NUM_WORKERS,
-            pin_memory=config.DATA.PIN_MEMORY,
-            drop_last=False
-        )
-
-        gpu_time = AverageMeter()
-        data_time = AverageMeter()
-        copy_time = AverageMeter()
-        batch_index_time = AverageMeter()
+        batch_time.update(time.time() - end)
         end = time.time()
-        batch_predicts, batch_indexes = [], []
-        for x2_idx, (x2_images, x2_indexes, x1_features, x1_id) in enumerate(x2_dataloader):
-            data_time.update(time.time() - end)
-            end = time.time()
+        if idx % config.PRINT_FREQ == 0:
+            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+            etas = batch_time.avg * (len(dataloader) - idx)
+            logger.info(
+                f'Testing: [{idx}/{len(dataloader)}]]\t'
+                f'eta {datetime.timedelta(seconds=int(etas))}\t'
+                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                f'mem {memory_used:.0f}MB')
 
-            x2_images = x2_images.cuda()
-            x1_features = x1_features.cuda()
-            copy_time.update(time.time() - end)
-            end = time.time()
-
-            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-                output = model(x2_images, x1_features)
-            gpu_time.update(time.time() - end)
-            end = time.time()
-
-            batch_indexes.append(torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id]))
-            batch_predicts.append(output)
-            batch_index_time.update(time.time() - end)
-            end = time.time()
-
-            if x2_idx % config.PRINT_FREQ == 0:
-                memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
-                etas = gpu_time.avg * (len(x2_dataloader) * len(x1_dataloader) - x1_idx * len(x1_dataloader) - x2_idx)
-                logger.info(
-                    f'Testing: [{x1_idx}/{len(x1_dataloader)}][{x2_idx}/{len(x2_dataloader)}]\t'
-                    f'eta {datetime.timedelta(seconds=int(etas))}\t'
-                    f'data {data_time.val:.4f} ({data_time.avg:.4f})\t'
-                    f'copy {copy_time.val:.4f} ({copy_time.avg:.4f})\t'
-                    f'gpu {gpu_time.val:.4f} ({gpu_time.avg:.4f})\t'
-                    f'batch_index {batch_index_time.val:.4f} ({batch_index_time.avg:.4f})\t'
-                    f'mem {memory_used:.0f}MB')
-
-        predicts = torch.cat([predicts, torch.cat(batch_predicts)])
-        indexes = torch.cat([indexes, torch.cat(batch_indexes).clone()])
     similarity_map = {}
     predicts = torch.sigmoid(predicts).cpu()
-    for pred, index in zip(predicts.numpy(), indexes.numpy()):
+    for pred, index in zip(predicts.numpy(), pair_indexes.numpy()):
         img_1 = os.path.splitext(os.path.basename(x1_dataset.samples[index[0]]))[0]
         img_2 = os.path.splitext(os.path.basename(x1_dataset.samples[index[1]]))[0]
         similarity_map.setdefault(img_1, {})[img_2] = pred

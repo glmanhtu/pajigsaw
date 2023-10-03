@@ -130,14 +130,17 @@ def testing(config, model):
             batch_pairs = pairs[mask_pairs]
             if len(batch_pairs) == 0:
                 continue
-            x1_indexes = batch_pairs[:, 0] - x1_lower_bound
-            x2_indexes = batch_pairs[:, 1] - x2_lower_bound
 
-            # compute output
-            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-                output = model(x1_images[x1_indexes], x2_images[x2_indexes], args.batch_size_gpu)
-            predicts = torch.cat([predicts, output])
-            pair_indexes = torch.cat([pair_indexes, batch_pairs])
+            n_chunks = int(len(batch_pairs) / args.batch_size_gpu)
+            for chunk_mask_pairs in torch.split(batch_pairs, n_chunks):
+                x1_indexes = chunk_mask_pairs[:, 0] - x1_lower_bound
+                x2_indexes = chunk_mask_pairs[:, 1] - x2_lower_bound
+
+                # compute output
+                with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                    output = model(x1_images[x1_indexes], x2_images[x2_indexes], args.batch_size_gpu)
+                predicts = torch.cat([predicts, output])
+                pair_indexes = torch.cat([pair_indexes, chunk_mask_pairs])
 
             batch_time.update(time.time() - end)
             end = time.time()

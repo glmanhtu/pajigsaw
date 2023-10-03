@@ -142,18 +142,6 @@ def testing(config, model):
     with open(result_file, 'wb') as f:
         pickle.dump(similarity_map, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    # matrix = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
-    # matrix = matrix.reindex(sorted(matrix.columns), axis=1)
-    #
-    # matrix.to_csv(os.path.join(config.OUTPUT, 'similarity_matrix.csv'))
-    # m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(matrix, lambda x: x.split("_")[0])
-    #
-    # logger.info(
-    #     f'mAP {m_ap:.3f}\t'
-    #     f'Top 1 {top1:.3f}\t'
-    #     f'Pr@k10 {pr_a_k10:.3f}\t'
-    #     f'Pr@k100 {pr_a_k100:.3f}')
-
     epoch_time = time.time() - start
     logger.info(f"Testing takes {datetime.timedelta(seconds=int(epoch_time))}")
 

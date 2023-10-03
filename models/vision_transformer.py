@@ -404,7 +404,6 @@ class VisionTransformerCustom(VisionTransformer):
 
     def forward(self, x, x2=None):
         if x2 is not None:
-            x = self.forward_first_part(x)
             x = self.forward_second_part(x, x2)
             return self.forward_head(x)
         x = self.forward_features(x)

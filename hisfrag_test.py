@@ -15,7 +15,7 @@ from timm.utils import AverageMeter
 from torch.utils.data import Dataset, ConcatDataset
 
 from config import get_config
-from data.datasets.hisfrag20_test import HisFrag20Test
+from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X2
 from misc.logger import create_logger
 from misc.sampler import DistributedEvalSampler
 from misc.utils import load_pretrained, n_batches
@@ -77,10 +77,11 @@ def main(config):
 def testing(config, model):
     model.eval()
     transform = torchvision.transforms.Compose([
-        torchvision.transforms.PILToTensor(),
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
     dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
-    dataloader = torch.utils.data.DataLoader(
+    x1_dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
@@ -89,58 +90,49 @@ def testing(config, model):
         drop_last=False
     )
 
+    predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
+    pair_indexes = torch.zeros((0, 2), dtype=torch.int32)
     indicates = torch.arange(len(dataset)).type(torch.int)
     pairs = torch.combinations(indicates, r=2)
 
-    predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
     start = time.time()
     batch_time = AverageMeter()
     end = time.time()
-    all_images = torch.zeros((0, 3, config.DATA.IMG_SIZE, config.DATA.IMG_SIZE), dtype=torch.uint8).cuda()
-    for idx, (images, indexes) in enumerate(dataloader):
-        images = images.cuda()
-        all_images = torch.cat([all_images, images])
+    for x1_idx, (x1_images, x1_indexes) in enumerate(x1_dataloader):
+        x1_images = x1_images.cuda(non_blocking=True)
+        lower_bound, upper_bound = torch.min(x1_indexes), torch.max(x1_indexes)
+        chunk_mask = torch.greater_equal(pairs[:, 0], lower_bound)
+        chunk_mask = torch.logical_and(chunk_mask, torch.le(pairs[:, 0], upper_bound))
 
-        batch_time.update(time.time() - end)
-        end = time.time()
-        if idx % config.PRINT_FREQ == 0:
-            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
-            etas = batch_time.avg * (len(dataloader) - idx)
-            logger.info(
-                f'Move data: [{idx}/{len(dataloader)}]\t'
-                f'eta {datetime.timedelta(seconds=int(etas))}\t'
-                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
-                f'mem {memory_used:.0f}MB')
+        x2_dataset = HisFrag20X2(config.DATA.DATA_PATH, dataset.samples, pairs[chunk_mask], transform=transform)
+        x2_dataloader = torch.utils.data.DataLoader(
+            x2_dataset,
+            batch_size=config.DATA.BATCH_SIZE,
+            shuffle=False,
+            num_workers=config.DATA.NUM_WORKERS,
+            pin_memory=True,
+            drop_last=False
+        )
 
-    transform = torchvision.transforms.Compose([
-        lambda x: x.type(torch.float32) / 255,
-        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    ])
-
-    batch_time = AverageMeter()
-    end = time.time()
-    all_chunk_pairs = torch.split(pairs, args.batch_size_gpu)
-    for idx, chunk_pairs in enumerate(all_chunk_pairs):
-        x1_indexes = chunk_pairs[:, 0]
-        x2_indexes = chunk_pairs[:, 1]
-
-        x1_images = transform(all_images[x1_indexes])
-        x2_images = transform(all_images[x2_indexes])
-        # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            output = model(x1_images, x2_images)
+            x1_features = model.forward_first_part(x1_images)
 
-        predicts = torch.cat([predicts, output])
-        batch_time.update(time.time() - end)
-        end = time.time()
-        if idx % config.PRINT_FREQ == 0:
-            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
-            etas = batch_time.avg * (len(all_chunk_pairs) - idx)
-            logger.info(
-                f'Testing: [{idx}/{len(all_chunk_pairs)}]]\t'
-                f'eta {datetime.timedelta(seconds=int(etas))}\t'
-                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
-                f'mem {memory_used:.0f}MB')
+        for x2_id, (x2_images, pair, x1_indicates) in enumerate(x2_dataloader):
+            x2_images = x2_images.cuda(non_blocking=True)
+            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                x = model(x1_features[x1_indicates - lower_bound], x2_images)
+
+            predicts = torch.cat([predicts, x])
+            pair_indexes = torch.cat([pair_indexes, pair])
+
+            batch_time.update(time.time() - end)
+            end = time.time()
+            if x2_id % config.PRINT_FREQ == 0:
+                memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+                logger.info(
+                    f'Testing: [{x1_idx}/{len(x1_dataloader)}][{x2_id}/{len(x2_dataloader)}]\t'
+                    f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                    f'mem {memory_used:.0f}MB')
 
     similarity_map = {}
     predicts = torch.sigmoid(predicts).cpu()

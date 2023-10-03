@@ -138,7 +138,7 @@ def testing(config, model):
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             etas = batch_time.avg * (len(all_chunk_pairs) - idx)
             logger.info(
-                f'Testing: [{idx}/{len(dataloader)}]]\t'
+                f'Testing: [{idx}/{len(all_chunk_pairs)}]]\t'
                 f'eta {datetime.timedelta(seconds=int(etas))}\t'
                 f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')

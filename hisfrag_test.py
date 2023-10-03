@@ -89,7 +89,7 @@ def testing(config, model):
         drop_last=False
     )
 
-    indicates = torch.arange(len(dataset)).type(torch.int)
+    indicates = torch.arange(len(dataset)).type(torch.int).cuda()
     pairs = torch.combinations(indicates, r=2)
 
     predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()

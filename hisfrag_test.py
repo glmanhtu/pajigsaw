@@ -122,34 +122,39 @@ def testing(config, model):
             drop_last=False
         )
 
-        batch_time = AverageMeter()
+        gpu_time = AverageMeter()
         data_time = AverageMeter()
+        copy_time = AverageMeter()
+        batch_index_time = AverageMeter()
         end = time.time()
         batch_predicts, batch_indexes = [], []
         for x2_idx, (x2_images, x2_indexes, x1_features, x1_id) in enumerate(x2_dataloader):
             data_time.update(time.time() - end)
-            x2_images = x2_images.cuda(non_blocking=True)
-            x1_features = x1_features.cuda(non_blocking=True)
-
-            batch_indexes.append(torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id]))
+            x2_images = x2_images.cuda()
+            x1_features = x1_features.cuda()
+            copy_time.update(time.time() - data_time.val)
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                 output = model(x2_images, x1_features)
+            gpu_time.update(time.time() - copy_time.val)
+            batch_indexes.append(torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id]))
             batch_predicts.append(output)
-            batch_time.update(time.time() - end)
+            batch_index_time.update(time.time() - gpu_time.val)
             end = time.time()
 
             if x2_idx % config.PRINT_FREQ == 0:
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
-                etas = batch_time.avg * (len(x2_dataloader) * len(x1_dataloader) - x1_idx * len(x1_dataloader) - x2_idx)
+                etas = gpu_time.avg * (len(x2_dataloader) * len(x1_dataloader) - x1_idx * len(x1_dataloader) - x2_idx)
                 logger.info(
                     f'Testing: [{x1_idx}/{len(x1_dataloader)}][{x2_idx}/{len(x2_dataloader)}]\t'
                     f'eta {datetime.timedelta(seconds=int(etas))}\t'
                     f'data {data_time.val:.4f} ({data_time.avg:.4f})\t'
-                    f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                    f'copy {copy_time.val:.4f} ({copy_time.avg:.4f})\t'
+                    f'gpu {gpu_time.val:.4f} ({gpu_time.avg:.4f})\t'
+                    f'batch_index {batch_index_time.val:.4f} ({batch_index_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
 
         predicts = torch.cat([predicts, torch.cat(batch_predicts)])
-        indexes = torch.cat([indexes, torch.cat(batch_indexes)])
+        indexes = torch.cat([indexes, torch.cat(batch_indexes).clone()])
     similarity_map = {}
     predicts = torch.sigmoid(predicts).cpu()
     for pred, index in zip(predicts.numpy(), indexes.numpy()):

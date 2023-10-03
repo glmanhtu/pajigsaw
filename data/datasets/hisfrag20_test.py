@@ -26,7 +26,7 @@ class HisFrag20Test(VisionDataset):
 
         samples = glob.glob(os.path.join(root, '**', '*.jpg'), recursive=True)
         samples = sorted(samples)
-        self.samples = np.array(samples)
+        self.samples = samples
 
     def __getitem__(self, index: int):
         img_path = self.samples[index]

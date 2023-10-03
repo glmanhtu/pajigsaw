@@ -57,12 +57,9 @@ def main(config):
     logger.info(f"number of params: {n_parameters}")
 
     model.cuda()
-    model_without_ddp = model
-
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False)
 
     if os.path.isfile(config.MODEL.PRETRAINED):
-        load_pretrained(config, model_without_ddp, logger)
+        load_pretrained(config, model, logger)
     else:
         raise Exception(f'Pretrained model is not exists {config.MODEL.PRETRAINED}')
 
@@ -82,10 +79,9 @@ def testing(config, model):
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
-    x1_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
-    x1_sampler = DistributedEvalSampler(x1_dataset)
+    dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
     dataloader = torch.utils.data.DataLoader(
-        x1_dataset, sampler=x1_sampler,
+        dataset,
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
@@ -93,7 +89,7 @@ def testing(config, model):
         drop_last=False
     )
 
-    indicates = torch.arange(len(x1_dataset)).type(torch.int)
+    indicates = torch.arange(len(dataset)).type(torch.int)
     pairs = torch.combinations(indicates, r=2)
 
     predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
@@ -133,12 +129,12 @@ def testing(config, model):
     similarity_map = {}
     predicts = torch.sigmoid(predicts).cpu()
     for pred, index in zip(predicts.numpy(), pair_indexes.numpy()):
-        img_1 = os.path.splitext(os.path.basename(x1_dataset.samples[index[0]]))[0]
-        img_2 = os.path.splitext(os.path.basename(x1_dataset.samples[index[1]]))[0]
+        img_1 = os.path.splitext(os.path.basename(dataset.samples[index[0]]))[0]
+        img_2 = os.path.splitext(os.path.basename(dataset.samples[index[1]]))[0]
         similarity_map.setdefault(img_1, {})[img_2] = pred
         similarity_map.setdefault(img_2, {})[img_1] = pred
 
-    result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank_{rank}.pkl')
+    result_file = os.path.join(config.OUTPUT, f'similarity_matrix.pkl')
     with open(result_file, 'wb') as f:
         pickle.dump(similarity_map, f, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -148,20 +144,8 @@ def testing(config, model):
 
 if __name__ == '__main__':
     args, config = parse_option()
-    local_rank = int(os.environ["LOCAL_RANK"])
 
-    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
-        rank = int(os.environ["RANK"])
-        world_size = int(os.environ['WORLD_SIZE'])
-        print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
-    else:
-        rank = -1
-        world_size = -1
-    torch.cuda.set_device(local_rank)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-    torch.distributed.barrier()
-
-    seed = config.SEED + dist.get_rank()
+    seed = config.SEED
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     np.random.seed(seed)
@@ -169,8 +153,7 @@ if __name__ == '__main__':
     cudnn.benchmark = True
 
     os.makedirs(config.OUTPUT, exist_ok=True)
-    logger = create_logger(output_dir=config.OUTPUT, dist_rank=dist.get_rank(), name=f"{config.MODEL.NAME}",
-                           affix="_test")
+    logger = create_logger(output_dir=config.OUTPUT, dist_rank=0, name=f"{config.MODEL.NAME}", affix="_test")
 
     # print config
     logger.info(config.dump())

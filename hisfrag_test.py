@@ -77,8 +77,7 @@ def main(config):
 def testing(config, model):
     model.eval()
     transform = torchvision.transforms.Compose([
-        torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        torchvision.transforms.PILToTensor(),
     ])
     dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
     dataloader = torch.utils.data.DataLoader(
@@ -97,7 +96,7 @@ def testing(config, model):
     start = time.time()
     batch_time = AverageMeter()
     end = time.time()
-    all_images = torch.zeros((0, 3, config.DATA.IMG_SIZE, config.DATA.IMG_SIZE), dtype=torch.float32).cuda()
+    all_images = torch.zeros((0, 3, config.DATA.IMG_SIZE, config.DATA.IMG_SIZE), dtype=torch.uint8).cuda()
     for idx, (images, indexes) in enumerate(dataloader):
         images = images.cuda()
         all_images = torch.cat([all_images, images])
@@ -113,6 +112,11 @@ def testing(config, model):
                 f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')
 
+    transform = torchvision.transforms.Compose([
+        lambda x: x.type(torch.float32) / 255,
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+
     batch_time = AverageMeter()
     end = time.time()
     all_chunk_pairs = torch.split(pairs, args.batch_size_gpu)
@@ -120,9 +124,11 @@ def testing(config, model):
         x1_indexes = chunk_pairs[:, 0]
         x2_indexes = chunk_pairs[:, 1]
 
+        x1_images = transform(all_images[x1_indexes])
+        x2_images = transform(all_images[x2_indexes])
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            output = model(all_images[x1_indexes], all_images[x2_indexes])
+            output = model(x1_images, x2_images)
 
         predicts = torch.cat([predicts, output])
         batch_time.update(time.time() - end)

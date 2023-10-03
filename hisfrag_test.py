@@ -138,7 +138,7 @@ def testing(config, model):
 
                 # compute output
                 with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-                    output = model(x1_images[x1_indexes], x2_images[x2_indexes], args.batch_size_gpu)
+                    output = model(x1_images[x1_indexes], x2_images[x2_indexes])
                 predicts = torch.cat([predicts, output])
                 pair_indexes = torch.cat([pair_indexes, chunk_mask_pairs])
 

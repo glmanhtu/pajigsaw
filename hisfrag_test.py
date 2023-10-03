@@ -89,11 +89,11 @@ def testing(config, model):
         drop_last=False
     )
 
-    indicates = torch.arange(len(dataset)).type(torch.int).cuda()
+    indicates = torch.arange(len(dataset)).type(torch.int)
     pairs = torch.combinations(indicates, r=2)
 
     predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
-    pair_indexes = torch.zeros((0, 2), dtype=torch.int32).cuda()
+    pair_indexes = torch.zeros((0, 2), dtype=torch.int32)
     start = time.time()
     end = time.time()
     batch_time = AverageMeter()

@@ -93,7 +93,7 @@ def testing(config, model):
     pairs = torch.combinations(indicates, r=2)
 
     predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
-    pair_indexes = torch.zeros((0, 2), dtype=torch.int32)
+    pair_indexes = torch.zeros((0, 2), dtype=torch.int32).cuda()
     start = time.time()
     end = time.time()
     batch_time = AverageMeter()

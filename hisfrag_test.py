@@ -15,7 +15,7 @@ from timm.utils import AverageMeter
 from torch.utils.data import Dataset, ConcatDataset
 
 from config import get_config
-from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X2
+from data.datasets.hisfrag20_test import HisFrag20Test
 from misc.logger import create_logger
 from misc.sampler import DistributedEvalSampler
 from misc.utils import load_pretrained

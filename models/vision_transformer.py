@@ -402,18 +402,22 @@ class VisionTransformerCustom(VisionTransformer):
         x1 = self.forward_first_part(x1)
         return self.forward_second_part(x1, x2)
 
-    def forward(self, x2, x1=None, forward_first_part=False):
-        if forward_first_part:
-            return self.forward_first_part(x2)
-        
-        if x1 is not None:
-            x1 = self.forward_first_part(x1)
-            x2 = self.forward_second_part(x1, x2)
-            return self.forward_head(x2)
+    def split_forward(self, x1, x2, split_size):
+        result = []
+        n_chunks = int(len(x1) / split_size)
+        for chunk_x1, chunk_x2 in zip(torch.split(x1, n_chunks), torch.split(x2, n_chunks)):
+            x = self.forward_first_part(chunk_x1)
+            x = self.forward_second_part(x, chunk_x2)
+            x = self.forward_head(x)
+            result.append(x)
+        return torch.cat(result, dim=0)
 
-        x2 = self.forward_features(x2)
-        x2 = self.forward_head(x2)
-        return x2
+    def forward(self, x, x2=None, split_size=0):
+        if x2 is not None:
+            return self.split_forward(x, x2, split_size)
+        x = self.forward_features(x)
+        x = self.forward_head(x)
+        return x
 
 
 if __name__ == '__main__':

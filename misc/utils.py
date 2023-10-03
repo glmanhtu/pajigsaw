@@ -159,6 +159,18 @@ def get_grad_norm(parameters, norm_type=2):
     return total_norm
 
 
+def n_batches(size, current_batch=-1):
+    total = []
+    for i in range(size):
+        if i == current_batch:
+            return len(total)
+        for j in range(size):
+            if j < i:
+                continue
+            total.append(j)
+    return len(total)
+
+
 def auto_resume_helper(output_dir):
     checkpoints = os.listdir(output_dir)
     checkpoints = [ckpt for ckpt in checkpoints if ckpt.endswith('pth')]

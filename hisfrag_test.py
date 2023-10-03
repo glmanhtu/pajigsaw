@@ -18,7 +18,7 @@ from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test
 from misc.logger import create_logger
 from misc.sampler import DistributedEvalSampler
-from misc.utils import load_pretrained
+from misc.utils import load_pretrained, n_batches
 from models import build_model
 
 
@@ -33,7 +33,8 @@ def parse_option():
     )
 
     # easy config modification
-    parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
+    parser.add_argument('--batch-size', type=int, help="batch size for data")
+    parser.add_argument('--batch-size-gpu', type=int, help="batch size for GPU")
     parser.add_argument('--data-path', type=str, help='path to dataset')
     parser.add_argument('--pretrained', required=True, help='pretrained weight from checkpoint')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
@@ -80,7 +81,7 @@ def testing(config, model):
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
     dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
-    dataloader = torch.utils.data.DataLoader(
+    x1_dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
@@ -95,36 +96,60 @@ def testing(config, model):
     predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
     pair_indexes = torch.zeros((0, 2), dtype=torch.int32)
     start = time.time()
-    end = time.time()
-    batch_time = AverageMeter()
-    for idx, (images, indexes) in enumerate(dataloader):
-        images = images.cuda(non_blocking=True)
-        lower_bound, higher_bound = torch.min(indexes), torch.max(indexes)
-        mask_pairs = torch.logical_and(
-            torch.all(torch.less_equal(pairs, higher_bound), dim=1),
-            torch.all(torch.greater_equal(pairs, lower_bound), dim=1)
+    total_batches = n_batches(len(x1_dataloader))
+    for x1_idx, (x1_images, indexes) in enumerate(x1_dataloader):
+        x1_images = x1_images.cuda(non_blocking=True)
+        x1_lower_bound, higher_bound = torch.min(indexes).item(), torch.max(indexes).item()
+        x1_mask_pairs = torch.logical_and(
+            torch.less_equal(pairs[:, 0], higher_bound),
+            torch.greater_equal(pairs[:, 0], x1_lower_bound)
         )
-        batch_pairs = pairs[mask_pairs]
-        assert len(batch_pairs) > 0
-        x1_indexes = batch_pairs[:, 0] - lower_bound
-        x2_indexes = batch_pairs[:, 1] - lower_bound
 
-        # compute output
-        with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            output = model(images[x1_indexes], images[x2_indexes])
-        predicts = torch.cat([predicts, output])
-        pair_indexes = torch.cat([pair_indexes, batch_pairs])
+        x2_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform,
+                                   samples=dataset.samples[x1_lower_bound:], x1_offset=x1_lower_bound)
+        x2_dataloader = torch.utils.data.DataLoader(
+            x2_dataset,
+            batch_size=config.DATA.BATCH_SIZE,
+            shuffle=False,
+            num_workers=config.DATA.NUM_WORKERS,
+            pin_memory=True,
+            drop_last=False
+        )
 
-        batch_time.update(time.time() - end)
         end = time.time()
-        if idx % config.PRINT_FREQ == 0:
-            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
-            etas = batch_time.avg * (len(dataloader) - idx)
-            logger.info(
-                f'Testing: [{idx}/{len(dataloader)}]]\t'
-                f'eta {datetime.timedelta(seconds=int(etas))}\t'
-                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
-                f'mem {memory_used:.0f}MB')
+        batch_time = AverageMeter()
+        for x2_idx, (x2_images, x2_indexes) in enumerate(x2_dataloader):
+            x2_images = x2_images.cuda(non_blocking=True)
+            x2_lower_bound, x2_higher_bound = torch.min(x2_indexes), torch.max(x2_indexes)
+            x2_mask_pairs = torch.logical_and(
+                torch.less_equal(pairs[:, 1], x2_higher_bound),
+                torch.greater_equal(pairs[:, 1], x2_lower_bound)
+            )
+
+            mask_pairs = torch.logical_and(x1_mask_pairs, x2_mask_pairs)
+            batch_pairs = pairs[mask_pairs]
+            if len(batch_pairs) == 0:
+                continue
+            x1_indexes = batch_pairs[:, 0] - x1_lower_bound
+            x2_indexes = batch_pairs[:, 1] - x2_lower_bound
+
+            # compute output
+            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                output = model(x1_images[x1_indexes], x2_images[x2_indexes], args.batch_size_gpu)
+            predicts = torch.cat([predicts, output])
+            pair_indexes = torch.cat([pair_indexes, batch_pairs])
+
+            batch_time.update(time.time() - end)
+            end = time.time()
+            if x2_idx % config.PRINT_FREQ == 0:
+                memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+                current_batch = n_batches(len(x1_dataloader), x1_idx) + x2_idx
+                etas = batch_time.avg * (total_batches - current_batch)
+                logger.info(
+                    f'Testing: [{x1_idx}/{len(x1_dataloader)}][{x2_idx}/{len(x2_dataloader)}]\t'
+                    f'eta {datetime.timedelta(seconds=int(etas))}\t'
+                    f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                    f'mem {memory_used:.0f}MB')
 
     similarity_map = {}
     predicts = torch.sigmoid(predicts).cpu()

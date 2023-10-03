@@ -130,15 +130,21 @@ def testing(config, model):
         batch_predicts, batch_indexes = [], []
         for x2_idx, (x2_images, x2_indexes, x1_features, x1_id) in enumerate(x2_dataloader):
             data_time.update(time.time() - end)
+            end = time.time()
+
             x2_images = x2_images.cuda()
             x1_features = x1_features.cuda()
-            copy_time.update(time.time() - data_time.val)
+            copy_time.update(time.time() - end)
+            end = time.time()
+
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                 output = model(x2_images, x1_features)
-            gpu_time.update(time.time() - copy_time.val)
+            gpu_time.update(time.time() - end)
+            end = time.time()
+
             batch_indexes.append(torch.column_stack([x1_id.expand(x2_indexes.shape[0]), x2_indexes + x1_id]))
             batch_predicts.append(output)
-            batch_index_time.update(time.time() - gpu_time.val)
+            batch_index_time.update(time.time() - end)
             end = time.time()
 
             if x2_idx % config.PRINT_FREQ == 0:

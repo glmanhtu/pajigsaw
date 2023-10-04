@@ -100,10 +100,10 @@ def testing(config, model):
     for x1_idx, (x1_images, x1_indexes) in enumerate(x1_dataloader):
         x1_images = x1_images.cuda(non_blocking=True)
         lower_bound, upper_bound = torch.min(x1_indexes), torch.max(x1_indexes)
-        chunk_mask = torch.greater_equal(pairs[:, 0], lower_bound)
-        chunk_mask = torch.logical_and(chunk_mask, torch.le(pairs[:, 0], upper_bound))
+        pair_masks = torch.greater_equal(pairs[:, 0], lower_bound)
+        pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], upper_bound))
 
-        x2_dataset = HisFrag20X2(config.DATA.DATA_PATH, dataset.samples, pairs[chunk_mask], transform=transform)
+        x2_dataset = HisFrag20X2(config.DATA.DATA_PATH, dataset.samples, pairs[pair_masks], transform=transform)
         x2_dataloader = torch.utils.data.DataLoader(
             x2_dataset,
             batch_size=config.DATA.TEST_BATCH_SIZE,
@@ -118,12 +118,12 @@ def testing(config, model):
 
         for x2_id, (x2_images, pair, x1_indicates) in enumerate(x2_dataloader):
             x2_images = x2_images.cuda(non_blocking=True)
-            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-                x = model(x1_features[x1_indicates - lower_bound], x2_images)
-
-            predicts = torch.cat([predicts, x])
             pair_indexes = torch.cat([pair_indexes, pair])
+            x1_sub = x1_features[x1_indicates - lower_bound]
+            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                output = model(x1_sub, x2_images)
 
+            predicts = torch.cat([predicts, output])
             batch_time.update(time.time() - end)
             end = time.time()
             if x2_id % config.PRINT_FREQ == 0:

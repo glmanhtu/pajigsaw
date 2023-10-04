@@ -75,6 +75,10 @@ def main(config):
 @torch.no_grad()
 def testing(config, model):
     model.eval()
+    capability = torch.cuda.get_device_capability()
+    if capability[0] >= 7:
+        print('Use torch compile...')
+        model = torch.compile(model)
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),

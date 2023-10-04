@@ -9,7 +9,6 @@ import time
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import torch.distributed as dist
 from torch.utils.data import Dataset
 
 from config import get_config
@@ -58,12 +57,9 @@ def main(config):
     logger.info(f"number of params: {n_parameters}")
 
     model.cuda()
-    model_without_ddp = model
-
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False)
 
     if os.path.isfile(config.MODEL.PRETRAINED):
-        load_pretrained(config, model_without_ddp, logger)
+        load_pretrained(config, model, logger)
     else:
         raise Exception(f'Pretrained model is not exists {config.MODEL.PRETRAINED}')
 
@@ -89,11 +85,8 @@ def testing(config, model):
             pieces = puzzle.pieces
             random.shuffle(pieces)
             dataset = PiecesDataset(pieces, transform=TwoImgSyncEval(config.DATA.IMG_SIZE))
-            sampler_val = torch.utils.data.distributed.DistributedSampler(
-                dataset, shuffle=config.TEST.SHUFFLE
-            )
             data_loader = torch.utils.data.DataLoader(
-                dataset, sampler=sampler_val,
+                dataset,
                 batch_size=config.DATA.BATCH_SIZE,
                 shuffle=False,
                 num_workers=config.DATA.NUM_WORKERS,
@@ -152,20 +145,8 @@ def testing(config, model):
 
 if __name__ == '__main__':
     args, config = parse_option()
-    local_rank = int(os.environ["LOCAL_RANK"])
 
-    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
-        rank = int(os.environ["RANK"])
-        world_size = int(os.environ['WORLD_SIZE'])
-        print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
-    else:
-        rank = -1
-        world_size = -1
-    torch.cuda.set_device(local_rank)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-    torch.distributed.barrier()
-
-    seed = config.SEED + dist.get_rank()
+    seed = config.SEED
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     np.random.seed(seed)
@@ -173,8 +154,7 @@ if __name__ == '__main__':
     cudnn.benchmark = True
 
     os.makedirs(config.OUTPUT, exist_ok=True)
-    logger = create_logger(output_dir=config.OUTPUT, dist_rank=dist.get_rank(), name=f"{config.MODEL.NAME}",
-                           affix="_test")
+    logger = create_logger(output_dir=config.OUTPUT, dist_rank=0, name=f"{config.MODEL.NAME}", affix="_test")
 
     # print config
     logger.info(config.dump())

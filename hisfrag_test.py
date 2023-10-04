@@ -34,7 +34,6 @@ def parse_option():
 
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for data")
-    parser.add_argument('--batch-size-gpu', type=int, help="batch size for GPU")
     parser.add_argument('--data-path', type=str, help='path to dataset')
     parser.add_argument('--pretrained', required=True, help='pretrained weight from checkpoint')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
@@ -107,7 +106,7 @@ def testing(config, model):
         x2_dataset = HisFrag20X2(config.DATA.DATA_PATH, dataset.samples, pairs[chunk_mask], transform=transform)
         x2_dataloader = torch.utils.data.DataLoader(
             x2_dataset,
-            batch_size=config.DATA.BATCH_SIZE,
+            batch_size=config.DATA.TEST_BATCH_SIZE,
             shuffle=False,
             num_workers=config.DATA.NUM_WORKERS,
             pin_memory=True,

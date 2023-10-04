@@ -75,6 +75,11 @@ def main(config):
 @torch.no_grad()
 def testing(config, model):
     model.eval()
+    capability = torch.cuda.get_device_capability()
+    if capability[0] >= 7:
+        print('Use torch compile...')
+        model = torch.compile(model)
+
     for subset in ['Cho', 'McGill', 'BGU']:
         images = glob.glob(os.path.join(config.DATA.DATA_PATH, subset, '*.jpg'))
         images += glob.glob(os.path.join(config.DATA.DATA_PATH, subset, '*.png'))

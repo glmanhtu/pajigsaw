@@ -72,19 +72,6 @@ def main(config):
     logger.info('Test time {}'.format(total_time_str))
 
 
-@torch.jit.script
-def get_features(x, indicates, lower_bound):
-    return x[indicates - lower_bound]
-
-
-@torch.jit.script
-def get_sub_pairs(pairs, indexes):
-    lower_bound, upper_bound = torch.min(indexes), torch.max(indexes)
-    pair_masks = torch.greater_equal(pairs[:, 0], lower_bound)
-    pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], upper_bound))
-    return pairs[pair_masks], (lower_bound, upper_bound)
-
-
 @torch.no_grad()
 def testing(config, model):
     model.eval()
@@ -116,8 +103,11 @@ def testing(config, model):
     end = time.time()
     for x1_idx, (x1_images, x1_indexes) in enumerate(x1_dataloader):
         x1_images = x1_images.cuda()
-        sub_pairs, (lower_bound, _) = get_sub_pairs(pairs, x1_indexes)
-        x2_dataset = HisFrag20X2(config.DATA.DATA_PATH, dataset.samples, sub_pairs, transform=transform)
+        lower_bound, upper_bound = torch.min(x1_indexes), torch.max(x1_indexes)
+        pair_masks = torch.greater_equal(pairs[:, 0], lower_bound)
+        pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], upper_bound))
+
+        x2_dataset = HisFrag20X2(config.DATA.DATA_PATH, dataset.samples, pairs[pair_masks], transform=transform)
         x2_dataloader = torch.utils.data.DataLoader(
             x2_dataset,
             batch_size=config.DATA.TEST_BATCH_SIZE,
@@ -133,8 +123,9 @@ def testing(config, model):
         for x2_id, (x2_images, pair, x1_indicates) in enumerate(x2_dataloader):
             x2_images = x2_images.cuda(non_blocking=True)
             pair_indexes = torch.cat([pair_indexes, pair])
+            x1_sub = x1_features[x1_indicates - lower_bound]
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-                output = model(get_features(x1_features, x1_indicates, lower_bound), x2_images)
+                output = model(x1_sub, x2_images)
 
             predicts = torch.cat([predicts, output])
             batch_time.update(time.time() - end)

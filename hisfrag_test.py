@@ -85,7 +85,7 @@ def testing(config, model):
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=True,
+        pin_memory=False,
         drop_last=False
     )
 
@@ -98,7 +98,7 @@ def testing(config, model):
     batch_time = AverageMeter()
     end = time.time()
     for x1_idx, (x1_images, x1_indexes) in enumerate(x1_dataloader):
-        x1_images = x1_images.cuda(non_blocking=True)
+        x1_images = x1_images.cuda()
         lower_bound, upper_bound = torch.min(x1_indexes), torch.max(x1_indexes)
         pair_masks = torch.greater_equal(pairs[:, 0], lower_bound)
         pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], upper_bound))

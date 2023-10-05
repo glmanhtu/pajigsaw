@@ -83,7 +83,7 @@ def testing(config, model):
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
     dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
-    sampler_val = DistributedEvalSampler(dataset)
+    sampler_val = DistributedEvalSampler(dataset, num_replicas=world_size, rank=rank)
     x1_dataloader = torch.utils.data.DataLoader(
         dataset, sampler=sampler_val,
         batch_size=config.DATA.BATCH_SIZE,

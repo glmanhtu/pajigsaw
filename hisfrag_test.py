@@ -5,20 +5,19 @@ import os
 import pickle
 import random
 import time
+import torch.distributed as dist
 
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import torch.distributed as dist
 import torchvision
 from timm.utils import AverageMeter
-from torch.utils.data import Dataset, ConcatDataset
+from torch.utils.data import Dataset
 
 from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X2
 from misc.logger import create_logger
-from misc.sampler import DistributedEvalSampler
-from misc.utils import load_pretrained, n_batches
+from misc.utils import load_pretrained
 from models import build_model
 
 
@@ -57,9 +56,12 @@ def main(config):
     logger.info(f"number of params: {n_parameters}")
 
     model.cuda()
+    model_without_ddp = model
+
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False)
 
     if os.path.isfile(config.MODEL.PRETRAINED):
-        load_pretrained(config, model, logger)
+        load_pretrained(config, model_without_ddp, logger)
     else:
         raise Exception(f'Pretrained model is not exists {config.MODEL.PRETRAINED}')
 
@@ -75,17 +77,16 @@ def main(config):
 @torch.no_grad()
 def testing(config, model):
     model.eval()
-    capability = torch.cuda.get_device_capability()
-    if capability[0] >= 7:
-        print('Use torch compile...')
-        model = torch.compile(model)
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
     dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
+    sampler_val = torch.utils.data.distributed.DistributedSampler(
+        dataset, shuffle=config.TEST.SHUFFLE
+    )
     x1_dataloader = torch.utils.data.DataLoader(
-        dataset,
+        dataset, sampler=sampler_val,
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
@@ -118,7 +119,7 @@ def testing(config, model):
         )
 
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            x1_features = model.forward_first_part(x1_images)
+            x1_features = model(x1_images, forward_first_part=True)
 
         for x2_id, (x2_images, pair, x1_indicates) in enumerate(x2_dataloader):
             x2_images = x2_images.cuda(non_blocking=True)
@@ -147,7 +148,7 @@ def testing(config, model):
         similarity_map.setdefault(img_1, {})[img_2] = pred
         similarity_map.setdefault(img_2, {})[img_1] = pred
 
-    result_file = os.path.join(config.OUTPUT, f'similarity_matrix.pkl')
+    result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank{rank}.pkl')
     with open(result_file, 'wb') as f:
         pickle.dump(similarity_map, f, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -158,7 +159,20 @@ def testing(config, model):
 if __name__ == '__main__':
     args, config = parse_option()
 
-    seed = config.SEED
+    local_rank = int(os.environ["LOCAL_RANK"])
+
+    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+        rank = int(os.environ["RANK"])
+        world_size = int(os.environ['WORLD_SIZE'])
+        print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
+    else:
+        rank = -1
+        world_size = -1
+    torch.cuda.set_device(local_rank)
+    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+    torch.distributed.barrier()
+
+    seed = config.SEED + dist.get_rank()
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     np.random.seed(seed)
@@ -166,7 +180,8 @@ if __name__ == '__main__':
     cudnn.benchmark = True
 
     os.makedirs(config.OUTPUT, exist_ok=True)
-    logger = create_logger(output_dir=config.OUTPUT, dist_rank=0, name=f"{config.MODEL.NAME}", affix="_test")
+    logger = create_logger(output_dir=config.OUTPUT, dist_rank=dist.get_rank(),
+                           name=f"{config.MODEL.NAME}", affix="_test")
 
     # print config
     logger.info(config.dump())

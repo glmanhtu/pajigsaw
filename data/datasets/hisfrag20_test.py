@@ -21,7 +21,6 @@ class HisFrag20Test(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         samples = None,
-        x1_offset = 0
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self.root_dir = root
@@ -29,7 +28,6 @@ class HisFrag20Test(VisionDataset):
             samples = glob.glob(os.path.join(root, '**', '*.jpg'), recursive=True)
             samples = sorted(samples)
         self.samples = samples
-        self.x1_offset = x1_offset
 
     def __getitem__(self, index: int):
         img_path = self.samples[index]
@@ -40,7 +38,7 @@ class HisFrag20Test(VisionDataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, torch.tensor(index + self.x1_offset, dtype=torch.int)
+        return image, index
 
     def __len__(self) -> int:
         return len(self.samples)

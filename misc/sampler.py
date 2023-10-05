@@ -76,6 +76,7 @@ class DistributedEvalSampler(Sampler):
         samples = torch.arange(self.total_size)
         n_samples_per_rep = math.ceil(self.total_size / self.num_replicas)
         indices = torch.split(samples, n_samples_per_rep)
+        print(f'dataset len: {self.total_size}, n_samples: {n_samples_per_rep}, indices: {len(indices)}')
         self.samples = indices[self.rank]
         self.num_samples = len(self.samples)
 

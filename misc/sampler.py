@@ -73,43 +73,17 @@ class DistributedEvalSampler(Sampler):
         # self.num_samples = int(math.ceil(len(self.dataset) * 1.0 / self.num_replicas))
         # self.total_size = self.num_samples * self.num_replicas
         self.total_size = len(self.dataset)         # true value without extra samples
-        indices = list(range(self.total_size))
-        indices = indices[self.rank:self.total_size:self.num_replicas]
+        samples = torch.arange(self.total_size)
+        n_samples_per_rep = math.ceil(self.total_size / self.num_replicas)
+        indices = torch.split(samples, n_samples_per_rep)
         self.num_samples = len(indices)             # true value without extra samples
+        self.samples = indices[self.rank]
 
         self.shuffle = shuffle
         self.seed = seed
 
     def __iter__(self):
-        if self.shuffle:
-            # deterministically shuffle based on epoch and seed
-            g = torch.Generator()
-            g.manual_seed(self.seed + self.epoch)
-            indices = torch.randperm(len(self.dataset), generator=g).tolist()
-        else:
-            indices = list(range(len(self.dataset)))
-
-
-        # # add extra samples to make it evenly divisible
-        # indices += indices[:(self.total_size - len(indices))]
-        # assert len(indices) == self.total_size
-
-        # subsample
-        indices = indices[self.rank:self.total_size:self.num_replicas]
-        assert len(indices) == self.num_samples
-
-        return iter(indices)
+        return iter(self.samples)
 
     def __len__(self):
         return self.num_samples
-
-    def set_epoch(self, epoch):
-        r"""
-        Sets the epoch for this sampler. When :attr:`shuffle=True`, this ensures all replicas
-        use a different random ordering for each epoch. Otherwise, the next iteration of this
-        sampler will yield the same ordering.
-
-        Arguments:
-            epoch (int): _epoch number.
-        """
-        self.epoch = epoch

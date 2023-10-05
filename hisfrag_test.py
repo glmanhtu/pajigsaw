@@ -17,6 +17,7 @@ from torch.utils.data import Dataset
 from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X2
 from misc.logger import create_logger
+from misc.sampler import DistributedEvalSampler
 from misc.utils import load_pretrained
 from models import build_model
 
@@ -82,9 +83,7 @@ def testing(config, model):
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
     dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
-    sampler_val = torch.utils.data.distributed.DistributedSampler(
-        dataset, shuffle=config.TEST.SHUFFLE
-    )
+    sampler_val = DistributedEvalSampler(dataset)
     x1_dataloader = torch.utils.data.DataLoader(
         dataset, sampler=sampler_val,
         batch_size=config.DATA.BATCH_SIZE,
@@ -102,13 +101,14 @@ def testing(config, model):
     start = time.time()
     batch_time = AverageMeter()
     end = time.time()
-    for x1_idx, (x1_images, x1_indexes) in enumerate(x1_dataloader):
-        x1_images = x1_images.cuda()
+    for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
+        x1 = x1.cuda()
         lower_bound, upper_bound = torch.min(x1_indexes), torch.max(x1_indexes)
         pair_masks = torch.greater_equal(pairs[:, 0], lower_bound)
         pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], upper_bound))
 
         x2_dataset = HisFrag20X2(config.DATA.DATA_PATH, dataset.samples, pairs[pair_masks], transform=transform)
+        logger.info(f'X2 dataset size: {len(x2_dataset)}, lower_bound: {lower_bound}')
         x2_dataloader = torch.utils.data.DataLoader(
             x2_dataset,
             batch_size=config.DATA.TEST_BATCH_SIZE,
@@ -119,12 +119,12 @@ def testing(config, model):
         )
 
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            x1_features = model(x1_images, forward_first_part=True)
+            x1 = model(x1, forward_first_part=True)
 
         for x2_id, (x2_images, pair, x1_indicates) in enumerate(x2_dataloader):
             x2_images = x2_images.cuda(non_blocking=True)
             pair_indexes = torch.cat([pair_indexes, pair])
-            x1_sub = x1_features[x1_indicates - lower_bound]
+            x1_sub = x1[x1_indicates - lower_bound]
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                 output = model(x1_sub, x2_images)
 

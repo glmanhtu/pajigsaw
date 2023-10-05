@@ -35,6 +35,7 @@ def parse_option():
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for data")
     parser.add_argument('--data-path', type=str, help='path to dataset')
+    parser.add_argument('--backup-data-path', type=str, help='path to dataset')
     parser.add_argument('--pretrained', required=True, help='pretrained weight from checkpoint')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
@@ -96,7 +97,7 @@ def testing(config, model):
     predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
     pair_indexes = torch.zeros((0, 2), dtype=torch.int32)
     indicates = torch.arange(len(dataset)).type(torch.int)
-    pairs = torch.combinations(indicates, r=2)
+    pairs = torch.combinations(indicates, r=2, with_replacement=True)
 
     start = time.time()
     batch_time = AverageMeter()

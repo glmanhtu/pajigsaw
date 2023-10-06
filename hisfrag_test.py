@@ -84,7 +84,10 @@ def testing(config, model):
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
     dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
-    sampler_val = DistributedEvalSampler(dataset, num_replicas=world_size, rank=rank)
+    indicates = torch.arange(len(dataset)).type(torch.int)
+    pairs = torch.combinations(indicates, r=2, with_replacement=True)
+
+    sampler_val = DistributedEvalSampler(pairs[:, 0], num_replicas=world_size, rank=rank)
     x1_dataloader = torch.utils.data.DataLoader(
         dataset, sampler=sampler_val,
         batch_size=config.DATA.BATCH_SIZE,
@@ -96,12 +99,9 @@ def testing(config, model):
 
     predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
     pair_indexes = torch.zeros((0, 2), dtype=torch.int32)
-    indicates = torch.arange(len(dataset)).type(torch.int)
-    pairs = torch.combinations(indicates, r=2, with_replacement=True)
 
     start = time.time()
     batch_time = AverageMeter()
-    end = time.time()
     for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
         x1 = x1.cuda()
         lower_bound, upper_bound = torch.min(x1_indexes), torch.max(x1_indexes)
@@ -122,6 +122,7 @@ def testing(config, model):
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             x1 = model(x1, forward_first_part=True)
 
+        end = time.time()
         for x2_id, (x2_images, pair, x1_indicates) in enumerate(x2_dataloader):
             x2_images = x2_images.cuda(non_blocking=True)
             pair_indexes = torch.cat([pair_indexes, pair])

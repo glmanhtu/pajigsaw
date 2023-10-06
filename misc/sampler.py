@@ -27,37 +27,22 @@ class DistributedEvalSampler(Sampler):
         Dataset is assumed to be of constant size.
 
     Arguments:
-        dataset: Dataset used for sampling.
+        pairs: Dataset used for sampling.
         num_replicas (int, optional): Number of processes participating in
             distributed training. By default, :attr:`rank` is retrieved from the
             current distributed group.
         rank (int, optional): Rank of the current process within :attr:`num_replicas`.
             By default, :attr:`rank` is retrieved from the current distributed
             group.
-        shuffle (bool, optional): If ``True`` (default), sampler will shuffle the
-            indices.
-        seed (int, optional): random seed used to shuffle the sampler if
-            :attr:`shuffle=True`. This number should be identical across all
-            processes in the distributed group. Default: ``0``.
 
     .. warning::
         In distributed mode, calling the :meth`set_epoch(epoch) <set_epoch>` method at
         the beginning of each epoch **before** creating the :class:`DataLoader` iterator
         is necessary to make shuffling work properly across multiple epochs. Otherwise,
         the same ordering will be always used.
-
-    Example::
-
-        >>> sampler = DistributedSampler(dataset) if is_distributed else None
-        >>> loader = DataLoader(dataset, shuffle=(sampler is None),
-        ...                     sampler=sampler)
-        >>> for epoch in range(start_epoch, n_epochs):
-        ...     if is_distributed:
-        ...         sampler.set_epoch(epoch)
-        ...     train(loader)
     """
 
-    def __init__(self, dataset, num_replicas=None, rank=None, shuffle=False, seed=0):
+    def __init__(self, pairs, num_replicas=None, rank=None):
         if num_replicas is None:
             if not dist.is_available():
                 raise RuntimeError("Requires distributed package to be available")
@@ -66,22 +51,24 @@ class DistributedEvalSampler(Sampler):
             if not dist.is_available():
                 raise RuntimeError("Requires distributed package to be available")
             rank = dist.get_rank()
-        self.dataset = dataset
+
         self.num_replicas = num_replicas
         self.rank = rank
         self.epoch = 0
-        # self.num_samples = int(math.ceil(len(self.dataset) * 1.0 / self.num_replicas))
-        # self.total_size = self.num_samples * self.num_replicas
-        self.total_size = len(self.dataset)         # true value without extra samples
-        samples = torch.arange(self.total_size)
-        n_samples_per_rep = math.ceil(self.total_size / self.num_replicas)
-        indices = torch.split(samples, n_samples_per_rep)
-        print(f'dataset len: {self.total_size}, n_samples: {n_samples_per_rep}, indices: {len(indices)}')
-        self.samples = indices[self.rank]
+        n_samples_per_rep = math.ceil(len(pairs) / self.num_replicas)
+        indices = torch.split(pairs, n_samples_per_rep)
+        sizes = [0]
+        for i in range(1, len(indices)):
+            if indices[i][0] == indices[i - 1][-1]:
+                sizes.append(indices[i][0].item() - 1)
+            else:
+                sizes.append(indices[i][0].item())
+        sizes.append(pairs[-1].item())
+        all_indicates = []
+        for i in range(len(sizes) - 1):
+            all_indicates.append(torch.arange(sizes[i], sizes[i + 1] + 1))
+        self.samples = all_indicates[self.rank]
         self.num_samples = len(self.samples)
-
-        self.shuffle = shuffle
-        self.seed = seed
 
     def __iter__(self):
         return iter(self.samples)

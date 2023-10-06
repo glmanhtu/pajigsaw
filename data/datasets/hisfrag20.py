@@ -82,9 +82,7 @@ class HisFrag20(VisionDataset):
         writer_id, page_id, _ = tuple(file_name.split("_"))
 
         with Image.open(img_path) as f:
-            image = f.convert('RGB')
-
-        first_img = self.resizer(image)
+            first_img = f.convert('RGB')
 
         if 0.5 > torch.rand(1):
             writer_id_2 = writer_id

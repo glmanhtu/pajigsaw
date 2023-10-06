@@ -50,10 +50,6 @@ class HisFrag20(VisionDataset):
         self._split = split
         self.root_dir = root
         self.image_size = image_size
-        self.resizer = torchvision.transforms.Compose([
-            lambda x: make_square(x),
-            torchvision.transforms.Resize(size=self.image_size)
-        ])
         self.repeat = repeat
         writer_map = {}
         samples = []
@@ -105,8 +101,7 @@ class HisFrag20(VisionDataset):
             img_path_2 = random.choice(self.writer_map[writer_id_2][page_id_2])
 
         with Image.open(img_path_2) as f:
-            image = f.convert('RGB')
-        second_img = self.resizer(image)
+            second_img = f.convert('RGB')
 
         if self.split.is_train():
             train_transform = A.Compose(

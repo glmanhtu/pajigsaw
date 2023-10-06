@@ -223,8 +223,6 @@ def update_config(config, args):
     _update_config_from_file(config, args.cfg)
 
     config.defrost()
-    if args.opts:
-        config.merge_from_list(args.opts)
 
     def _check_args(name):
         if hasattr(args, name) and eval(f'args.{name}'):
@@ -234,6 +232,7 @@ def update_config(config, args):
     # merge from specific arguments
     if _check_args('batch_size'):
         config.DATA.BATCH_SIZE = args.batch_size
+        config.DATA.TEST_BATCH_SIZE = args.batch_size
     if _check_args('data_path'):
         config.DATA.DATA_PATH = args.data_path
     if _check_args('zip'):
@@ -284,6 +283,9 @@ def update_config(config, args):
 
     # output folder
     config.OUTPUT = os.path.join(config.OUTPUT, config.MODEL.NAME, config.TAG)
+
+    if args.opts:
+        config.merge_from_list(args.opts)
 
     config.freeze()
 

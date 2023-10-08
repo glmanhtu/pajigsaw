@@ -15,4 +15,4 @@ Command to evaluation:
 
 >```PYTHONPATH=$PYTHONPATH:. python3.8 scripts/generate_hisfrag_test.py --data-path /path/to/HisFrag20/test --output-path /path/to/HisFrag20-512/test```
  
->```python3.8 -u -m torch.distributed.run --nproc_per_node 2 --standalone main.py --cfg configs/pajigsaw/hisfrag20_patch16_512.yaml --data-path /path/to/HisFrag20-512 --batch-size 64 --opts TRAIN.WARMUP_EPOCHS 5 TRAIN.WEIGHT_DECAY 0. TRAIN.EPOCHS 150 TRAIN.BASE_LR 3e-4 DATA.TEST_BATCH_SIZE 512 MODEL.NUM_HEADS 16 PRINT_FREQ 15``` 
+>```python3.8 -u -m torch.distributed.run --nproc_per_node 2 --standalone main.py --cfg configs/pajigsaw/hisfrag20_patch16_512.yaml --data-path /path/to/HisFrag20-512 --batch-size 64 --opts TRAIN.WARMUP_EPOCHS 5 TRAIN.WEIGHT_DECAY 0. TRAIN.EPOCHS 150 TRAIN.BASE_LR 3e-4 DATA.TEST_BATCH_SIZE 512 MODEL.PJS.NUM_HEADS 16 PRINT_FREQ 15``` 

@@ -13,6 +13,7 @@ args = parser.parse_args()
 similarity_map = {}
 
 for file_path in args.pair_maps:
+    print(f'Loading file {file_path}')
     with open(file_path, 'rb') as f:
         pair_map = pickle.load(f)
     if len(similarity_map.keys()) == 0:

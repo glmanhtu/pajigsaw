@@ -2,6 +2,7 @@ import argparse
 import pickle
 
 import pandas as pd
+import tqdm
 
 from misc import wi19_evaluate
 
@@ -14,7 +15,10 @@ similarity_map = {}
 for file_path in args.pair_maps:
     with open(file_path, 'rb') as f:
         pair_map = pickle.load(f)
-    for first_img in pair_map:
+    if len(similarity_map.keys()) == 0:
+        similarity_map = pair_map
+        continue
+    for first_img in tqdm.tqdm(pair_map.keys()):
         if first_img not in similarity_map:
             similarity_map[first_img] = {}
         for second_img in pair_map[first_img]:

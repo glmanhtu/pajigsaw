@@ -8,6 +8,7 @@ from misc import wi19_evaluate
 
 parser = argparse.ArgumentParser('Hisfrag20 testing script', add_help=False)
 parser.add_argument('--pair-maps', type=str, required=True, nargs='+')
+parser.add_argument('--output-file', type=str, required=True, default='similarity_matrix.csv')
 args = parser.parse_args()
 
 similarity_map = {}
@@ -35,6 +36,8 @@ matrix = matrix.reindex(sorted(matrix.columns), axis=1)
 total_cells = matrix.size
 cells_with_data = matrix.notnull().sum().sum()
 print('Total cells missing data:', total_cells - cells_with_data)
+
+matrix.to_csv(args.output_file)
 
 m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(matrix, lambda x: x.split("_")[0])
 

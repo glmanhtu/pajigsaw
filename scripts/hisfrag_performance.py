@@ -13,7 +13,6 @@ parser.add_argument('--output-file', type=str, required=True, default='similarit
 args = parser.parse_args()
 
 similarity_map = {}
-max_value = 10000
 if not os.path.isfile(args.output_file):
     for file_path in args.pair_maps:
         print(f'Loading file {file_path}')
@@ -23,12 +22,13 @@ if not os.path.isfile(args.output_file):
             if first_img not in similarity_map:
                 similarity_map[first_img] = {}
             for second_img in pair_map[first_img]:
-                value = int(pair_map[first_img][second_img][0] * max_value)
+                value = pair_map[first_img][second_img][0]
                 if second_img not in similarity_map[first_img]:
                     similarity_map[first_img][second_img] = value
                 else:
+                    print(f'Duplicate key {first_img}:{second_img}')
                     similarity_map[first_img][second_img] += value
-                    similarity_map[first_img][second_img] = int(similarity_map[first_img][second_img] / 2.)
+                    similarity_map[first_img][second_img] = similarity_map[first_img][second_img] / 2.
 
     print('Creating Dataframe...')
     similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
@@ -44,7 +44,6 @@ cells_with_data = similarity_map.notnull().sum().sum()
 print('Total cells missing data:', total_cells - cells_with_data)
 
 print('Starting to calculate performance...')
-m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0],
-                                                            max_value=max_value)
+m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
 
 print(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' f'Pr@k100 {pr_a_k100:.3f}')

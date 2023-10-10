@@ -18,6 +18,9 @@ if not os.path.isfile(args.output_file):
         print(f'Loading file {file_path}')
         with open(file_path, 'rb') as f:
             pair_map = pickle.load(f)
+        if len(similarity_map.keys()) == 0:
+            similarity_map = pair_map
+            continue
         for first_img in tqdm.tqdm(pair_map.keys()):
             if first_img not in similarity_map:
                 similarity_map[first_img] = {}

@@ -13,25 +13,23 @@ parser.add_argument('--output-file', type=str, required=True, default='similarit
 args = parser.parse_args()
 
 similarity_map = {}
+max_score = 100000
 if not os.path.isfile(args.output_file):
     for file_path in args.pair_maps:
         print(f'Loading file {file_path}')
         with open(file_path, 'rb') as f:
             pair_map = pickle.load(f)
-        if len(similarity_map.keys()) == 0:
-            similarity_map = pair_map
-            continue
         for first_img in tqdm.tqdm(pair_map.keys()):
             if first_img not in similarity_map:
                 similarity_map[first_img] = {}
             for second_img in pair_map[first_img]:
-                value = pair_map[first_img][second_img][0]
+                value = int(pair_map[first_img][second_img][0] * max_score)
                 if second_img not in similarity_map[first_img]:
                     similarity_map[first_img][second_img] = value
-                else:
-                    print(f'Duplicate key {first_img}:{second_img}')
-                    similarity_map[first_img][second_img] += value
-                    similarity_map[first_img][second_img] = similarity_map[first_img][second_img] / 2.
+                if second_img not in similarity_map:
+                    similarity_map[second_img] = {}
+                if first_img not in similarity_map[second_img]:
+                    similarity_map[second_img][first_img] = value
 
     print('Creating Dataframe...')
     similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()

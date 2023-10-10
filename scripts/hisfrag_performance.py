@@ -44,7 +44,7 @@ if not os.path.isfile(args.output_file):
     similarity_map = similarity_map.round(5)
 
     print('To CSV...')
-    similarity_map.to_csv(args.output_file)
+    similarity_map.to_csv(args.output_file, chunksize=1000)
 else:
     similarity_map = pd.read_csv(args.output_file, index_col=0)
 

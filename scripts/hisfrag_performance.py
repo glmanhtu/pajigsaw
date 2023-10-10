@@ -42,6 +42,7 @@ print('Total cells missing data:', total_cells - cells_with_data)
 
 similarity_map.to_csv(args.output_file)
 
+print('Starting to calculate performance...')
 m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
 
 print(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' f'Pr@k100 {pr_a_k100:.3f}')

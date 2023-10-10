@@ -33,7 +33,8 @@ if not os.path.isfile(args.output_file):
     print('Creating Dataframe...')
     column_labels = sorted(similarity_map.keys())
 
-    similarity_map = pd.DataFrame(similarity_map, index=column_labels, columns=column_labels, orient='index')
+    similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
+    similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
     similarity_map = similarity_map.round(5)
 
     print('To CSV...')

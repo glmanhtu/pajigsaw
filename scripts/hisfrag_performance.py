@@ -33,14 +33,14 @@ if not os.path.isfile(args.output_file):
 
     similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
     similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
+    similarity_map = similarity_map.round(5)
+    similarity_map.to_csv(args.output_file)
 else:
     similarity_map = pd.read_csv(args.output_file, index_col=0)
 
 total_cells = similarity_map.size
 cells_with_data = similarity_map.notnull().sum().sum()
 print('Total cells missing data:', total_cells - cells_with_data)
-
-similarity_map.to_csv(args.output_file)
 
 print('Starting to calculate performance...')
 m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])

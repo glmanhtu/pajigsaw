@@ -2,7 +2,9 @@ import argparse
 import os.path
 import pickle
 
+import numpy
 import pandas as pd
+import sklearn
 import tqdm
 
 from misc import wi19_evaluate
@@ -31,9 +33,17 @@ if not os.path.isfile(args.output_file):
                     similarity_map[first_img][second_img] += pair_map[first_img][second_img]
                     similarity_map[first_img][second_img] /= 2.
 
-    similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
-    similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
+    print('Creating Dataframe...')
+    vectorizer = sklearn.feature_extraction.DictVectorizer(dtype=numpy.float16,
+                                                           sparse=False)
+
+    similarity_map = vectorizer.fit_transform(similarity_map)
+    column_labels = sorted(vectorizer.get_feature_names())
+
+    similarity_map = pd.DataFrame(similarity_map, index=column_labels, columns=column_labels)
     similarity_map = similarity_map.round(5)
+
+    print('To CSV...')
     similarity_map.to_csv(args.output_file)
 else:
     similarity_map = pd.read_csv(args.output_file, index_col=0)

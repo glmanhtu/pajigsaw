@@ -9,12 +9,12 @@ def compute_pr_a_k(sorted_retrievals, k):
     return pr_a_k.sum() / len(pr_a_k)
 
 
-def get_metrics(similarity_matrix, get_group_id):
+def get_metrics(similarity_matrix, get_group_id, max_value=1):
     papyrus_ids = [get_group_id(x) for x in similarity_matrix.index]
     papyrus_set_indexes = list(set(papyrus_ids))
     papyrus_set_indexes = {x: i for i, x in enumerate(papyrus_set_indexes)}
     papyrus_ids = [papyrus_set_indexes[x] for x in papyrus_ids]
-    distance_matrix = 1 - similarity_matrix.to_numpy()
+    distance_matrix = max_value - similarity_matrix.to_numpy()
     precision_at, recall_at, sorted_retrievals = get_precision_recall_matrices(
         distance_matrix, np.array(papyrus_ids))
 

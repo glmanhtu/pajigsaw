@@ -4,7 +4,7 @@ import pickle
 
 import numpy
 import pandas as pd
-from sklearn.feature_extraction import DictVectorizer
+import sklearn
 import tqdm
 
 from misc import wi19_evaluate
@@ -20,24 +20,18 @@ if not os.path.isfile(args.output_file):
         print(f'Loading file {file_path}')
         with open(file_path, 'rb') as f:
             pair_map = pickle.load(f)
-        if len(similarity_map.keys()) == 0:
-            similarity_map = pair_map
-            continue
         for first_img in tqdm.tqdm(pair_map.keys()):
             if first_img not in similarity_map:
                 similarity_map[first_img] = {}
             for second_img in pair_map[first_img]:
                 if second_img not in similarity_map[first_img]:
-                    similarity_map[first_img][second_img] = pair_map[first_img][second_img]
+                    similarity_map[first_img][second_img] = pair_map[first_img][second_img][0]
                 else:
-                    similarity_map[first_img][second_img] += pair_map[first_img][second_img]
+                    similarity_map[first_img][second_img] += pair_map[first_img][second_img][0]
                     similarity_map[first_img][second_img] /= 2.
 
     print('Creating Dataframe...')
-    vectorizer = DictVectorizer(dtype=numpy.float16, sparse=False)
-
-    similarity_map = vectorizer.fit_transform(similarity_map)
-    column_labels = sorted(vectorizer.get_feature_names_out())
+    column_labels = sorted(similarity_map.keys())
 
     similarity_map = pd.DataFrame(similarity_map, index=column_labels, columns=column_labels)
     similarity_map = similarity_map.round(5)

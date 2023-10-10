@@ -4,7 +4,7 @@ import pickle
 
 import numpy
 import pandas as pd
-import sklearn
+import sklearn.feature_extraction
 import tqdm
 
 from misc import wi19_evaluate

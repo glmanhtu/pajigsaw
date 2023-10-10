@@ -26,7 +26,7 @@ def get_metrics(similarity_matrix, get_group_id, max_value=1):
     # roc = wi19_evaluate.compute_roc(sorted_retrievals)
     return mAP, top_1, pr_a_k10, pr_a_k100
 
-def get_sorted_retrievals(D, classes, remove_self_column=True):
+def get_sorted_retrievals(D, classes, remove_self_column=False):
     correct_retrievals = classes[None, :] == classes[:, None]
     sorted_indexes = np.argsort(D, axis=1)
     if remove_self_column:

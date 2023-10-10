@@ -4,7 +4,7 @@ import pickle
 
 import numpy
 import pandas as pd
-import sklearn.feature_extraction
+from sklearn.feature_extraction import DictVectorizer
 import tqdm
 
 from misc import wi19_evaluate
@@ -34,11 +34,10 @@ if not os.path.isfile(args.output_file):
                     similarity_map[first_img][second_img] /= 2.
 
     print('Creating Dataframe...')
-    vectorizer = sklearn.feature_extraction.DictVectorizer(dtype=numpy.float16,
-                                                           sparse=False)
+    vectorizer = DictVectorizer(dtype=numpy.float16, sparse=False)
 
     similarity_map = vectorizer.fit_transform(similarity_map)
-    column_labels = sorted(vectorizer.get_feature_names())
+    column_labels = sorted(vectorizer.get_feature_names_out())
 
     similarity_map = pd.DataFrame(similarity_map, index=column_labels, columns=column_labels)
     similarity_map = similarity_map.round(5)

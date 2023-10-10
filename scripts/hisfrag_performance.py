@@ -13,7 +13,6 @@ parser.add_argument('--output-file', type=str, required=True, default='similarit
 args = parser.parse_args()
 
 similarity_map = {}
-max_score = 100000
 if not os.path.isfile(args.output_file):
     for file_path in args.pair_maps:
         print(f'Loading file {file_path}')
@@ -23,7 +22,7 @@ if not os.path.isfile(args.output_file):
             if first_img not in similarity_map:
                 similarity_map[first_img] = {}
             for second_img in pair_map[first_img]:
-                value = int(pair_map[first_img][second_img][0] * max_score)
+                value = pair_map[first_img][second_img][0]
                 if second_img not in similarity_map[first_img]:
                     similarity_map[first_img][second_img] = value
                 if second_img not in similarity_map:

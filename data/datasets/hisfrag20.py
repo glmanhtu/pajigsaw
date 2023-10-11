@@ -94,7 +94,7 @@ class HisFrag20(VisionDataset):
         with Image.open(img_path) as f:
             first_img = f.convert('RGB')
 
-        if 0.4 > torch.rand(1):
+        if 0.35 > torch.rand(1):
             writer_id_2 = writer_id
             label = 1
         else:
@@ -112,18 +112,14 @@ class HisFrag20(VisionDataset):
             second_img = f.convert('RGB')
 
         if self.split.is_train():
-            train_transform = A.Compose(
-                [
-                    A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.15, rotate_limit=15, p=0.5),
-                    A.RGBShift(r_shift_limit=15, g_shift_limit=15, b_shift_limit=15, p=0.5),
-                ]
-            )
             img_transforms = torchvision.transforms.Compose([
                 torchvision.transforms.Resize(int(self.image_size * 1.2)),
                 torchvision.transforms.RandomCrop(self.image_size),
-                lambda x: np.array(x),
-                lambda x: train_transform(image=x)['image'],
-                torchvision.transforms.ToPILImage(),
+                torchvision.transforms.RandomApply(
+                    torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
+                    p=0.5
+                ),
+                torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1)),
             ])
         else:
             img_transforms = torchvision.transforms.Compose([

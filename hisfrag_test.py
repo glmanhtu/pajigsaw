@@ -79,7 +79,7 @@ def main(config):
 
 
 @torch.no_grad()
-def hisfrag_eval(config, model, max_authors=None):
+def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=None):
     model.eval()
     transform = torchvision.transforms.Compose([
         torchvision.transforms.Resize(int(config.DATA.IMG_SIZE * 1.2)),

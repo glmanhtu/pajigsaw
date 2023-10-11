@@ -153,7 +153,8 @@ def main(config):
 
         if args.hisfrag_eval:
             print('Starting to gather similarity matrices')
-            similarity_map = hisfrag_test.hisfrag_eval(config, model, args.hisfrag_eval_n_authors)
+            similarity_map = hisfrag_test.hisfrag_eval(config, model, args.hisfrag_eval_n_authors,
+                                                       world_size, rank, logger)
             similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
             similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
             print('Starting to calculate performance...')

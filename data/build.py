@@ -131,7 +131,7 @@ def build_dataset(mode, config):
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
     elif config.DATA.DATASET == 'hisfrag20':
         split = HisFrag20.Split.from_string(mode)
-        dataset = HisFrag20(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size, repeat=50)
+        dataset = HisFrag20(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size, repeat=10)
     elif config.DATA.DATASET == 'div2k':
         split = DIV2KPatch.Split.from_string(mode)
         repeat = 5 if split.is_train() else 10

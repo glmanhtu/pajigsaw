@@ -20,13 +20,29 @@ class HisFrag20Test(VisionDataset):
         transforms: Optional[Callable] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
-        samples = None,
+        max_n_authors: int = None,
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self.root_dir = root
-        if samples is None:
-            samples = glob.glob(os.path.join(root, '**', '*.jpg'), recursive=True)
-            samples = sorted(samples)
+        writer_map = {}
+        for img in glob.iglob(os.path.join(self.root_dir, 'test', '**', '*.jpg'), recursive=True):
+            file_name = os.path.splitext(os.path.basename(img))[0]
+            writer_id, page_id, fragment_id = tuple(file_name.split("_"))
+            if writer_id not in writer_map:
+                writer_map[writer_id] = {}
+            if page_id not in writer_map[writer_id]:
+                writer_map[writer_id][page_id] = []
+            writer_map[writer_id][page_id].append(img)
+
+        writers = sorted(writer_map.keys())
+        if max_n_authors is not None:
+            writers = writers[:max_n_authors]
+
+        samples = []
+        for writer_id in writers:
+            for page_id in writer_map[writer_id]:
+                samples += writer_map[writer_id][page_id]
+
         self.samples = samples
 
     def __getitem__(self, index: int):

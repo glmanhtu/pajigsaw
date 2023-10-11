@@ -18,9 +18,12 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from timm.utils import AverageMeter
+import pandas as pd
 
+import hisfrag_test
 from config import get_config
 from data.build import build_loader
+from misc import wi19_evaluate
 from misc.logger import create_logger
 from misc.lr_scheduler import build_scheduler
 from models import build_model
@@ -49,6 +52,8 @@ def parse_option():
     parser.add_argument('--use-checkpoint', action='store_true',
                         help="whether to use gradient checkpointing to save memory")
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
+    parser.add_argument('--hisfrag_eval', action='store_true', help='Eval hisfrag')
+    parser.add_argument('--hisfrag_eval_n_authors', type=int, default=100)
     parser.add_argument('--amp-opt-level', type=str, choices=['O0', 'O1', 'O2'],
                         help='mixed precision opt level, if O0, no amp is used (deprecated!)')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
@@ -145,6 +150,16 @@ def main(config):
             logger.info(f"Loss is reduced from {min_loss} to {loss}")
 
         min_loss = min(min_loss, loss)
+
+        if args.hisfrag_eval:
+            print('Starting to gather similarity matrices')
+            similarity_map = hisfrag_test.hisfrag_eval(config, model, args.hisfrag_eval_n_authors)
+            similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
+            similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
+            print('Starting to calculate performance...')
+            m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
+
+            print(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' f'Pr@k100 {pr_a_k100:.3f}')
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

@@ -50,7 +50,6 @@ class HisFrag20(VisionDataset):
         self.image_size = image_size
         self.repeat = repeat
         writer_map = {}
-        samples = []
         for img in glob.iglob(os.path.join(self.root_dir, 'train', '**', '*.jpg'), recursive=True):
             file_name = os.path.splitext(os.path.basename(img))[0]
             writer_id, page_id, fragment_id = tuple(file_name.split("_"))
@@ -60,7 +59,7 @@ class HisFrag20(VisionDataset):
                 writer_map[writer_id][page_id] = []
             writer_map[writer_id][page_id].append(img)
 
-        writers = list(writer_map.keys())
+        writers = sorted(writer_map.keys())
         n_train = int(0.85 * len(writers))
         if split.is_train():
             writers = writers[:n_train]
@@ -77,7 +76,6 @@ class HisFrag20(VisionDataset):
                 self.writer_pages[writer] = []
             self.writer_pages[writer] += list(writer_map[writer].keys())
         self.writer_map = writer_map
-        self.samples = samples
 
     @property
     def split(self) -> "HisFrag20.Split":

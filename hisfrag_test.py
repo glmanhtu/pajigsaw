@@ -68,7 +68,10 @@ def main(config):
 
     logger.info("Start testing")
     start_time = time.time()
-    testing(config, model)
+    similarity_map = hisfrag_eval(config, model)
+    result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank{rank}.pkl')
+    with open(result_file, 'wb') as f:
+        pickle.dump(similarity_map, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -76,7 +79,7 @@ def main(config):
 
 
 @torch.no_grad()
-def testing(config, model):
+def hisfrag_eval(config, model, max_authors=None):
     model.eval()
     transform = torchvision.transforms.Compose([
         torchvision.transforms.Resize(int(config.DATA.IMG_SIZE * 1.2)),
@@ -84,7 +87,7 @@ def testing(config, model):
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
-    dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform)
+    dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform, max_n_authors=max_authors)
     indicates = torch.arange(len(dataset)).type(torch.int)
     pairs = torch.combinations(indicates, r=2, with_replacement=True)
 
@@ -101,7 +104,6 @@ def testing(config, model):
     predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
     pair_indexes = torch.zeros((0, 2), dtype=torch.int32)
 
-    start = time.time()
     batch_time = AverageMeter()
     for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
         x1 = x1.cuda()
@@ -150,13 +152,7 @@ def testing(config, model):
         img_2 = os.path.splitext(os.path.basename(dataset.samples[index[1]]))[0]
         similarity_map.setdefault(img_1, {})[img_2] = pred[0]
         similarity_map.setdefault(img_2, {})[img_1] = pred[0]
-
-    result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank{rank}.pkl')
-    with open(result_file, 'wb') as f:
-        pickle.dump(similarity_map, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    epoch_time = time.time() - start
-    logger.info(f"Testing takes {datetime.timedelta(seconds=int(epoch_time))}")
+    return similarity_map
 
 
 if __name__ == '__main__':

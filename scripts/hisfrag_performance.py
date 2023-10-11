@@ -22,7 +22,7 @@ if not os.path.isfile(args.output_file):
             if first_img not in similarity_map:
                 similarity_map[first_img] = {}
             for second_img in pair_map[first_img]:
-                value = pair_map[first_img][second_img][0]
+                value = pair_map[first_img][second_img]
                 if second_img not in similarity_map[first_img]:
                     similarity_map[first_img][second_img] = value
                 if second_img not in similarity_map:

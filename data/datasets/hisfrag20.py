@@ -12,8 +12,6 @@ import torchvision
 from PIL import Image
 from torchvision.datasets import VisionDataset
 
-from data.transforms import make_square
-
 logger = logging.getLogger("pajisaw")
 _Target = int
 
@@ -53,7 +51,7 @@ class HisFrag20(VisionDataset):
         self.repeat = repeat
         writer_map = {}
         samples = []
-        for img in glob.iglob(os.path.join(self.root_dir, '**', '*.jpg'), recursive=True):
+        for img in glob.iglob(os.path.join(self.root_dir, 'train', '**', '*.jpg'), recursive=True):
             file_name = os.path.splitext(os.path.basename(img))[0]
             writer_id, page_id, fragment_id = tuple(file_name.split("_"))
             if writer_id not in writer_map:
@@ -61,30 +59,42 @@ class HisFrag20(VisionDataset):
             if page_id not in writer_map[writer_id]:
                 writer_map[writer_id][page_id] = []
             writer_map[writer_id][page_id].append(img)
-            samples.append(img)
+
+        writers = list(writer_map.keys())
+        n_train = int(0.85 * len(writers))
+        if split.is_train():
+            writers = writers[:n_train]
+        else:
+            writers = writers[n_train:]
+        writer_set = set(writers)
+        for writer in list(writer_map.keys()):
+            if writer not in writer_set:
+                del writer_map[writer]
+        self.writers = list(writer_map.keys())
+        self.writer_pages = {}
+        for writer in writer_map:
+            if writer not in self.writer_pages:
+                self.writer_pages[writer] = []
+            self.writer_pages[writer] += list(writer_map[writer].keys())
         self.writer_map = writer_map
         self.samples = samples
-        self.writers = list(writer_map.keys())
-        self.writers_page = {}
-        for writer_id in self.writers:
-            self.writers_page[writer_id] = list(writer_map[writer_id].keys())
 
     @property
     def split(self) -> "HisFrag20.Split":
         return self._split
 
     def __getitem__(self, index: int):
-        if index >= len(self.samples):
-            index = index % len(self.samples)
+        if index >= len(self.writers):
+            index = index % len(self.writers)
 
-        img_path = self.samples[index]
-        file_name = os.path.splitext(os.path.basename(img_path))[0]
-        writer_id, page_id, _ = tuple(file_name.split("_"))
+        writer_id = self.writers[index]
+        page_id = random.choice(self.writer_pages[writer_id])
+        img_path = random.choice(self.writer_map[writer_id][page_id])
 
         with Image.open(img_path) as f:
             first_img = f.convert('RGB')
 
-        if 0.5 > torch.rand(1):
+        if 0.4 > torch.rand(1):
             writer_id_2 = writer_id
             label = 1
         else:
@@ -95,7 +105,7 @@ class HisFrag20(VisionDataset):
 
         img_path_2 = img_path
         while img_path_2 == img_path:
-            page_id_2 = random.choice(self.writers_page[writer_id_2])
+            page_id_2 = random.choice(self.writer_pages[writer_id_2])
             img_path_2 = random.choice(self.writer_map[writer_id_2][page_id_2])
 
         with Image.open(img_path_2) as f:
@@ -109,15 +119,23 @@ class HisFrag20(VisionDataset):
                 ]
             )
             img_transforms = torchvision.transforms.Compose([
-                # torchvision.transforms.RandomHorizontalFlip(),
-                # torchvision.transforms.RandomVerticalFlip(),
+                torchvision.transforms.Resize(int(self.image_size * 1.2)),
+                torchvision.transforms.RandomCrop(self.image_size),
                 lambda x: np.array(x),
                 lambda x: train_transform(image=x)['image'],
                 torchvision.transforms.ToPILImage(),
             ])
+        else:
+            img_transforms = torchvision.transforms.Compose([
+                torchvision.transforms.Resize(int(self.image_size * 1.2)),
+                torchvision.transforms.CenterCrop(self.image_size)
+            ])
 
-            first_img = img_transforms(first_img)
-            second_img = img_transforms(second_img)
+        first_img = img_transforms(first_img)
+        second_img = img_transforms(second_img)
+
+        if 0.5 > torch.rand(1):
+            first_img, second_img = second_img, first_img
 
         if self.transform is not None:
             first_img, second_img = self.transform(first_img, second_img)
@@ -129,5 +147,5 @@ class HisFrag20(VisionDataset):
         return stacked_img, torch.tensor([label], dtype=torch.float32)
 
     def __len__(self) -> int:
-        return len(self.samples) * self.repeat
+        return len(self.writers) * self.repeat
 

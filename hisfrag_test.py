@@ -35,7 +35,6 @@ def parse_option():
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for data")
     parser.add_argument('--data-path', type=str, help='path to dataset')
-    parser.add_argument('--backup-data-path', type=str, help='path to dataset')
     parser.add_argument('--pretrained', required=True, help='pretrained weight from checkpoint')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
@@ -80,6 +79,8 @@ def main(config):
 def testing(config, model):
     model.eval()
     transform = torchvision.transforms.Compose([
+        torchvision.transforms.Resize(int(config.DATA.IMG_SIZE * 1.2)),
+        torchvision.transforms.CenterCrop(config.DATA.IMG_SIZE),
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
@@ -147,8 +148,8 @@ def testing(config, model):
     for pred, index in zip(predicts.numpy(), pair_indexes.numpy()):
         img_1 = os.path.splitext(os.path.basename(dataset.samples[index[0]]))[0]
         img_2 = os.path.splitext(os.path.basename(dataset.samples[index[1]]))[0]
-        similarity_map.setdefault(img_1, {})[img_2] = pred
-        similarity_map.setdefault(img_2, {})[img_1] = pred
+        similarity_map.setdefault(img_1, {})[img_2] = pred[0]
+        similarity_map.setdefault(img_2, {})[img_1] = pred[0]
 
     result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank{rank}.pkl')
     with open(result_file, 'wb') as f:

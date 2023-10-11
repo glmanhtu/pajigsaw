@@ -85,7 +85,7 @@ def main(config):
 
 
     start_time = time.time()
-    similarity_map = hisfrag_eval(config, model, max_authors=max_author)
+    similarity_map = hisfrag_eval(config, model, max_author, logger=logger)
     similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
     similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
     logger.info('Starting to calculate performance...')

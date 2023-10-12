@@ -2,26 +2,23 @@ import argparse
 import datetime
 import json
 import os
-import pickle
 import random
 import time
 
-import pandas as pd
-import torch.distributed as dist
-
 import numpy as np
+import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
+import torch.distributed as dist
 import torchvision
 from timm.utils import AverageMeter
 from torch.utils.data import Dataset
 
 from config import get_config
-from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X2, HisFrag20GT
+from data.datasets.hisfrag20_test import HisFrag20GT
 from hisfrag_test import hisfrag_eval
 from misc import wi19_evaluate
 from misc.logger import create_logger
-from misc.sampler import DistributedEvalSampler
 from misc.utils import load_pretrained
 from models import build_model
 
@@ -76,6 +73,7 @@ def main(config):
     similarity_map = hisfrag_eval_2(config, model, max_authors=max_author)
     similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
     similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
+    similarity_map.to_csv('similarity_matrix.csv')
     logger.info('Starting to calculate performance...')
     m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
     total_time = time.time() - start_time
@@ -94,6 +92,7 @@ def main(config):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info(f'New approach: mAP {m_ap2:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t'
                 f'Pr@k100 {pr_a_k100:.3f} Time: {total_time_str}')
+    similarity_map.to_csv('similarity_matrix_2.csv')
 
     logger.info(f'First: {m_ap}, second: {m_ap2}')
     assert m_ap == m_ap2

@@ -92,7 +92,7 @@ class HisFrag20(VisionDataset):
         with Image.open(img_path) as f:
             first_img = f.convert('RGB')
 
-        if 0.35 > torch.rand(1):
+        if 0.5 > torch.rand(1):
             writer_id_2 = writer_id
             label = 1
         else:
@@ -130,7 +130,7 @@ class HisFrag20(VisionDataset):
         first_img = img_transforms(first_img)
         second_img = img_transforms(second_img)
 
-        if 0.5 > torch.rand(1):
+        if 0.5 > torch.rand(1) and self.split.is_train():
             first_img, second_img = second_img, first_img
 
         if self.transform is not None:

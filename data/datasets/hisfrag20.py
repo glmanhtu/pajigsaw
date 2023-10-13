@@ -111,8 +111,8 @@ class HisFrag20(VisionDataset):
 
         if self.split.is_train():
             img_transforms = torchvision.transforms.Compose([
-                torchvision.transforms.Resize(int(self.image_size * 1.2)),
-                torchvision.transforms.RandomResizedCrop(self.image_size, scale=(0.8, 1.2)),
+                torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True),
+                # torchvision.transforms.Resize(self.image_size),
                 torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1)),
                 torchvision.transforms.RandomGrayscale(p=0.3),
                 torchvision.transforms.RandomApply([
@@ -121,7 +121,6 @@ class HisFrag20(VisionDataset):
             ])
         else:
             img_transforms = torchvision.transforms.Compose([
-                torchvision.transforms.Resize(int(self.image_size * 1.2)),
                 torchvision.transforms.CenterCrop(self.image_size)
             ])
 

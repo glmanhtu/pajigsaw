@@ -43,7 +43,7 @@ class DistributedEvalSampler(Sampler):
     """
 
     def __init__(self, indexes, num_replicas, rank):
-        super().__init__()
+        super().__init__(None)
         self.num_replicas = num_replicas
         self.rank = rank
         self.epoch = 0

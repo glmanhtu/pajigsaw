@@ -27,7 +27,7 @@ class DistributedEvalSampler(Sampler):
         Dataset is assumed to be of constant size.
 
     Arguments:
-        pairs: Dataset used for sampling.
+        indexes: Dataset used for sampling.
         num_replicas (int, optional): Number of processes participating in
             distributed training. By default, :attr:`rank` is retrieved from the
             current distributed group.
@@ -42,31 +42,23 @@ class DistributedEvalSampler(Sampler):
         the same ordering will be always used.
     """
 
-    def __init__(self, pairs, num_replicas=None, rank=None):
-        if num_replicas is None:
-            if not dist.is_available():
-                raise RuntimeError("Requires distributed package to be available")
-            num_replicas = dist.get_world_size()
-        if rank is None:
-            if not dist.is_available():
-                raise RuntimeError("Requires distributed package to be available")
-            rank = dist.get_rank()
-
+    def __init__(self, indexes, num_replicas, rank):
+        super().__init__()
         self.num_replicas = num_replicas
         self.rank = rank
         self.epoch = 0
-        n_samples_per_rep = math.ceil(len(pairs) / self.num_replicas)
-        indices = torch.split(pairs, n_samples_per_rep)
+        n_samples_per_rep = math.ceil(len(indexes) / self.num_replicas)
+        indices = torch.split(indexes, n_samples_per_rep)
         sizes = [0]
         for i in range(1, len(indices)):
             if indices[i][0] == indices[i - 1][-1]:
                 sizes.append(indices[i][0].item() - 1)
             else:
                 sizes.append(indices[i][0].item())
-        sizes.append(pairs[-1].item())
+        sizes.append(indexes[-1].item() + 1)
         all_indicates = []
         for i in range(len(sizes) - 1):
-            all_indicates.append(torch.arange(sizes[i], sizes[i + 1] + 1))
+            all_indicates.append(torch.arange(sizes[i], sizes[i + 1]))
         self.samples = all_indicates[self.rank]
         self.num_samples = len(self.samples)
 

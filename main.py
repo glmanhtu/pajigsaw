@@ -92,11 +92,7 @@ def main(config):
     optimizer = build_optimizer(config, model)
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False)
     loss_scaler = NativeScalerWithGradNormCount()
-
-    if config.TRAIN.ACCUMULATION_STEPS > 1:
-        lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train) // config.TRAIN.ACCUMULATION_STEPS)
-    else:
-        lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
+    lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train) // config.TRAIN.ACCUMULATION_STEPS)
 
     criterion = torch.nn.BCEWithLogitsLoss()
 
@@ -202,7 +198,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
         torch.cuda.synchronize()
 
-        loss_meter.update(loss.item(), targets.size(0))
+        loss_meter.update(loss.item() * config.TRAIN.ACCUMULATION_STEPS, targets.size(0))
         if grad_norm is not None:  # loss_scaler return None if not update
             norm_meter.update(grad_norm)
         scaler_meter.update(loss_scale_value)

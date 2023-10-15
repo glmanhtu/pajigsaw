@@ -25,4 +25,4 @@ export MASTER_ADDR=$master_addr
 echo "MASTER_ADDR="$MASTER_ADDR
 
 ### the command to run
-srun ~/apps/bin/python3.10 hisfrag_test.py --cfg configs/pajigsaw/hisfrag20_patch16_512.yaml --data-path /beegfs/mvu/datasets/HisFrag20 --batch-size 256 --pretrained output/hisfrag20_patch16_512/default/best_model.pth --opts DATA.NUM_WORKERS 3 DATA.TEST_BATCH_SIZE 384 PRINT_FREQ 30
+srun ~/apps/bin/python3.10 hisfrag_test.py --cfg configs/pajigsaw/hisfrag20_patch16_512.yaml --data-path /beegfs/mvu/datasets/HisFrag20 --batch-size 512 --pretrained output/hisfrag20_patch16_512/default/best_model.pth --opts DATA.NUM_WORKERS 3 PRINT_FREQ 30

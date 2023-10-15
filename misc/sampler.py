@@ -59,9 +59,12 @@ class DistributedEvalSampler(Sampler):
         mask_max_items_count = indexes < sizes[1]   # Sizes[1] should be the largest proportion of dataset
         self.max_items_count_per_gpu = torch.sum(mask_max_items_count)
         all_indicates = []
+        n_items = []
         for i in range(len(sizes) - 1):
             all_indicates.append(torch.arange(sizes[i], sizes[i + 1]))
+            n_items.append(torch.sum(indexes < sizes[i + 1]))
         self.samples = all_indicates[self.rank]
+        self.n_items = n_items
         self.num_samples = len(self.samples)
 
     def __iter__(self):

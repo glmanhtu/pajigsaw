@@ -143,17 +143,14 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     f'mem {memory_used:.0f}MB')
 
     if world_size > 1:
-        max_n_items = sampler_val.max_items_count_per_gpu
+        n_items = sampler_val.n_items
         # create an empty list we will use to hold the gathered values
-        predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float16).cuda() for _ in range(world_size)]
-        # Tensors from different processes have to have the same N items, therefore we pad it with -1
-        predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)
+        predicts_list = [torch.zeros((size, 3), dtype=torch.float16, device=predicts.device) for size in n_items]
 
         # sending all tensors to the others
         dist.all_gather(predicts_list, predicts, async_op=False)
         
         # Remove all padded items
-        predicts_list = [x[x[:, 0] != -1] for x in predicts_list]
         predicts = torch.cat(predicts_list, dim=0)
     similarity_map = {}
     similarities = torch.sigmoid(predicts[:, 2]).cpu()

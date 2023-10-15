@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=hisfrag
-#SBATCH --partition=gpu
 #SBATCH --time=12:00:00
 
 ### e.g. request 4 nodes with 1 gpu each, totally 4 gpus (WORLD_SIZE==4)
 ### Note: --gres=gpu:x should equal to ntasks-per-node
 #SBATCH --nodes=5
 #SBATCH --ntasks-per-node=2
-#SBATCH --gres=gpu:2
 #SBATCH --constraint=p100
 #SBATCH --cpus-per-task=3
-#SBATCH --mem=64gb
 #SBATCH --chdir=/beegfs/mvu/pajigsaw
 #SBATCH --output=/beegfs/mvu/pajigsaw/output/hisfrag-eval-%x-%j.out
 #SBATCH -e /beegfs/mvu/pajigsaw/output/hisfrag-eval-%x-%j.err

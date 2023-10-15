@@ -52,10 +52,12 @@ class DistributedEvalSampler(Sampler):
         sizes = [0]
         for i in range(1, len(indices)):
             if indices[i][0] == indices[i - 1][-1]:
-                sizes.append(indices[i][0].item() - 1)
+                sizes.append(indices[i][0].item() + 1)
             else:
                 sizes.append(indices[i][0].item())
         sizes.append(indexes[-1].item() + 1)
+        mask_max_items_count = indexes < sizes[1]   # Sizes[1] should be the largest proportion of dataset
+        self.max_items_count_per_gpu = torch.sum(mask_max_items_count)
         all_indicates = []
         for i in range(len(sizes) - 1):
             all_indicates.append(torch.arange(sizes[i], sizes[i + 1]))

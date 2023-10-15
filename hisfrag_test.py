@@ -13,7 +13,7 @@ import torch.backends.cudnn as cudnn
 import torchvision
 from timm.utils import AverageMeter
 from torch.utils.data import Dataset
-
+import torch.nn.functional as F
 from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X2
 from misc.logger import create_logger
@@ -142,13 +142,19 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
 
-    # create an empty list we will use to hold the gathered values
-    predicts_list = [torch.zeros((0, 3), dtype=torch.float16).cuda() for _ in range(world_size)]
+    if world_size > 1:
+        max_n_items = sampler_val.max_items_count_per_gpu
+        # create an empty list we will use to hold the gathered values
+        predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float16).cuda() for _ in range(world_size)]
+        # Tensors from different processes have to have the same N items, therefore we pad it with -1
+        predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)
 
-    # sending all tensors to the others
-    dist.all_gather(predicts_list, predicts, async_op=False)
-    predicts = torch.cat(predicts_list, dim=0)
-
+        # sending all tensors to the others
+        dist.all_gather(predicts_list, predicts, async_op=False)
+        
+        # Remove all padded items
+        predicts_list = [x[x[:, 0] != -1] for x in predicts_list]
+        predicts = torch.cat(predicts_list, dim=0)
     similarity_map = {}
     similarities = torch.sigmoid(predicts[:, 2]).cpu()
     indexes = predicts[:, :2].type(torch.int).cpu()

@@ -114,6 +114,9 @@ def main(config):
         min_loss = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger)
         loss, acc, f1 = validate(config, data_loader_val, model)
         logger.info(f"F1 of the network on the {len(dataset_val)} test images: {f1:.2f}")
+        if args.hisfrag_eval:
+            hisfrag_test.hisfrag_eval_wrapper(config, model, args.hisfrag_eval_n_authors, world_size, rank, logger)
+
         if config.EVAL_MODE:
             return
 
@@ -148,15 +151,7 @@ def main(config):
         min_loss = min(min_loss, loss)
 
         if args.hisfrag_eval:
-            logger.info('Starting to gather similarity matrices')
-            similarity_map = hisfrag_test.hisfrag_eval(config, model, args.hisfrag_eval_n_authors, world_size,
-                                                       rank, logger)
-            similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
-            similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
-            logger.info('Starting to calculate performance...')
-            m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
-
-            logger.info(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' f'Pr@k100 {pr_a_k100:.3f}')
+            hisfrag_test.hisfrag_eval_wrapper(config, model, args.hisfrag_eval_n_authors, world_size, rank, logger)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

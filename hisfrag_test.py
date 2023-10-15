@@ -5,6 +5,8 @@ import os
 import pickle
 import random
 import time
+
+import pandas as pd
 import torch.distributed as dist
 
 import numpy as np
@@ -16,6 +18,7 @@ from torch.utils.data import Dataset
 import torch.nn.functional as F
 from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X2
+from misc import wi19_evaluate
 from misc.logger import create_logger
 from misc.sampler import DistributedEvalSampler
 from misc.utils import load_pretrained
@@ -76,6 +79,16 @@ def main(config):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Test time {}'.format(total_time_str))
+
+
+def hisfrag_eval_wrapper(config, model, max_authors=None, world_size=1, rank=0, logger=None):
+    similarity_map = hisfrag_eval(config, model, max_authors, world_size, rank, logger)
+    similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
+    similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
+    logger.info('Starting to calculate performance...')
+    m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
+
+    logger.info(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' f'Pr@k100 {pr_a_k100:.3f}')
 
 
 @torch.no_grad()
@@ -143,14 +156,18 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     f'mem {memory_used:.0f}MB')
 
     if world_size > 1:
-        n_items = sampler_val.n_items
+        max_n_items = sampler_val.max_items_count_per_gpu
         # create an empty list we will use to hold the gathered values
-        predicts_list = [torch.zeros((size, 3), dtype=torch.float16, device=predicts.device) for size in n_items]
+        predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float16, device=predicts.device)
+                         for _ in range(world_size)]
+        # Tensors from different processes have to have the same N items, therefore we pad it with -1
+        predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)
 
         # sending all tensors to the others
         dist.all_gather(predicts_list, predicts, async_op=False)
         
         # Remove all padded items
+        predicts_list = [x[x[:, 0] != -1] for x in predicts_list]
         predicts = torch.cat(predicts_list, dim=0)
     similarity_map = {}
     similarities = torch.sigmoid(predicts[:, 2]).cpu()

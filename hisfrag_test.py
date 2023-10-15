@@ -169,6 +169,8 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         # Remove all padded items
         predicts_list = [x[x[:, 0] != -1] for x in predicts_list]
         predicts = torch.cat(predicts_list, dim=0)
+
+    assert len(predicts) == len(pairs)
     similarity_map = {}
     similarities = torch.sigmoid(predicts[:, 2]).cpu()
     indexes = predicts[:, :2].type(torch.int).cpu()

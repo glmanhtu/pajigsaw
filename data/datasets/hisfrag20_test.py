@@ -87,7 +87,7 @@ class HisFrag20X2(VisionDataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, self.pairs[index], x1_id
+        return image, self.pairs[index].type(torch.float16), x1_id
 
     def __len__(self) -> int:
         return len(self.pairs)

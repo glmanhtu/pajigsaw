@@ -17,7 +17,6 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-from timm.utils import AverageMeter
 import pandas as pd
 
 import hisfrag_test
@@ -28,7 +27,8 @@ from misc.logger import create_logger
 from misc.lr_scheduler import build_scheduler
 from models import build_model
 from misc.optimizer import build_optimizer
-from misc.utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper
+from misc.utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, \
+    auto_resume_helper, AverageMeter
 
 
 def parse_option():
@@ -149,7 +149,8 @@ def main(config):
 
         if args.hisfrag_eval:
             logger.info('Starting to gather similarity matrices')
-            similarity_map = hisfrag_test.hisfrag_eval(config, model, args.hisfrag_eval_n_authors, 1, 0, logger)
+            similarity_map = hisfrag_test.hisfrag_eval(config, model, args.hisfrag_eval_n_authors, world_size,
+                                                       rank, logger)
             similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
             similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
             logger.info('Starting to calculate performance...')
@@ -284,6 +285,10 @@ def validate(config, data_loader, model):
                 f'Recall {recall_meter.val:.3f} ({recall_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
 
+    # Gathering results from gpus
+    loss_meter.all_reduce()
+    acc_meter.all_reduce()
+    f1_meter.all_reduce()
     return loss_meter.avg, acc_meter.avg, f1_meter.avg
 
 

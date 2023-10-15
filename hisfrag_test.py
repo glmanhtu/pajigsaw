@@ -68,7 +68,7 @@ def main(config):
 
     logger.info("Start testing")
     start_time = time.time()
-    similarity_map = hisfrag_eval(config, model)
+    similarity_map = hisfrag_eval(config, model, None, world_size, rank, logger)
     result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank{rank}.pkl')
     with open(result_file, 'wb') as f:
         pickle.dump(similarity_map, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -100,9 +100,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         drop_last=False
     )
 
-    predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
-    pair_indexes = torch.zeros((0, 2), dtype=torch.int32)
-
+    predicts = torch.zeros((0, 3), dtype=torch.float16).cuda()
     batch_time = AverageMeter()
     for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
         x1 = x1.cuda()
@@ -125,14 +123,14 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
             x1 = model(x1, forward_first_part=True)
 
         end = time.time()
-        for x2_id, (x2_images, pair, x1_indicates) in enumerate(x2_dataloader):
+        for x2_id, (x2_images, sub_pairs, x1_indicates) in enumerate(x2_dataloader):
             x2_images = x2_images.cuda(non_blocking=True)
-            pair_indexes = torch.cat([pair_indexes, pair])
+            sub_pairs = sub_pairs.cuda(non_blocking=True)
             x1_sub = x1[x1_indicates - lower_bound]
             with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-                output = model(x1_sub, x2_images)
+                outputs = model(x1_sub, x2_images)
 
-            predicts = torch.cat([predicts, output])
+            predicts = torch.cat([predicts, torch.column_stack([sub_pairs, outputs])])
             batch_time.update(time.time() - end)
             end = time.time()
             if x2_id % config.PRINT_FREQ == 0:
@@ -144,13 +142,22 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
 
+    # create an empty list we will use to hold the gathered values
+    predicts_list = [torch.zeros((0, 3), dtype=torch.float16).cuda() for _ in range(world_size)]
+
+    # sending all tensors to the others
+    dist.all_gather(predicts_list, predicts, async_op=False)
+    predicts = torch.cat(predicts_list, dim=0)
+
     similarity_map = {}
-    predicts = torch.sigmoid(predicts).cpu()
-    for pred, index in zip(predicts.numpy(), pair_indexes.numpy()):
+    similarities = torch.sigmoid(predicts[:, 2]).cpu()
+    indexes = predicts[:, :2].type(torch.int).cpu()
+    del predicts
+    for index, score in zip(indexes.numpy(), similarities.numpy()):
         img_1 = os.path.splitext(os.path.basename(dataset.samples[index[0]]))[0]
         img_2 = os.path.splitext(os.path.basename(dataset.samples[index[1]]))[0]
-        similarity_map.setdefault(img_1, {})[img_2] = pred[0]
-        similarity_map.setdefault(img_2, {})[img_1] = pred[0]
+        similarity_map.setdefault(img_1, {})[img_2] = score
+        similarity_map.setdefault(img_2, {})[img_1] = score
     return similarity_map
 
 

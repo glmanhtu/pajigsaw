@@ -72,9 +72,15 @@ def main(config):
     logger.info("Start testing")
     start_time = time.time()
     similarity_map = hisfrag_eval(config, model, None, world_size, rank, logger)
-    result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank{rank}.pkl')
-    with open(result_file, 'wb') as f:
-        pickle.dump(similarity_map, f, protocol=pickle.HIGHEST_PROTOCOL)
+    similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
+    similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
+
+    if rank == 0:
+        result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank{rank}.pkl')
+        similarity_map.to_csv(result_file)
+    logger.info('Starting to calculate performance...')
+    m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
+    logger.info(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' f'Pr@k100 {pr_a_k100:.3f}')
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

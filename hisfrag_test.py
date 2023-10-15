@@ -185,16 +185,22 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
 
 if __name__ == '__main__':
     args, config = parse_option()
+    local_rank, rank, world_size = -1, -1, -1
 
-    local_rank = int(os.environ["LOCAL_RANK"])
+    if 'LOCAL_RANK' in os.environ:  # for torch.distributed.launch
+        local_rank = int(os.environ["LOCAL_RANK"])
 
-    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+    if 'RANK' in os.environ:
         rank = int(os.environ["RANK"])
+
+    if 'WORLD_SIZE' in os.environ:
         world_size = int(os.environ['WORLD_SIZE'])
-        print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
-    else:
-        rank = -1
-        world_size = -1
+
+    if 'SLURM_PROCID' in os.environ:    # for slurm scheduler
+        rank = int(os.environ['SLURM_PROCID'])
+        local_rank = rank % torch.cuda.device_count()
+
+    print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
     torch.cuda.set_device(local_rank)
     torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
     torch.distributed.barrier()

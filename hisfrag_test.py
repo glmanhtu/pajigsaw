@@ -105,23 +105,24 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
     dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform, max_n_authors=max_authors)
-    indicates = torch.arange(len(dataset)).type(torch.int)
+    indicates = torch.arange(len(dataset)).type(torch.int).cuda()
     pairs = torch.combinations(indicates, r=2, with_replacement=True)
+    del indicates
 
-    sampler_val = DistributedEvalSampler(pairs[:, 0], num_replicas=world_size, rank=rank)
+    sampler_val = DistributedEvalSampler(pairs[:, 0].cpu(), num_replicas=world_size, rank=rank)
     x1_dataloader = torch.utils.data.DataLoader(
         dataset, sampler=sampler_val,
         batch_size=config.DATA.BATCH_SIZE,
-        shuffle=False,
+        shuffle=False,  # Very important, shuffle have to be False
         num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=False,
+        pin_memory=True,
         drop_last=False
     )
 
     predicts = torch.zeros((0, 3), dtype=torch.float16).cuda()
     batch_time = AverageMeter()
     for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
-        x1 = x1.cuda()
+        x1 = x1.cuda(non_blocking=True)
         x1_lower_bound, x1_upper_bound = torch.min(x1_indexes), torch.max(x1_indexes)
         pair_masks = torch.greater_equal(pairs[:, 0], x1_lower_bound)
         pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], x1_upper_bound))
@@ -132,7 +133,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         x2_dataloader = torch.utils.data.DataLoader(
             x2_dataset,
             batch_size=config.DATA.BATCH_SIZE,
-            shuffle=False,
+            shuffle=False,  # Very important, shuffle have to be False
             num_workers=config.DATA.NUM_WORKERS,
             pin_memory=True,
             drop_last=False
@@ -141,7 +142,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             x1 = model(x1, forward_first_part=True)
 
-        x1_pairs = pairs[pair_masks].cuda(non_blocking=True)
+        x1_pairs = pairs[pair_masks]
         end = time.time()
         for x2_id, (x2_images, x2_indicates) in enumerate(x2_dataloader):
             x2_images = x2_images.cuda(non_blocking=True)

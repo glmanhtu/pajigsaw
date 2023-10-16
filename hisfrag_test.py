@@ -124,8 +124,6 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
         x1 = x1.cuda(non_blocking=True)
         x1_lower_bound, x1_upper_bound = x1_indexes[0], x1_indexes[-1]
-        pair_masks = torch.greater_equal(pairs[:, 0], x1_lower_bound)
-        pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], x1_upper_bound))
 
         x2_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform, max_n_authors=max_authors,
                                    lower_bound=x1_lower_bound.item())
@@ -142,21 +140,14 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             x1 = model(x1, forward_first_part=True)
 
-        x1_pairs = pairs[pair_masks]
         end = time.time()
         cal_timer = CalTimer()
         for x2_id, (x2, x2_indicates) in enumerate(x2_dataloader):
             x2 = x2.cuda(non_blocking=True)
             x2_lower_bound, x2_upper_bound = x2_indicates[0], x2_indicates[-1]
-            cal_timer.set_timer()
-            pair_masks = torch.greater_equal(x1_pairs[:, 1], x2_lower_bound)
-            pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x2_upper_bound))
-            cal_timer.time_me('create_pair_masks', time.time())
-            pair_masks = pair_masks.nonzero().squeeze(1)
             cal_timer.time_me('create_indicates', time.time())
-            x1_x2_pairs = x1_pairs[pair_masks]
+            x1_x2_pairs = torch.cartesian_prod(x1_indexes, x2_indicates)
             cal_timer.time_me('select_indicates', time.time())
-            x1_pairs = x1_pairs[x1_pairs[:, 1] > x2_upper_bound]
             cal_timer.time_me('reduce_x1', time.time())
             for sub_pairs in torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE):
                 cal_timer.set_timer()

@@ -199,10 +199,11 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     indexes = predicts[:, :2].type(torch.int).cpu()
     del predicts
     for index, score in zip(indexes.numpy(), similarities.numpy()):
-        img_1 = os.path.splitext(os.path.basename(dataset.samples[index[0]]))[0]
-        img_2 = os.path.splitext(os.path.basename(dataset.samples[index[1]]))[0]
-        similarity_map.setdefault(img_1, {})[img_2] = score
-        similarity_map.setdefault(img_2, {})[img_1] = score
+        img_1_idx, img_2_idx = tuple(index)
+        img_1 = os.path.splitext(os.path.basename(dataset.samples[img_1_idx]))
+        img_2 = os.path.splitext(os.path.basename(dataset.samples[img_2_idx]))
+        similarity_map.setdefault(img_1, {})[img_2[0]] = score
+        similarity_map.setdefault(img_2, {})[img_1[0]] = score
     return similarity_map
 
 

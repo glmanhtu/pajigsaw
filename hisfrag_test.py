@@ -157,7 +157,6 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
             x1_x2_pairs = x1_pairs[pair_masks]
             cal_timer.time_me('select_indicates', time.time())
             for sub_pairs in torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE):
-                cal_timer.set_timer()
                 x1_sub = x1[sub_pairs[:, 0] - x1_lower_bound]
                 x2_sub = x2[sub_pairs[:, 1] - x2_lower_bound]
                 with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):

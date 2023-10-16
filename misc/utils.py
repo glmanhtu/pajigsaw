@@ -6,6 +6,7 @@
 # --------------------------------------------------------
 
 import os
+import time
 
 import numpy as np
 import torch
@@ -251,6 +252,30 @@ def split_list_by_ratios(lst, ratios):
     sublists[-1].extend(lst[start_idx:])
 
     return sublists
+
+
+class CalTimer:
+    def __init__(self):
+        self.functions = {}
+        self.ordered = []
+        self.current_time = None
+
+    def time_me(self, func_name, current_time):
+        time_diff = current_time - self.current_time
+        self.current_time = current_time
+        if func_name not in self.functions:
+            self.functions[func_name] = AverageMeter()
+            self.ordered.append(func_name)
+        self.functions[func_name].update(time_diff)
+
+    def set_timer(self):
+        self.current_time = time.time()
+
+    def get_results(self):
+        results = ""
+        for key in self.ordered:
+            results += f'{key}: {self.functions[key].avg:.4f}\t'
+        return results
 
 
 class AverageMeter:

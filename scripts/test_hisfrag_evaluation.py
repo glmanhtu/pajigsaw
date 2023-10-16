@@ -64,7 +64,7 @@ def main(config):
     logger.info("Start testing")
     start_time = time.time()
     max_author = args.max_n_authors
-    similarity_map = hisfrag_eval_2(config, model, max_authors=max_author)
+    similarity_map = hisfrag_eval(config, model, max_author, logger=logger)
     similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
     similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
     similarity_map.to_csv('similarity_matrix.csv')
@@ -72,18 +72,18 @@ def main(config):
     m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    logger.info(f'Original approach: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' 
+    logger.info(f'New approach: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' 
                 f'Pr@k100 {pr_a_k100:.3f} Time: {total_time_str}')
 
     start_time = time.time()
-    similarity_map = hisfrag_eval(config, model, max_author, logger=logger)
+    similarity_map = hisfrag_eval_2(config, model, max_authors=max_author)
     similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
     similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
     logger.info('Starting to calculate performance...')
     m_ap2, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    logger.info(f'New approach: mAP {m_ap2:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t'
+    logger.info(f'Original approach: mAP {m_ap2:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t'
                 f'Pr@k100 {pr_a_k100:.3f} Time: {total_time_str}')
     similarity_map.to_csv('similarity_matrix_2.csv')
 

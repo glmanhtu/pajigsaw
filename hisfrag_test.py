@@ -20,7 +20,7 @@ from data.datasets.hisfrag20_test import HisFrag20Test
 from misc import wi19_evaluate
 from misc.logger import create_logger
 from misc.sampler import DistributedEvalSampler
-from misc.utils import load_pretrained
+from misc.utils import load_pretrained, CalTimer
 from models import build_model
 
 
@@ -144,19 +144,29 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
 
         x1_pairs = pairs[pair_masks]
         end = time.time()
+        cal_timer = CalTimer()
+        cal_timer.set_timer()
         for x2_id, (x2, x2_indicates) in enumerate(x2_dataloader):
+            cal_timer.set_timer()
             x2 = x2.cuda(non_blocking=True)
             x2_lower_bound, x2_upper_bound = torch.min(x2_indicates), torch.max(x2_indicates)
             pair_masks = torch.greater_equal(x1_pairs[:, 1], x2_lower_bound)
             pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x2_upper_bound))
             x1_x2_pairs = x1_pairs[pair_masks]
-            for sub_pairs in torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE):
+            cal_timer.time_me('gather_masks_x2', time.time())
+            chunks = torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE)
+            cal_timer.time_me('split_chunks', time.time())
+            for sub_pairs in chunks:
+                cal_timer.set_timer()
                 x1_sub = x1[sub_pairs[:, 0] - x1_lower_bound]
                 x2_sub = x2[sub_pairs[:, 1] - x2_lower_bound]
+                cal_timer.time_me('data_index', time.time())
                 with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                     outputs = model(x1_sub, x2_sub)
 
+                cal_timer.time_me('compute_similarity', time.time())
                 predicts = torch.cat([predicts, torch.column_stack([sub_pairs.type(torch.float16), outputs])])
+                cal_timer.time_me('add_predicts', time.time())
             batch_time.update(time.time() - end)
             end = time.time()
             if x2_id % config.PRINT_FREQ == 0:
@@ -167,6 +177,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     f'X2 eta {datetime.timedelta(seconds=int(etas))}\t'
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
+                logger.info(cal_timer.get_results())
 
     if world_size > 1:
         max_n_items = sampler_val.max_items_count_per_gpu

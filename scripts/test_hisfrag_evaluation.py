@@ -12,6 +12,7 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torchvision
 from timm.utils import AverageMeter
+from torch import nn
 from torch.utils.data import Dataset
 
 from config import get_config
@@ -35,8 +36,8 @@ def parse_option():
 
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for data")
+    parser.add_argument('--max-n-authors', type=int, default=50)
     parser.add_argument('--data-path', type=str, help='path to dataset')
-    parser.add_argument('--pretrained', required=True, help='pretrained weight from checkpoint')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
@@ -58,18 +59,11 @@ def main(config):
     logger.info(f"number of params: {n_parameters}")
 
     model.cuda()
-    model_without_ddp = model
-
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False)
-
-    if os.path.isfile(config.MODEL.PRETRAINED):
-        load_pretrained(config, model_without_ddp, logger)
-    else:
-        raise Exception(f'Pretrained model is not exists {config.MODEL.PRETRAINED}')
 
     logger.info("Start testing")
     start_time = time.time()
-    max_author = 50
+    max_author = args.max_n_authors
     similarity_map = hisfrag_eval_2(config, model, max_authors=max_author)
     similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
     similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)

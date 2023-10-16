@@ -123,6 +123,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     batch_time = AverageMeter()
     for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
         x1 = x1.cuda(non_blocking=True)
+        x1_indexes = x1_indexes.cuda(non_blocking=True)
         x1_lower_bound, x1_upper_bound = x1_indexes[0], x1_indexes[-1]
 
         x2_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform, max_n_authors=max_authors,
@@ -145,6 +146,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         for x2_id, (x2, x2_indicates) in enumerate(x2_dataloader):
             x2 = x2.cuda(non_blocking=True)
             x2_lower_bound, x2_upper_bound = x2_indicates[0], x2_indicates[-1]
+            x2_indicates = x2_indicates.cuda(non_blocking=True)
             cal_timer.set_timer()
             x1_x2_pairs = torch.cartesian_prod(x1_indexes, x2_indicates)
             cal_timer.time_me('select_indicates', time.time())

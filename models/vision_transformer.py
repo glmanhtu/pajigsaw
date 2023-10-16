@@ -409,13 +409,11 @@ class VisionTransformerCustom(VisionTransformer):
         x1 = self.forward_first_part(x1)
         return self.forward_second_part(x1, x2)
 
-    def forward(self, x, feature_x2=None, forward_first_part=False, prepare_x2=False):
+    def forward(self, x, x2=None, forward_first_part=False):
         if forward_first_part:
             return self.forward_first_part(x)
-        if prepare_x2:
-            return self.prepare_x2(x)
-        if feature_x2 is not None:
-            x = self.cross_part(x, feature_x2)
+        if x2 is not None:
+            x = self.forward_second_part(x, x2)
             return self.forward_head(x)
         x = self.forward_features(x)
         x = self.forward_head(x)

@@ -145,30 +145,24 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         x1_pairs = pairs[pair_masks]
         end = time.time()
         cal_timer = CalTimer()
-        cal_timer.set_timer()
         for x2_id, (x2, x2_indicates) in enumerate(x2_dataloader):
             x2 = x2.cuda(non_blocking=True)
             x2_lower_bound, x2_upper_bound = x2_indicates[0], x2_indicates[-1]
             cal_timer.set_timer()
             pair_masks = torch.greater_equal(x1_pairs[:, 1], x2_lower_bound)
             pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x2_upper_bound))
-            pair_masks = pair_masks.cpu().nonzero().squeeze(1)
             cal_timer.time_me('create_pair_masks', time.time())
             x1_x2_pairs = x1_pairs[pair_masks]
+            x1_pairs = x1_pairs[x1_pairs[:, 1] > x2_upper_bound]
             cal_timer.time_me('select_pair_masks', time.time())
-            chunks = torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE)
-            cal_timer.time_me('split_chunks', time.time())
-            for sub_pairs in chunks:
+            for sub_pairs in torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE):
                 cal_timer.set_timer()
                 x1_sub = x1[sub_pairs[:, 0] - x1_lower_bound]
                 x2_sub = x2[sub_pairs[:, 1] - x2_lower_bound]
-                cal_timer.time_me('data_index', time.time())
                 with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                     outputs = model(x1_sub, x2_sub)
 
-                cal_timer.time_me('compute_similarity', time.time())
                 predicts = torch.cat([predicts, torch.column_stack([sub_pairs.type(torch.float16), outputs])])
-                cal_timer.time_me('add_predicts', time.time())
             batch_time.update(time.time() - end)
             end = time.time()
             if x2_id % config.PRINT_FREQ == 0:

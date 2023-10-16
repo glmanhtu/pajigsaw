@@ -75,7 +75,7 @@ def main(config):
     logger.info(f'Original approach: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' 
                 f'Pr@k100 {pr_a_k100:.3f} Time: {total_time_str}')
 
-
+    model = torch.compile(model)
     start_time = time.time()
     similarity_map = hisfrag_eval(config, model, max_author, logger=logger)
     similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()

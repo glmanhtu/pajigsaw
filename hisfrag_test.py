@@ -153,7 +153,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
             pair_masks = torch.greater_equal(x1_pairs[:, 1], x2_lower_bound)
             pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x2_upper_bound))
             cal_timer.time_me('create_pair_masks', time.time())
-            x1_x2_pairs = torch.masked_select(x1_pairs, pair_masks)
+            x1_x2_pairs = torch.index_select(x1_pairs, 0, pair_masks.nonzero().squeeze(1))
             cal_timer.time_me('select_pair_masks', time.time())
             chunks = torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE)
             cal_timer.time_me('split_chunks', time.time())

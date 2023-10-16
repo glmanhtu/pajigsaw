@@ -146,8 +146,8 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         for x2_id, (x2_images, x2_indicates) in enumerate(x2_dataloader):
             x2_images = x2_images.cuda(non_blocking=True)
             x2_lower_bound, x2_upper_bound = torch.min(x2_indicates), torch.max(x2_indicates)
-            pair_masks = torch.greater_equal(x1_pairs[:, 1], x1_lower_bound)
-            pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x1_upper_bound))
+            pair_masks = torch.greater_equal(x1_pairs[:, 1], x2_lower_bound)
+            pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x2_upper_bound))
             x1_x2_pairs = x1_pairs[pair_masks]
             for sub_pairs in torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE):
                 x1_sub = x1[sub_pairs[:, 0] - x1_lower_bound]

@@ -144,15 +144,18 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
 
         x1_pairs = pairs[pair_masks]
         end = time.time()
-        for x2_id, (x2_images, x2_indicates) in enumerate(x2_dataloader):
-            x2_images = x2_images.cuda(non_blocking=True)
+        for x2_id, (x2, x2_indicates) in enumerate(x2_dataloader):
+            x2 = x2.cuda(non_blocking=True)
             x2_lower_bound, x2_upper_bound = torch.min(x2_indicates), torch.max(x2_indicates)
             pair_masks = torch.greater_equal(x1_pairs[:, 1], x2_lower_bound)
             pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x2_upper_bound))
             x1_x2_pairs = x1_pairs[pair_masks]
+            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                x2 = model(x2, prepare_x2=True)
+
             for sub_pairs in torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE):
                 x1_sub = x1[sub_pairs[:, 0] - x1_lower_bound]
-                x2_sub = x2_images[sub_pairs[:, 1] - x2_lower_bound]
+                x2_sub = x2[sub_pairs[:, 1] - x2_lower_bound]
                 with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                     outputs = model(x1_sub, x2_sub)
 

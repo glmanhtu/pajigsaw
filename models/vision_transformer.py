@@ -387,26 +387,35 @@ class VisionTransformerCustom(VisionTransformer):
         x1 = self.blocks(x1)
         return x1
 
-    def forward_second_part(self, x1, x2):
+    def prepare_x2(self, x2):
         x2 = self.patch_embed(x2)
         x2 = self._pos_embed(x2)
         x2 = self.patch_drop(x2)
         x2 = self.norm_pre(x2)
+        return x2
+
+    def cross_part(self, x1, x2):
         for blk in self.cross_blocks:
             x2 = blk(x2, x1)
         x = self.norm(x2)
         return x
+
+    def forward_second_part(self, x1, x2):
+        x2 = self.prepare_x2(x2)
+        return self.cross_part(x1, x2)
 
     def forward_features(self, x):
         x1, x2 = torch.unbind(x, 1)
         x1 = self.forward_first_part(x1)
         return self.forward_second_part(x1, x2)
 
-    def forward(self, x, x2=None, forward_first_part=False):
+    def forward(self, x, feature_x2=None, forward_first_part=False, prepare_x2=False):
         if forward_first_part:
             return self.forward_first_part(x)
-        if x2 is not None:
-            x = self.forward_second_part(x, x2)
+        if prepare_x2:
+            return self.prepare_x2(x)
+        if feature_x2 is not None:
+            x = self.cross_part(x, feature_x2)
             return self.forward_head(x)
         x = self.forward_features(x)
         x = self.forward_head(x)

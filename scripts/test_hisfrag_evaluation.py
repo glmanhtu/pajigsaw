@@ -102,7 +102,6 @@ def main(config):
 def hisfrag_eval_2(config, model, max_authors=None):
     model.eval()
     transform = torchvision.transforms.Compose([
-        torchvision.transforms.Resize(int(config.DATA.IMG_SIZE * 1.2)),
         torchvision.transforms.CenterCrop(config.DATA.IMG_SIZE),
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),

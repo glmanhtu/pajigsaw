@@ -145,7 +145,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         for x2_id, (x2, x2_indicates) in enumerate(x2_dataloader):
             x2 = x2.cuda(non_blocking=True)
             x2_lower_bound, x2_upper_bound = x2_indicates[0], x2_indicates[-1]
-            cal_timer.time_me('create_indicates', time.time())
+            cal_timer.set_timer()
             x1_x2_pairs = torch.cartesian_prod(x1_indexes, x2_indicates)
             cal_timer.time_me('select_indicates', time.time())
             cal_timer.time_me('reduce_x1', time.time())

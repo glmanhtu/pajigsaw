@@ -200,16 +200,16 @@ if __name__ == '__main__':
     args, config = parse_option()
     local_rank, rank, world_size = -1, -1, -1
 
-    if 'LOCAL_RANK' in os.environ:  # for torch.distributed.launch
-        local_rank = int(os.environ["LOCAL_RANK"])
-
     if 'RANK' in os.environ:
         rank = int(os.environ["RANK"])
 
     if 'WORLD_SIZE' in os.environ:
         world_size = int(os.environ['WORLD_SIZE'])
 
-    if 'SLURM_PROCID' in os.environ:    # for slurm scheduler
+    if 'LOCAL_RANK' in os.environ:  # for torch.distributed.launch
+        local_rank = int(os.environ["LOCAL_RANK"])
+
+    elif 'SLURM_PROCID' in os.environ:    # for slurm scheduler
         rank = int(os.environ['SLURM_PROCID'])
         local_rank = rank % torch.cuda.device_count()
 

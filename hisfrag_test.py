@@ -127,7 +127,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         pair_masks = torch.greater_equal(pairs[:, 0], x1_lower_bound)
         pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], x1_upper_bound))
 
-        x2_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform, max_n_authors=max_authors,
+        x2_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform, samples=dataset.samples,
                                    lower_bound=x1_lower_bound.item())
         logger.info(f'X2 dataset size: {len(x2_dataset)}, lower_bound: {x1_lower_bound}')
         x2_dataloader = torch.utils.data.DataLoader(
@@ -144,18 +144,12 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
 
         x1_pairs = pairs[pair_masks]
         end = time.time()
-        cal_timer = CalTimer()
         for x2_id, (x2, x2_indicates) in enumerate(x2_dataloader):
             x2 = x2.cuda(non_blocking=True)
             x2_lower_bound, x2_upper_bound = x2_indicates[0], x2_indicates[-1]
-            cal_timer.set_timer()
             pair_masks = torch.greater_equal(x1_pairs[:, 1], x2_lower_bound)
             pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x2_upper_bound))
-            cal_timer.time_me('create_pair_masks', time.time())
-            pair_masks = pair_masks.nonzero().squeeze(1)
-            cal_timer.time_me('create_indicates', time.time())
             x1_x2_pairs = x1_pairs[pair_masks]
-            cal_timer.time_me('select_indicates', time.time())
             for sub_pairs in torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE):
                 x1_sub = x1[sub_pairs[:, 0] - x1_lower_bound]
                 x2_sub = x2[sub_pairs[:, 1] - x2_lower_bound]
@@ -163,8 +157,6 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     outputs = model(x1_sub, x2_sub)
 
                 predicts = torch.cat([predicts, torch.column_stack([sub_pairs.type(torch.float16), outputs])])
-
-            cal_timer.time_me('similarity_estimation', time.time())
             batch_time.update(time.time() - end)
             end = time.time()
             if x2_id % config.PRINT_FREQ == 0:
@@ -175,7 +167,6 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     f'X2 eta {datetime.timedelta(seconds=int(etas))}\t'
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
-                logger.info(cal_timer.get_results())
 
     if world_size > 1:
         max_n_items = sampler_val.max_items_count_per_gpu

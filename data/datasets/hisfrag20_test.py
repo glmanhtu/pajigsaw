@@ -21,28 +21,30 @@ class HisFrag20Test(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         max_n_authors: int = None,
+        samples = None,
         lower_bound = 0
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self.root_dir = root
-        writer_map = {}
-        for img in glob.iglob(os.path.join(self.root_dir, 'test', '**', '*.jpg'), recursive=True):
-            file_name = os.path.splitext(os.path.basename(img))[0]
-            writer_id, page_id, fragment_id = tuple(file_name.split("_"))
-            if writer_id not in writer_map:
-                writer_map[writer_id] = {}
-            if page_id not in writer_map[writer_id]:
-                writer_map[writer_id][page_id] = []
-            writer_map[writer_id][page_id].append(img)
+        if samples is None:
+            writer_map = {}
+            for img in glob.iglob(os.path.join(self.root_dir, 'test', '**', '*.jpg'), recursive=True):
+                file_name = os.path.splitext(os.path.basename(img))[0]
+                writer_id, page_id, fragment_id = tuple(file_name.split("_"))
+                if writer_id not in writer_map:
+                    writer_map[writer_id] = {}
+                if page_id not in writer_map[writer_id]:
+                    writer_map[writer_id][page_id] = []
+                writer_map[writer_id][page_id].append(img)
 
-        writers = sorted(writer_map.keys())
-        if max_n_authors is not None:
-            writers = writers[:max_n_authors]
+            writers = sorted(writer_map.keys())
+            if max_n_authors is not None:
+                writers = writers[:max_n_authors]
 
-        samples = []
-        for writer_id in writers:
-            for page_id in writer_map[writer_id]:
-                samples += writer_map[writer_id][page_id]
+            samples = []
+            for writer_id in writers:
+                for page_id in writer_map[writer_id]:
+                    samples += writer_map[writer_id][page_id]
 
         self.samples = samples
         self.lower_bound = lower_bound

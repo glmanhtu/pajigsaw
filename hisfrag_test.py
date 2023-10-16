@@ -2,22 +2,21 @@ import argparse
 import datetime
 import json
 import os
-import pickle
 import random
 import time
 
-import pandas as pd
-import torch.distributed as dist
-
 import numpy as np
+import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
+import torch.distributed as dist
+import torch.nn.functional as F
 import torchvision
 from timm.utils import AverageMeter
 from torch.utils.data import Dataset
-import torch.nn.functional as F
+
 from config import get_config
-from data.datasets.hisfrag20_test import HisFrag20Test, HisFrag20X2
+from data.datasets.hisfrag20_test import HisFrag20Test
 from misc import wi19_evaluate
 from misc.logger import create_logger
 from misc.sampler import DistributedEvalSampler
@@ -123,15 +122,16 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     batch_time = AverageMeter()
     for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
         x1 = x1.cuda()
-        lower_bound, upper_bound = torch.min(x1_indexes), torch.max(x1_indexes)
-        pair_masks = torch.greater_equal(pairs[:, 0], lower_bound)
-        pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], upper_bound))
+        x1_lower_bound, x1_upper_bound = torch.min(x1_indexes), torch.max(x1_indexes)
+        pair_masks = torch.greater_equal(pairs[:, 0], x1_lower_bound)
+        pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], x1_upper_bound))
 
-        x2_dataset = HisFrag20X2(config.DATA.DATA_PATH, dataset.samples, pairs[pair_masks], transform=transform)
-        logger.info(f'X2 dataset size: {len(x2_dataset)}, lower_bound: {lower_bound}')
+        x2_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform, max_n_authors=max_authors,
+                                   lower_bound=x1_lower_bound.item())
+        logger.info(f'X2 dataset size: {len(x2_dataset)}, lower_bound: {x1_lower_bound}')
         x2_dataloader = torch.utils.data.DataLoader(
             x2_dataset,
-            batch_size=config.DATA.TEST_BATCH_SIZE,
+            batch_size=config.DATA.BATCH_SIZE,
             shuffle=False,
             num_workers=config.DATA.NUM_WORKERS,
             pin_memory=True,
@@ -141,15 +141,21 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             x1 = model(x1, forward_first_part=True)
 
+        x1_pairs = pairs[pair_masks].cuda(non_blocking=True)
         end = time.time()
-        for x2_id, (x2_images, sub_pairs, x1_indicates) in enumerate(x2_dataloader):
+        for x2_id, (x2_images, x2_indicates) in enumerate(x2_dataloader):
             x2_images = x2_images.cuda(non_blocking=True)
-            sub_pairs = sub_pairs.cuda(non_blocking=True)
-            x1_sub = x1[x1_indicates - lower_bound]
-            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-                outputs = model(x1_sub, x2_images)
+            x2_lower_bound, x2_upper_bound = torch.min(x2_indicates), torch.max(x2_indicates)
+            pair_masks = torch.greater_equal(x1_pairs[:, 1], x1_lower_bound)
+            pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x1_upper_bound))
+            x1_x2_pairs = x1_pairs[pair_masks]
+            for sub_pairs in torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE):
+                x1_sub = x1[sub_pairs[:, 0] - x1_lower_bound]
+                x2_sub = x2_images[sub_pairs[:, 1] - x2_lower_bound]
+                with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                    outputs = model(x1_sub, x2_sub)
 
-            predicts = torch.cat([predicts, torch.column_stack([sub_pairs, outputs])])
+                predicts = torch.cat([predicts, torch.column_stack([sub_pairs.type(torch.float16), outputs])])
             batch_time.update(time.time() - end)
             end = time.time()
             if x2_id % config.PRINT_FREQ == 0:

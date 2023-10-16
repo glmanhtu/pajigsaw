@@ -21,6 +21,7 @@ class HisFrag20Test(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         max_n_authors: int = None,
+        lower_bound = 0
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self.root_dir = root
@@ -44,8 +45,10 @@ class HisFrag20Test(VisionDataset):
                 samples += writer_map[writer_id][page_id]
 
         self.samples = samples
+        self.lower_bound = lower_bound
 
     def __getitem__(self, index: int):
+        index = index + self.lower_bound
         img_path = self.samples[index]
 
         with Image.open(img_path) as f:
@@ -57,7 +60,7 @@ class HisFrag20Test(VisionDataset):
         return image, index
 
     def __len__(self) -> int:
-        return len(self.samples)
+        return len(self.samples) - self.lower_bound
 
 
 class HisFrag20X2(VisionDataset):

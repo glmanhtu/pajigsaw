@@ -22,7 +22,7 @@ from data.datasets.hisfrag20_test import HisFrag20Test
 from misc import wi19_evaluate
 from misc.logger import create_logger
 from misc.sampler import DistributedEvalSampler
-from misc.utils import load_pretrained, CalTimer, rank_breakpoint
+from misc.utils import load_pretrained, CalTimer
 from models import build_model
 
 
@@ -188,7 +188,6 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         predicts = torch.cat(predicts_list, dim=0)
 
     assert len(predicts) == len(pairs)
-    rank_breakpoint(rank)
     similarity_map = {}
     similarities = torch.sigmoid(predicts[:, 2]).cpu()
     indexes = predicts[:, :2].type(torch.int).cpu()
@@ -204,7 +203,9 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
             logger.info(f'Index error: {index}, {score}')
             logger.info(f'Indexes shape: {indexes.shape}, samples shape: {len(dataset.samples)}')
             logger.info(f'Predicts: {predicts[count]}, indexes: {indexes[count]}')
-            pdb.set_trace()
+            if rank == 0:
+                pdb.set_trace()
+            torch.distributed.barrier()
         count += 1
     return similarity_map
 

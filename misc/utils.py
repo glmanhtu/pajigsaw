@@ -4,8 +4,9 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ze Liu
 # --------------------------------------------------------
-
+import inspect
 import os
+import pdb
 import time
 
 import numpy as np
@@ -306,3 +307,13 @@ class AverageMeter:
         dist.all_reduce(total, dist.ReduceOp.SUM, async_op=False)
         self.sum, self.count = total.tolist()
         self.avg = self.sum / self.count
+
+
+def rank_breakpoint(current_rank, rank=0):
+    if current_rank != rank:
+        torch.distributed.barrier()  # all processes wait here except the one we want to debug
+    else:
+        # the chosen rank will set a trace, but we want the frame from where this function is called
+        pdb.Pdb().set_trace(inspect.currentframe().f_back.f_back)
+        # once breakpoint gets skipped, synchronize with all other workers
+        torch.distributed.barrier()

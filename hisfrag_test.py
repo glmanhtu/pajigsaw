@@ -101,6 +101,7 @@ def hisfrag_eval_wrapper(config, model, max_authors=None, world_size=1, rank=0, 
 @torch.no_grad()
 def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=None):
     model.eval()
+    model = torch.compile(model)
     transform = torchvision.transforms.Compose([
         torchvision.transforms.CenterCrop(config.DATA.IMG_SIZE),
         torchvision.transforms.ToTensor(),

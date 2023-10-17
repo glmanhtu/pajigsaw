@@ -107,6 +107,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
     dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform, max_n_authors=max_authors)
+    print(f"Len dataset: {len(dataset)}")
     indicates = torch.arange(len(dataset)).type(torch.int).cuda()
     pairs = torch.combinations(indicates, r=2, with_replacement=True)
     del indicates

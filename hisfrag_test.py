@@ -119,7 +119,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         drop_last=False
     )
 
-    predicts = torch.zeros((0, 3), dtype=torch.float16).cuda()
+    predicts = torch.zeros((0, 3), dtype=torch.float32).cuda()
     batch_time = AverageMeter()
     for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
         x1 = x1.cuda(non_blocking=True)
@@ -156,7 +156,8 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                 with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                     outputs = model(x1_sub, x2_sub)
 
-                predicts = torch.cat([predicts, torch.column_stack([sub_pairs.type(torch.float16), outputs])])
+                predicts = torch.cat([predicts, torch.column_stack([sub_pairs.type(torch.float32),
+                                                                    outputs.type(torch.float32)])])
             batch_time.update(time.time() - end)
             end = time.time()
             if x2_id % config.PRINT_FREQ == 0:
@@ -171,7 +172,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     if world_size > 1:
         max_n_items = sampler_val.max_items_count_per_gpu
         # create an empty list we will use to hold the gathered values
-        predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float16, device=predicts.device)
+        predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float32, device=predicts.device)
                          for _ in range(world_size)]
         # Tensors from different processes have to have the same N items, therefore we pad it with -1
         predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)

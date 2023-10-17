@@ -118,7 +118,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         dataset, sampler=sampler_val,
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,  # Very important, shuffle have to be False
-        num_workers=config.DATA.NUM_WORKERS,
+        num_workers=0,
         pin_memory=True,
         drop_last=False
     )

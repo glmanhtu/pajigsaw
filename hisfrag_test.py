@@ -170,7 +170,6 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
 
-    torch.distributed.barrier()
     if world_size > 1:
         max_n_items = sampler_val.max_items_count_per_gpu
         # create an empty list we will use to hold the gathered values
@@ -180,6 +179,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)
 
         # sending all tensors to the others
+        torch.distributed.barrier()
         dist.all_gather(predicts_list, predicts, async_op=False)
         
         # Remove all padded items
@@ -193,10 +193,14 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     del predicts
     for index, score in zip(indexes.numpy(), similarities.numpy()):
         img_1_idx, img_2_idx = tuple(index)
-        img_1 = os.path.splitext(os.path.basename(dataset.samples[img_1_idx]))
-        img_2 = os.path.splitext(os.path.basename(dataset.samples[img_2_idx]))
-        similarity_map.setdefault(img_1, {})[img_2[0]] = score
-        similarity_map.setdefault(img_2, {})[img_1[0]] = score
+        try:
+            img_1 = os.path.splitext(os.path.basename(dataset.samples[img_1_idx]))
+            img_2 = os.path.splitext(os.path.basename(dataset.samples[img_2_idx]))
+            similarity_map.setdefault(img_1, {})[img_2[0]] = score
+            similarity_map.setdefault(img_2, {})[img_1[0]] = score
+        except IndexError:
+            logger.info(f'Index error: {index}, {score}')
+            logger.info(f'Indexes shape: {indexes.shape}, samples shape: {len(dataset.samples)}')
     return similarity_map
 
 

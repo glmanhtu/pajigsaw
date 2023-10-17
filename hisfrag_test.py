@@ -110,11 +110,6 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     pairs = torch.combinations(indicates, r=2, with_replacement=True)
     del indicates
 
-    for index in tqdm.tqdm(pairs.cpu().numpy()):
-        img_1_idx, img_2_idx = tuple(index)
-        img_1 = os.path.splitext(os.path.basename(dataset.samples[img_1_idx]))
-        img_2 = os.path.splitext(os.path.basename(dataset.samples[img_2_idx]))
-
     sampler_val = DistributedEvalSampler(pairs[:, 0].cpu(), num_replicas=world_size, rank=rank)
     x1_dataloader = torch.utils.data.DataLoader(
         dataset, sampler=sampler_val,
@@ -175,6 +170,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
 
+    torch.distributed.barrier()
     if world_size > 1:
         max_n_items = sampler_val.max_items_count_per_gpu
         # create an empty list we will use to hold the gathered values

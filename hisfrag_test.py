@@ -2,6 +2,7 @@ import argparse
 import datetime
 import json
 import os
+import pdb
 import random
 import time
 
@@ -157,7 +158,9 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                 x2_sub = x2[sub_pairs[:, 1] - x2_lower_bound]
                 with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                     outputs = model(x1_sub, x2_sub)
-
+                if torch.max(sub_pairs) == len(dataset.samples):
+                    logger.info('Error here!')
+                    pdb.set_trace()
                 predicts = torch.cat([predicts, torch.column_stack([sub_pairs.type(torch.float16), outputs])])
             batch_time.update(time.time() - end)
             end = time.time()

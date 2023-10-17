@@ -194,13 +194,14 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     for index, score in zip(indexes.numpy(), similarities.numpy()):
         img_1_idx, img_2_idx = tuple(index)
         try:
-            img_1 = os.path.splitext(os.path.basename(dataset.samples[img_1_idx]))
-            img_2 = os.path.splitext(os.path.basename(dataset.samples[img_2_idx]))
-            similarity_map.setdefault(img_1, {})[img_2[0]] = score
-            similarity_map.setdefault(img_2, {})[img_1[0]] = score
-        except IndexError:
+            img_1 = os.path.splitext(os.path.basename(dataset.samples[img_1_idx]))[0]
+            img_2 = os.path.splitext(os.path.basename(dataset.samples[img_2_idx]))[0]
+            similarity_map.setdefault(img_1, {})[img_2] = score
+            similarity_map.setdefault(img_2, {})[img_1] = score
+        except IndexError as e:
             logger.info(f'Index error: {index}, {score}')
             logger.info(f'Indexes shape: {indexes.shape}, samples shape: {len(dataset.samples)}')
+            raise e
     return similarity_map
 
 

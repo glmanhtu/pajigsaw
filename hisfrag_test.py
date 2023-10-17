@@ -159,9 +159,6 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                 x2_sub = x2[sub_pairs[:, 1] - x2_lower_bound]
                 with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                     outputs = model(x1_sub, x2_sub)
-                if torch.max(sub_pairs) == len(dataset.samples):
-                    logger.info('Error here!')
-                    pdb.set_trace()
                 predicts = torch.cat([predicts, torch.column_stack([sub_pairs.type(torch.float16), outputs])])
             batch_time.update(time.time() - end)
             end = time.time()
@@ -194,7 +191,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     similarity_map = {}
     similarities = torch.sigmoid(predicts[:, 2]).cpu()
     indexes = predicts[:, :2].type(torch.int).cpu()
-    del predicts
+    count = 0
     for index, score in zip(indexes.numpy(), similarities.numpy()):
         img_1_idx, img_2_idx = tuple(index)
         try:
@@ -205,7 +202,9 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         except IndexError as e:
             logger.info(f'Index error: {index}, {score}')
             logger.info(f'Indexes shape: {indexes.shape}, samples shape: {len(dataset.samples)}')
-            raise e
+            logger.info(f'Predicts: {predicts[count]}, indexes: {indexes[count]}')
+            pdb.set_trace()
+        count += 1
     return similarity_map
 
 

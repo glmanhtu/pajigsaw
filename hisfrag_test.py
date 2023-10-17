@@ -14,6 +14,7 @@ import torch.nn.functional as F
 import torchvision
 from timm.utils import AverageMeter
 from torch.utils.data import Dataset
+import tqdm
 
 from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test
@@ -109,6 +110,11 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     pairs = torch.combinations(indicates, r=2, with_replacement=True)
     del indicates
 
+    for index in tqdm.tqdm(pairs.cpu().numpy()):
+        img_1_idx, img_2_idx = tuple(index)
+        img_1 = os.path.splitext(os.path.basename(dataset.samples[img_1_idx]))
+        img_2 = os.path.splitext(os.path.basename(dataset.samples[img_2_idx]))
+
     sampler_val = DistributedEvalSampler(pairs[:, 0].cpu(), num_replicas=world_size, rank=rank)
     x1_dataloader = torch.utils.data.DataLoader(
         dataset, sampler=sampler_val,
@@ -150,6 +156,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
             pair_masks = torch.greater_equal(x1_pairs[:, 1], x2_lower_bound)
             pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x2_upper_bound))
             x1_x2_pairs = x1_pairs[pair_masks]
+            x1_pairs = x1_pairs[x1_pairs[:, 1] > x2_upper_bound]
             for sub_pairs in torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE):
                 x1_sub = x1[sub_pairs[:, 0] - x1_lower_bound]
                 x2_sub = x2[sub_pairs[:, 1] - x2_lower_bound]

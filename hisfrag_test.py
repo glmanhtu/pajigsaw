@@ -196,8 +196,8 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         try:
             img_1 = os.path.splitext(os.path.basename(dataset.samples[img_1_idx]))
             img_2 = os.path.splitext(os.path.basename(dataset.samples[img_2_idx]))
-            similarity_map.setdefault(img_1, {})[img_2[0]] = score
-            similarity_map.setdefault(img_2, {})[img_1[0]] = score
+            similarity_map.setdefault(img_1, {})[img_2[0]] = score[0]
+            similarity_map.setdefault(img_2, {})[img_1[0]] = score[0]
         except IndexError:
             logger.info(f'Index error: {index}, {score}')
             logger.info(f'Indexes shape: {indexes.shape}, samples shape: {len(dataset.samples)}')

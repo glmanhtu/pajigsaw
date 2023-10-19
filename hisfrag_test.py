@@ -19,7 +19,7 @@ from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test
 from misc import wi19_evaluate
 from misc.logger import create_logger
-from misc.sampler import DistributedEvalSampler
+from data.samplers import DistributedEvalSampler
 from misc.utils import load_pretrained
 from models import build_model
 

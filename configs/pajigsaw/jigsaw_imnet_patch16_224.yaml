@@ -1,6 +1,0 @@
-MODEL:
-  TYPE: pjs
-  NAME: jigsaw_imnet_patch16_224
-  DROP_PATH_RATE: 0.1
-DATA:
-  DATASET: jigsaw_imnet

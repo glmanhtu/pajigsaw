@@ -17,9 +17,8 @@ from .datasets.div2k_patch import DIV2KPatch
 from .datasets.geshaem_patch import GeshaemPatch
 from .datasets.hisfrag20 import HisFrag20
 from .datasets.imnet_patch import ImNetPatch
-from .datasets.jigsaw_imnet import JigSawImNet
 from .datasets.pieces_dataset_eval import PuzzleDataset
-from .transforms import TwoImgSyncAugmentation, TwoImgSyncEval
+from .transforms import TwoImgSyncEval
 
 try:
     from torchvision.transforms import InterpolationMode
@@ -121,11 +120,7 @@ def build_test_loader(config):
 def build_dataset(mode, config):
     patch_size = config.DATA.IMG_SIZE
     transform = TwoImgSyncEval(patch_size)
-    if config.DATA.DATASET == 'jigsaw_imnet':
-        split = JigSawImNet.Split.from_string(mode)
-        dataset = JigSawImNet(config.DATA.DATA_PATH, split, transform=transform)
-        dataset.generate_entries()
-    elif config.DATA.DATASET == 'imnet_patch':
+    if config.DATA.DATASET == 'imnet_patch':
         split = ImNetPatch.Split.from_string(mode)
         dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)

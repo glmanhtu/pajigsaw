@@ -10,7 +10,7 @@ from PIL import Image
 from torchvision.datasets import VisionDataset
 
 from data.transforms import CustomRandomCrop
-from data.utils import UnableToCrop
+from misc.utils import UnableToCrop
 
 logger = logging.getLogger("pajisaw")
 _Target = int

@@ -2,7 +2,12 @@
 
 The training code is adapted from https://github.com/microsoft/Swin-Transformer
 
-## Dataset generation
+## Puzzle solver
+
+### Dataset
+The DIV2K dataset:
+From the official page: https://data.vision.ee.ethz.ch/cvl/DIV2K/
+
 
 ## Training
 

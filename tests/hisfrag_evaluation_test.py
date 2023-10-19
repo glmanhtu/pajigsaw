@@ -12,7 +12,6 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torchvision
 from timm.utils import AverageMeter
-from torch import nn
 from torch.utils.data import Dataset
 
 from config import get_config
@@ -20,7 +19,6 @@ from data.datasets.hisfrag20_test import HisFrag20GT
 from hisfrag_test import hisfrag_eval
 from misc import wi19_evaluate
 from misc.logger import create_logger
-from misc.utils import load_pretrained
 from models import build_model
 
 
@@ -76,7 +74,7 @@ def main(config):
                 f'Pr@k100 {pr_a_k100:.3f} Time: {total_time_str}')
 
     start_time = time.time()
-    similarity_map = hisfrag_eval_2(config, model, max_authors=max_author)
+    similarity_map = hisfrag_eval_original(config, model, max_authors=max_author)
     similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
     similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
     logger.info('Starting to calculate performance...')
@@ -92,7 +90,7 @@ def main(config):
 
 
 @torch.no_grad()
-def hisfrag_eval_2(config, model, max_authors=None):
+def hisfrag_eval_original(config, model, max_authors=None):
     model.eval()
     transform = torchvision.transforms.Compose([
         torchvision.transforms.CenterCrop(config.DATA.IMG_SIZE),

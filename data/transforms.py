@@ -5,43 +5,7 @@ import torchvision
 from PIL import ImageOps, Image
 from torchvision import transforms
 
-from data.utils import UnableToCrop
-
-
-class TwoImgSyncAugmentation:
-    def __init__(self, image_size):
-        self.img_size = image_size
-        self.default_transforms = transforms.Compose([
-            # transforms.RandomApply(
-            #     [transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2)],
-            #     p=0.8
-            # ),
-            # transforms.RandomGrayscale(p=0.2),
-            # utils.GaussianBlur(0.1)
-        ])
-
-        self.normalize = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ])
-        self.image_size = image_size
-
-    def __call__(self, first_img, second_img):
-        max_size = max(first_img.width, first_img.height, second_img.width, second_img.height)
-        max_size = round(random.uniform(1.05, 1.15) * max_size)
-        image_transformer = transforms.Compose([
-            transforms.RandomCrop(max_size, pad_if_needed=True, fill=255),
-            transforms.Resize(self.image_size),
-            self.default_transforms,
-        ])
-
-        first_img = image_transformer(first_img)
-        second_img = image_transformer(second_img)
-
-        first_img = self.normalize(first_img)
-        second_img = self.normalize(second_img)
-
-        return first_img, second_img
+from misc.utils import UnableToCrop
 
 
 class TwoImgSyncEval:

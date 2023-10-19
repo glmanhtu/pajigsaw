@@ -181,7 +181,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)
 
         # sending all tensors to the others
-        torch.distributed.barrier()
+        torch.distributed.monitored_barrier(timeout=datetime.timedelta(hours=100))
         dist.all_gather(predicts_list, predicts, async_op=False)
         
         # Remove all padded items

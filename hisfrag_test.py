@@ -2,7 +2,6 @@ import argparse
 import datetime
 import json
 import os
-import pdb
 import random
 import time
 
@@ -15,14 +14,13 @@ import torch.nn.functional as F
 import torchvision
 from timm.utils import AverageMeter
 from torch.utils.data import Dataset
-import tqdm
 
 from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test
 from misc import wi19_evaluate
 from misc.logger import create_logger
 from misc.sampler import DistributedEvalSampler
-from misc.utils import load_pretrained, CalTimer
+from misc.utils import load_pretrained
 from models import build_model
 
 
@@ -68,24 +66,17 @@ def main(config):
     if os.path.isfile(config.MODEL.PRETRAINED):
         load_pretrained(config, model_without_ddp, logger)
     else:
-        raise Exception(f'Pretrained model is not exists {config.MODEL.PRETRAINED}')
+        raise Exception(f'Pretrained model doesn\'t exists {config.MODEL.PRETRAINED}')
 
     logger.info("Start testing")
     start_time = time.time()
-    similarity_map = hisfrag_eval(config, model, None, world_size, rank, logger)
-    similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
-    similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
-
-    if rank == 0:
-        result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank{rank}.pkl')
-        similarity_map.to_csv(result_file)
-    logger.info('Starting to calculate performance...')
-    m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
-    logger.info(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' f'Pr@k100 {pr_a_k100:.3f}')
-
+    similarity_map = hisfrag_eval_wrapper(config, model, None, world_size, rank, logger)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Test time {}'.format(total_time_str))
+    if rank == 0:
+        result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank{rank}.csv')
+        similarity_map.to_csv(result_file)
 
 
 def hisfrag_eval_wrapper(config, model, max_authors=None, world_size=1, rank=0, logger=None):
@@ -96,6 +87,7 @@ def hisfrag_eval_wrapper(config, model, max_authors=None, world_size=1, rank=0, 
     m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
 
     logger.info(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' f'Pr@k100 {pr_a_k100:.3f}')
+    return similarity_map
 
 
 @torch.no_grad()
@@ -116,7 +108,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     x1_dataloader = torch.utils.data.DataLoader(
         dataset, sampler=sampler_val,
         batch_size=config.DATA.BATCH_SIZE,
-        shuffle=False,  # Very important, shuffle have to be False
+        shuffle=False,  # Very important, shuffle have to be False to maintain the order of the sample indexes
         num_workers=0,
         pin_memory=True,
         drop_last=False

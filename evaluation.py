@@ -77,7 +77,6 @@ def testing(config, model):
     model.eval()
     capability = torch.cuda.get_device_capability()
     if capability[0] >= 7:
-        print('Use torch compile...')
         model = torch.compile(model)
 
     for subset in ['Cho', 'McGill', 'BGU']:

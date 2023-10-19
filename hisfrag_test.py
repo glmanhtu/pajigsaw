@@ -121,12 +121,18 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         pin_memory=True,
         drop_last=False
     )
-
     predicts = torch.zeros((0, 3), dtype=torch.float32).cuda()
+    tmp_data_path = os.path.join(config.OUTPUT, f'test_result_rank{rank}.pt')
+    if os.path.exists(tmp_data_path):
+        predicts = torch.load(tmp_data_path, map_location='cuda')
     batch_time = AverageMeter()
     for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
-        x1 = x1.cuda(non_blocking=True)
         x1_lower_bound, x1_upper_bound = x1_indexes[0], x1_indexes[-1]
+        if len(predicts) > 0 and x1_upper_bound <= predicts[-1][0] and x1_lower_bound >= predicts[0][0]:
+            logger.info(f'Block {x1_lower_bound}:{x1_upper_bound} is predicted, skipping...')
+            continue
+
+        x1 = x1.cuda(non_blocking=True)
         pair_masks = torch.greater_equal(pairs[:, 0], x1_lower_bound)
         pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], x1_upper_bound))
 
@@ -159,8 +165,8 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                 x2_sub = x2[sub_pairs[:, 1] - x2_lower_bound]
                 with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
                     outputs = model(x1_sub, x2_sub)
-                predicts = torch.cat([predicts, torch.column_stack([sub_pairs.type(torch.float32),
-                                                                    outputs.type(torch.float32)])])
+                sub_pair_predicts = torch.column_stack([sub_pairs.float(), outputs.float()])
+                predicts = torch.cat([predicts, sub_pair_predicts])
             batch_time.update(time.time() - end)
             end = time.time()
             if x2_id % config.PRINT_FREQ == 0:
@@ -171,6 +177,8 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     f'X2 eta {datetime.timedelta(seconds=int(etas))}\t'
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
+
+    torch.save(predicts, tmp_data_path)
 
     if world_size > 1:
         max_n_items = sampler_val.max_items_count_per_gpu

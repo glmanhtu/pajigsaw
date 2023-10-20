@@ -110,7 +110,7 @@ class DefaultTrainer(Trainer):
                     f'Mem {memory_used:.0f}MB')
 
         # Gathering results from gpus
-        torch.distributed.monitored_barrier(timeout=datetime.timedelta(hours=5))
+        torch.distributed.barrier()
         loss_meter.all_reduce()
         acc_meter.all_reduce()
         f1_meter.all_reduce()

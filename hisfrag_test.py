@@ -121,7 +121,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
         x1_lower_bound, x1_upper_bound = x1_indexes[0], x1_indexes[-1]
         if len(predicts) > 0 and x1_upper_bound <= predicts[-1][0] and x1_lower_bound >= predicts[0][0]:
-            logger.info(f'Block {x1_lower_bound}:{x1_upper_bound} is predicted, skipping...')
+            logger.info(f'Block {x1_lower_bound}:{x1_upper_bound} is processed, skipping...')
             continue
 
         x1 = x1.cuda(non_blocking=True)
@@ -169,8 +169,8 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     f'X2 eta {datetime.timedelta(seconds=int(etas))}\t'
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
-
-    torch.save(predicts, tmp_data_path)
+        if x1_idx % config.SAVE_TMP_FREQ == 0 or x1_idx == len(x1_dataloader) - 1:
+            torch.save(predicts, tmp_data_path)
 
     if world_size > 1:
         max_n_items = sampler_val.max_items_count_per_gpu

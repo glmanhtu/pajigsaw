@@ -122,12 +122,12 @@ class DefaultTrainer(Trainer):
         self.logger.info(
             f'Overall: \t'
             f'Eval time {test_time}\t'
-            f'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-            f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
-            f'ACC {acc_meter.val:.3f} ({acc_meter.avg:.3f})\t'
-            f'F1 {f1_meter.val:.3f} ({f1_meter.avg:.3f})\t'
-            f'Precision {precision_meter.val:.3f} ({precision_meter.avg:.3f})\t'
-            f'Recall {recall_meter.val:.3f} ({recall_meter.avg:.3f})')
+            f'Batch Time {batch_time.avg:.3f}\t'
+            f'Loss {loss_meter.avg:.4f}\t'
+            f'ACC {acc_meter.avg:.3f}\t'
+            f'F1 {f1_meter.avg:.3f}\t'
+            f'Precision {precision_meter.avg:.3f}\t'
+            f'Recall {recall_meter.avg:.3f}')
 
         return loss_meter.avg
 

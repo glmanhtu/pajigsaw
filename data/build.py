@@ -14,6 +14,7 @@ from .datasets.div2k_patch import DIV2KPatch
 from .datasets.geshaem_patch import GeshaemPatch
 from .datasets.hisfrag20 import HisFrag20
 from .datasets.imnet_patch import ImNetPatch
+from .samplers import DistributedEvalSampler
 from .transforms import TwoImgSyncEval
 
 try:
@@ -56,8 +57,8 @@ def build_loader(config):
     if config.TEST.SEQUENTIAL:
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
     else:
-        sampler_val = torch.utils.data.distributed.DistributedSampler(
-            dataset_val, shuffle=config.TEST.SHUFFLE
+        sampler_val = DistributedEvalSampler(
+            dataset_val, shuffle=config.TEST.SHUFFLE, rank=global_rank, num_replicas=num_tasks
         )
 
     data_loader_train = DataLoader(
@@ -87,30 +88,7 @@ def build_loader(config):
             prob=config.AUG.MIXUP_PROB, switch_prob=config.AUG.MIXUP_SWITCH_PROB, mode=config.AUG.MIXUP_MODE,
             label_smoothing=config.MODEL.LABEL_SMOOTHING, num_classes=config.MODEL.NUM_CLASSES)
 
-    return dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn
-
-
-def build_test_loader(config):
-    dataset_test = build_dataset(mode='test', config=config)
-    print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build test dataset")
-
-    if config.TEST.SEQUENTIAL:
-        sampler_val = torch.utils.data.SequentialSampler(dataset_test)
-    else:
-        sampler_val = torch.utils.data.distributed.DistributedSampler(
-            dataset_test, shuffle=config.TEST.SHUFFLE
-        )
-
-    data_loader_val = torch.utils.data.DataLoader(
-        dataset_test, sampler=sampler_val,
-        batch_size=config.DATA.BATCH_SIZE,
-        shuffle=False,
-        num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=config.DATA.PIN_MEMORY,
-        drop_last=False
-    )
-
-    return dataset_test, data_loader_val
+    return data_loader_train, data_loader_val, mixup_fn
 
 
 def build_dataset(mode, config):

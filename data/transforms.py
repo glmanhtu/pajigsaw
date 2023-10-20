@@ -8,21 +8,14 @@ from misc.utils import UnableToCrop
 
 class TwoImgSyncEval:
     def __init__(self, image_size):
-        self.img_size = image_size
-
         self.normalize = transforms.Compose([
+            transforms.Resize(image_size),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
         self.image_size = image_size
 
     def __call__(self, first_img, second_img):
-        image_transformer = transforms.Compose([
-            transforms.Resize(self.image_size),
-        ])
-
-        first_img = image_transformer(first_img)
-        second_img = image_transformer(second_img)
 
         first_img = self.normalize(first_img)
         second_img = self.normalize(second_img)

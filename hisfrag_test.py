@@ -19,7 +19,7 @@ from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test
 from misc import wi19_evaluate
 from misc.logger import create_logger
-from data.samplers import DistributedEvalSampler
+from data.samplers import DistributedOrderedIndicatesSampler
 from misc.utils import load_pretrained
 from models import build_model
 
@@ -104,7 +104,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     pairs = torch.combinations(indicates, r=2, with_replacement=True)
     del indicates
 
-    sampler_val = DistributedEvalSampler(pairs[:, 0].cpu(), num_replicas=world_size, rank=rank)
+    sampler_val = DistributedOrderedIndicatesSampler(pairs[:, 0].cpu(), num_replicas=world_size, rank=rank)
     x1_dataloader = torch.utils.data.DataLoader(
         dataset, sampler=sampler_val,
         batch_size=config.DATA.BATCH_SIZE,

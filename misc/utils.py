@@ -6,6 +6,7 @@
 # --------------------------------------------------------
 
 import os
+import random
 import time
 
 import numpy as np
@@ -312,3 +313,33 @@ class UnableToCrop(Exception):
     def __init__(self, message, im_path=''):
         super().__init__(message + ' ' + im_path)
         self.im_path = im_path
+
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+
+
+def configure_ddp():
+    local_rank, rank, world_size = -1, -1, -1
+
+    if 'RANK' in os.environ:
+        rank = int(os.environ["RANK"])
+
+    if 'WORLD_SIZE' in os.environ:
+        world_size = int(os.environ['WORLD_SIZE'])
+
+    if 'LOCAL_RANK' in os.environ:  # for torch.distributed.launch
+        local_rank = int(os.environ["LOCAL_RANK"])
+
+    elif 'SLURM_PROCID' in os.environ:  # for slurm scheduler
+        rank = int(os.environ['SLURM_PROCID'])
+        local_rank = rank % torch.cuda.device_count()
+
+    print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
+    torch.cuda.set_device(local_rank)
+    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+    torch.distributed.barrier()
+    return local_rank, rank, world_size

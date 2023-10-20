@@ -8,16 +8,12 @@
 import torch
 import torch.distributed as dist
 from timm.data import Mixup
-from timm.data import create_transform
-from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from torch.utils.data import DataLoader
-from torchvision import transforms
 
 from .datasets.div2k_patch import DIV2KPatch
 from .datasets.geshaem_patch import GeshaemPatch
 from .datasets.hisfrag20 import HisFrag20
 from .datasets.imnet_patch import ImNetPatch
-from .datasets.pieces_dataset_eval import PuzzleDataset
 from .transforms import TwoImgSyncEval
 
 try:
@@ -138,51 +134,7 @@ def build_dataset(mode, config):
         repeat = 50 if split.is_train() else 100
         dataset = GeshaemPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
                                erosion_ratio=config.DATA.EROSION_RATIO, repeat=repeat)
-    elif config.DATA.DATASET == 'puzzle':
-        dataset = PuzzleDataset(config.DATA.DATA_PATH, transform=transform,
-                                image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
-
     else:
-        raise NotImplementedError("We only support ImageNet Now.")
+        raise NotImplementedError(f"We haven't supported {config.DATA.DATASET}")
 
     return dataset
-
-
-def build_transform(is_train, config):
-    resize_im = config.DATA.IMG_SIZE > 32
-    if is_train:
-        # this should always dispatch to transforms_imagenet_train
-        transform = create_transform(
-            input_size=config.DATA.IMG_SIZE,
-            is_training=True,
-            color_jitter=config.AUG.COLOR_JITTER if config.AUG.COLOR_JITTER > 0 else None,
-            auto_augment=config.AUG.AUTO_AUGMENT if config.AUG.AUTO_AUGMENT != 'none' else None,
-            re_prob=config.AUG.REPROB,
-            re_mode=config.AUG.REMODE,
-            re_count=config.AUG.RECOUNT,
-            interpolation=config.DATA.INTERPOLATION,
-        )
-        if not resize_im:
-            # replace RandomResizedCropAndInterpolation with
-            # RandomCrop
-            transform.transforms[0] = transforms.RandomCrop(config.DATA.IMG_SIZE, padding=4)
-        return transform
-
-    t = []
-    if resize_im:
-        if config.TEST.CROP:
-            size = int((256 / 224) * config.DATA.IMG_SIZE)
-            t.append(
-                transforms.Resize(size, interpolation=_pil_interp(config.DATA.INTERPOLATION)),
-                # to maintain same ratio w.r.t. 224 images
-            )
-            t.append(transforms.CenterCrop(config.DATA.IMG_SIZE))
-        else:
-            t.append(
-                transforms.Resize((config.DATA.IMG_SIZE, config.DATA.IMG_SIZE),
-                                  interpolation=_pil_interp(config.DATA.INTERPOLATION))
-            )
-
-    t.append(transforms.ToTensor())
-    t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
-    return transforms.Compose(t)

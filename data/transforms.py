@@ -1,8 +1,6 @@
-import random
-
 import numpy as np
 import torchvision
-from PIL import ImageOps, Image
+from PIL import Image
 from torchvision import transforms
 
 from misc.utils import UnableToCrop

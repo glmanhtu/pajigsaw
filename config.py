@@ -189,8 +189,6 @@ _C.OUTPUT = ''
 _C.TAG = 'default'
 # Frequency to save checkpoint
 _C.SAVE_FREQ = 1
-# Frequency to save tmp data
-_C.SAVE_TMP_FREQ = 10
 # Frequency to logging info
 _C.PRINT_FREQ = 50
 # Fixed random seed

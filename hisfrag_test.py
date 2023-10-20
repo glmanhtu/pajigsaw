@@ -116,14 +116,10 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     predicts = torch.zeros((0, 3), dtype=torch.float32).cuda()
     tmp_data_path = os.path.join(config.OUTPUT, f'test_result_rank{rank}.pt')
     if os.path.exists(tmp_data_path):
-        predicts = torch.load(tmp_data_path, map_location='cuda')
+        os.remove(tmp_data_path)
     batch_time = AverageMeter()
     for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
         x1_lower_bound, x1_upper_bound = x1_indexes[0], x1_indexes[-1]
-        if len(predicts) > 0 and x1_upper_bound <= predicts[-1][0] and x1_lower_bound >= predicts[0][0]:
-            logger.info(f'Block {x1_lower_bound}:{x1_upper_bound} is processed, skipping...')
-            continue
-
         x1 = x1.cuda(non_blocking=True)
         pair_masks = torch.greater_equal(pairs[:, 0], x1_lower_bound)
         pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], x1_upper_bound))
@@ -169,8 +165,16 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                     f'X2 eta {datetime.timedelta(seconds=int(etas))}\t'
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
-        if x1_idx % config.SAVE_TMP_FREQ == 0 or x1_idx == len(x1_dataloader) - 1:
-            torch.save(predicts, tmp_data_path)
+
+    torch.save(predicts, tmp_data_path)
+
+    for i in range(world_size):
+        logger.info(f"Waiting for rank {i}.")
+        logger.info("Note, this works only when all the ranks use the same file system! "
+                    "Otherwise, this will hang forever...!")
+        rank_data_path = os.path.join(config.OUTPUT, f'test_result_rank{i}.pt')
+        while not os.path.exists(rank_data_path):
+            time.sleep(120)
 
     if world_size > 1:
         max_n_items = sampler_val.max_items_count_per_gpu
@@ -181,7 +185,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)
 
         # sending all tensors to the others
-        torch.distributed.monitored_barrier(timeout=datetime.timedelta(hours=100))
+        torch.distributed.barrier()
         dist.all_gather(predicts_list, predicts, async_op=False)
         
         # Remove all padded items

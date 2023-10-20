@@ -120,8 +120,8 @@ class DefaultTrainer(Trainer):
         test_time = datetime.timedelta(seconds=int(time.time() - start))
 
         self.logger.info(
-            f'Overall: \t'
-            f'Eval time {test_time}\t'
+            f'Overall:'
+            f'Time {test_time}\t'
             f'Batch Time {batch_time.avg:.3f}\t'
             f'Loss {loss_meter.avg:.4f}\t'
             f'ACC {acc_meter.avg:.3f}\t'

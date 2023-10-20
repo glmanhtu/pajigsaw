@@ -81,6 +81,13 @@ class Trainer:
 
         self.criterion = self.get_criterion()
         self.min_loss = 99999
+        self.model = model
+        self.model_wo_ddp = model_wo_ddp
+        self.loss_scaler = loss_scaler
+        self.lr_scheduler = lr_scheduler
+        self.optimizer = optimizer
+        self.logger = logger
+        self.mixup_fn = mixup_fn
 
         if self.config.TRAIN.AUTO_RESUME:
             resume_file = auto_resume_helper(self.config.OUTPUT)
@@ -103,14 +110,6 @@ class Trainer:
             load_pretrained(self.config, model_wo_ddp, logger)
             loss = self.validate()
             logger.info(f"Loss of the network on the val set: {loss:.4f}")
-
-        self.model = model
-        self.model_wo_ddp = model_wo_ddp
-        self.loss_scaler = loss_scaler
-        self.lr_scheduler = lr_scheduler
-        self.optimizer = optimizer
-        self.logger = logger
-        self.mixup_fn = mixup_fn
 
     def train(self):
         self.logger.info("Start training...")

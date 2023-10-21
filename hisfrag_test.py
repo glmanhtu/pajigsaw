@@ -115,58 +115,57 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     )
     predicts = torch.zeros((0, 3), dtype=torch.float32).cuda()
     tmp_data_path = os.path.join(config.OUTPUT, f'test_result_rank{rank}.pt')
-    if os.path.exists(tmp_data_path):
-        os.remove(tmp_data_path)
-    batch_time = AverageMeter()
-    for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
-        x1_lower_bound, x1_upper_bound = x1_indexes[0], x1_indexes[-1]
-        x1 = x1.cuda(non_blocking=True)
-        pair_masks = torch.greater_equal(pairs[:, 0], x1_lower_bound)
-        pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], x1_upper_bound))
+    if not os.path.exists(tmp_data_path):
+        batch_time = AverageMeter()
+        for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
+            x1_lower_bound, x1_upper_bound = x1_indexes[0], x1_indexes[-1]
+            x1 = x1.cuda(non_blocking=True)
+            pair_masks = torch.greater_equal(pairs[:, 0], x1_lower_bound)
+            pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], x1_upper_bound))
 
-        x2_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform, samples=dataset.samples,
-                                   lower_bound=x1_lower_bound.item())
-        logger.info(f'X2 dataset size: {len(x2_dataset)}, lower_bound: {x1_lower_bound}')
-        x2_dataloader = torch.utils.data.DataLoader(
-            x2_dataset,
-            batch_size=config.DATA.BATCH_SIZE,
-            shuffle=False,  # Very important, shuffle have to be False
-            num_workers=config.DATA.NUM_WORKERS,
-            pin_memory=True,
-            drop_last=False
-        )
+            x2_dataset = HisFrag20Test(config.DATA.DATA_PATH, transform=transform, samples=dataset.samples,
+                                       lower_bound=x1_lower_bound.item())
+            logger.info(f'X2 dataset size: {len(x2_dataset)}, lower_bound: {x1_lower_bound}')
+            x2_dataloader = torch.utils.data.DataLoader(
+                x2_dataset,
+                batch_size=config.DATA.BATCH_SIZE,
+                shuffle=False,  # Very important, shuffle have to be False
+                num_workers=config.DATA.NUM_WORKERS,
+                pin_memory=True,
+                drop_last=False
+            )
 
-        with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            x1 = model(x1, forward_first_part=True)
+            with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                x1 = model(x1, forward_first_part=True)
 
-        x1_pairs = pairs[pair_masks]
-        end = time.time()
-        for x2_id, (x2, x2_indicates) in enumerate(x2_dataloader):
-            x2 = x2.cuda(non_blocking=True)
-            x2_lower_bound, x2_upper_bound = x2_indicates[0], x2_indicates[-1]
-            pair_masks = torch.greater_equal(x1_pairs[:, 1], x2_lower_bound)
-            pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x2_upper_bound))
-            x1_x2_pairs = x1_pairs[pair_masks]
-            x1_pairs = x1_pairs[x1_pairs[:, 1] > x2_upper_bound]
-            for sub_pairs in torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE):
-                x1_sub = x1[sub_pairs[:, 0] - x1_lower_bound]
-                x2_sub = x2[sub_pairs[:, 1] - x2_lower_bound]
-                with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-                    outputs = model(x1_sub, x2_sub)
-                sub_pair_predicts = torch.column_stack([sub_pairs.float(), outputs.float()])
-                predicts = torch.cat([predicts, sub_pair_predicts])
-            batch_time.update(time.time() - end)
+            x1_pairs = pairs[pair_masks]
             end = time.time()
-            if x2_id % config.PRINT_FREQ == 0:
-                memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
-                etas = batch_time.avg * (len(x2_dataloader) - x2_id)
-                logger.info(
-                    f'Testing: [{x1_idx}/{len(x1_dataloader)}][{x2_id}/{len(x2_dataloader)}]\t'
-                    f'X2 eta {datetime.timedelta(seconds=int(etas))}\t'
-                    f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
-                    f'mem {memory_used:.0f}MB')
+            for x2_id, (x2, x2_indicates) in enumerate(x2_dataloader):
+                x2 = x2.cuda(non_blocking=True)
+                x2_lower_bound, x2_upper_bound = x2_indicates[0], x2_indicates[-1]
+                pair_masks = torch.greater_equal(x1_pairs[:, 1], x2_lower_bound)
+                pair_masks = torch.logical_and(pair_masks, torch.less_equal(x1_pairs[:, 1], x2_upper_bound))
+                x1_x2_pairs = x1_pairs[pair_masks]
+                x1_pairs = x1_pairs[x1_pairs[:, 1] > x2_upper_bound]
+                for sub_pairs in torch.split(x1_x2_pairs, config.DATA.TEST_BATCH_SIZE):
+                    x1_sub = x1[sub_pairs[:, 0] - x1_lower_bound]
+                    x2_sub = x2[sub_pairs[:, 1] - x2_lower_bound]
+                    with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+                        outputs = model(x1_sub, x2_sub)
+                    sub_pair_predicts = torch.column_stack([sub_pairs.float(), outputs.float()])
+                    predicts = torch.cat([predicts, sub_pair_predicts])
+                batch_time.update(time.time() - end)
+                end = time.time()
+                if x2_id % config.PRINT_FREQ == 0:
+                    memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+                    etas = batch_time.avg * (len(x2_dataloader) - x2_id)
+                    logger.info(
+                        f'Testing: [{x1_idx}/{len(x1_dataloader)}][{x2_id}/{len(x2_dataloader)}]\t'
+                        f'X2 eta {datetime.timedelta(seconds=int(etas))}\t'
+                        f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                        f'mem {memory_used:.0f}MB')
 
-    torch.save(predicts, tmp_data_path)
+        torch.save(predicts, tmp_data_path)
 
     for i in range(world_size):
         logger.info(f"Waiting for rank {i}.")
@@ -176,22 +175,15 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         while not os.path.exists(rank_data_path):
             time.sleep(120)
 
-    if world_size > 1:
-        max_n_items = sampler_val.max_items_count_per_gpu
-        # create an empty list we will use to hold the gathered values
-        predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float32, device=predicts.device)
-                         for _ in range(world_size)]
-        # Tensors from different processes have to have the same N items, therefore we pad it with -1
-        predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)
+    logger.info(f"Gathering data...")
+    predicts = []
+    for i in range(world_size):
+        rank_data_path = os.path.join(config.OUTPUT, f'test_result_rank{i}.pt')
+        predicts.append(torch.load(rank_data_path))
 
-        # sending all tensors to the others
-        torch.distributed.barrier()
-        dist.all_gather(predicts_list, predicts, async_op=False)
-        
-        # Remove all padded items
-        predicts_list = [x[x[:, 0] != -1] for x in predicts_list]
-        predicts = torch.cat(predicts_list, dim=0)
+    predicts = torch.cat(predicts)
 
+    logger.info(f"Generating similarity map...")
     assert len(predicts) == len(pairs)
     similarity_map = {}
     similarities = torch.sigmoid(predicts[:, 2].type(torch.float16)).cpu()
@@ -210,6 +202,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
             logger.info(f'Predicts: {predicts[count]}, indexes: {indexes[count]}')
             raise e
         count += 1
+    logger.info("Similarity map is generated!")
     return similarity_map
 
 

@@ -68,11 +68,11 @@ def main(config):
     m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    logger.info(f'New approach: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' 
+    logger.info(f'New approach: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t'
                 f'Pr@k100 {pr_a_k100:.3f} Time: {total_time_str}')
 
     start_time = time.time()
-    distance_matrix = hisfrag_eval_original(config, model, max_authors=max_author)
+    distance_matrix, img_names = hisfrag_eval_original(config, model, max_authors=max_author)
     labels = utils.list_to_idx(img_names, lambda x: x.split('_')[0])
     logger.info('Starting to calculate performance...')
     m_ap2, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))

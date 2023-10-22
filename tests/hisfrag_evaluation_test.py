@@ -134,7 +134,7 @@ def hisfrag_eval_original(config, model, max_authors=None):
 
     # Extract index pairs and scores
     indices = pair_indexes
-    scores = predicts.float().squeeze()
+    scores = predicts.float().squeeze().cpu()
 
     # Use indexing and broadcasting to fill the similarity matrix
     similarity_matrix[indices[:, 0], indices[:, 1]] = scores

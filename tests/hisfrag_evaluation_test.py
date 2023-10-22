@@ -126,15 +126,15 @@ def hisfrag_eval_original(config, model, max_authors=None):
                 f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')
 
-    max_index = int(torch.max(predicts[:, :2]).item())
+    max_index = int(torch.max(pair_indexes).item())
     size = max_index + 1
 
     # Initialize a similarity matrix with zeros
     similarity_matrix = torch.zeros(size, size)
 
     # Extract index pairs and scores
-    indices = predicts[:, :2].long()
-    scores = predicts[:, 2]
+    indices = pair_indexes
+    scores = predicts.squeeze()
 
     # Use indexing and broadcasting to fill the similarity matrix
     similarity_matrix[indices[:, 0], indices[:, 1]] = scores

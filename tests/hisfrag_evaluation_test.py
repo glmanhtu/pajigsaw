@@ -17,7 +17,7 @@ from torch.utils.data import Dataset
 from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20GT
 from hisfrag_test import hisfrag_eval
-from misc import wi19_evaluate
+from misc import wi19_evaluate, utils
 from misc.logger import create_logger
 from models import build_model
 
@@ -62,28 +62,24 @@ def main(config):
     logger.info("Start testing")
     start_time = time.time()
     max_author = args.max_n_authors
-    similarity_map = hisfrag_eval(config, model, max_author, logger=logger)
-    similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
-    similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
-    similarity_map.to_csv('similarity_matrix.csv')
+    distance_matrix, img_names = hisfrag_eval(config, model, max_author, logger=logger)
+    labels = utils.list_to_idx(img_names, lambda x: x.split('_')[0])
     logger.info('Starting to calculate performance...')
-    m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
+    m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info(f'New approach: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' 
                 f'Pr@k100 {pr_a_k100:.3f} Time: {total_time_str}')
 
     start_time = time.time()
-    similarity_map = hisfrag_eval_original(config, model, max_authors=max_author)
-    similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
-    similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
+    distance_matrix = hisfrag_eval_original(config, model, max_authors=max_author)
+    labels = utils.list_to_idx(img_names, lambda x: x.split('_')[0])
     logger.info('Starting to calculate performance...')
-    m_ap2, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
+    m_ap2, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, labels)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info(f'Original approach: mAP {m_ap2:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t'
                 f'Pr@k100 {pr_a_k100:.3f} Time: {total_time_str}')
-    similarity_map.to_csv('similarity_matrix_2.csv')
 
     logger.info(f'First: {m_ap}, second: {m_ap2}')
     assert m_ap == m_ap2

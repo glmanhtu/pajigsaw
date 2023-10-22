@@ -343,3 +343,11 @@ def configure_ddp():
     torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
     torch.distributed.barrier()
     return local_rank, rank, world_size
+
+
+def list_to_idx(items, name_converting_fn):
+    labels = [name_converting_fn(x) for x in items]
+    authors = list(set(labels))
+    author_map = {x: i for i, x in enumerate(authors)}
+    labels = [author_map[x] for x in labels]
+    return labels

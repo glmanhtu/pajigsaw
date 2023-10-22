@@ -17,7 +17,7 @@ from torch.utils.data import Dataset
 
 from config import get_config
 from data.datasets.hisfrag20_test import HisFrag20Test
-from misc import wi19_evaluate
+from misc import wi19_evaluate, utils
 from misc.logger import create_logger
 from data.samplers import DistributedOrderedIndicatesSampler
 from misc.utils import load_pretrained
@@ -85,10 +85,7 @@ def hisfrag_eval_wrapper(config, model, max_authors=None, world_size=1, rank=0, 
     logger.info('Starting to calculate performance...')
 
     # Get authors
-    labels = [x.split("_")[0] for x in img_names]
-    authors = list(set(labels))
-    author_map = {x: i for i, x in enumerate(authors)}
-    labels = [author_map[x] for x in labels]
+    labels = utils.list_to_idx(img_names, lambda x: x.split('_')[0])
     m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
 
     logger.info(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' f'Pr@k100 {pr_a_k100:.3f}')

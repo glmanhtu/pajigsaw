@@ -130,14 +130,29 @@ def hisfrag_eval_original(config, model, max_authors=None):
                 f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')
 
-    similarity_map = {}
-    predicts = torch.sigmoid(predicts).cpu()
-    for pred, index in zip(predicts.numpy(), pair_indexes.numpy()):
-        img_1 = os.path.splitext(os.path.basename(dataset.samples[index[0]]))[0]
-        img_2 = os.path.splitext(os.path.basename(dataset.samples[index[1]]))[0]
-        similarity_map.setdefault(img_1, {})[img_2] = pred[0]
-        similarity_map.setdefault(img_2, {})[img_1] = pred[0]
-    return similarity_map
+    max_index = int(torch.max(predicts[:, :2]).item())
+    size = max_index + 1
+
+    # Initialize a similarity matrix with zeros
+    similarity_matrix = torch.zeros(size, size)
+
+    # Extract index pairs and scores
+    indices = predicts[:, :2].long()
+    scores = predicts[:, 2]
+
+    # Use indexing and broadcasting to fill the similarity matrix
+    similarity_matrix[indices[:, 0], indices[:, 1]] = scores
+    similarity_matrix[indices[:, 1], indices[:, 0]] = scores
+
+    logger.info(f"Converting to distance matrix...")
+    # max_score = torch.amax(similarity_matrix, dim=1)
+    distance_matrix = 1 - similarity_matrix
+
+    labels = []
+    for i in range(size):
+        labels.append(os.path.basename(dataset.samples[i]))
+    logger.info("Distance matrix is generated!")
+    return distance_matrix.numpy(), labels
 
 
 if __name__ == '__main__':

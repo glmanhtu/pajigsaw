@@ -43,8 +43,8 @@ class HisFrag20Test(VisionDataset):
 
             samples = []
             for writer_id in writers:
-                for page_id in writer_map[writer_id]:
-                    samples += writer_map[writer_id][page_id]
+                for page_id in sorted(writer_map[writer_id].keys()):
+                    samples += sorted(writer_map[writer_id][page_id])
 
         self.samples = samples
         self.lower_bound = lower_bound

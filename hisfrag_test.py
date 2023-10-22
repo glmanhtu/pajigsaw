@@ -70,24 +70,29 @@ def main(config):
 
     logger.info("Start testing")
     start_time = time.time()
-    similarity_map = hisfrag_eval_wrapper(config, model, None, world_size, rank, logger)
+    distance_matrix, img_names = hisfrag_eval_wrapper(config, model, None, world_size, rank, logger)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Test time {}'.format(total_time_str))
     if rank == 0:
-        result_file = os.path.join(config.OUTPUT, f'similarity_matrix_rank{rank}.csv')
-        similarity_map.to_csv(result_file)
+        df = pd.DataFrame(data=distance_matrix, columns=img_names, index=img_names)
+        result_file = os.path.join(config.OUTPUT, f'distance_matrix_rank{rank}.csv')
+        df.to_csv(result_file, index=True)
 
 
 def hisfrag_eval_wrapper(config, model, max_authors=None, world_size=1, rank=0, logger=None):
-    similarity_map = hisfrag_eval(config, model, max_authors, world_size, rank, logger)
-    similarity_map = pd.DataFrame.from_dict(similarity_map, orient='index').sort_index()
-    similarity_map = similarity_map.reindex(sorted(similarity_map.columns), axis=1)
+    distance_matrix, img_names = hisfrag_eval(config, model, max_authors, world_size, rank, logger)
     logger.info('Starting to calculate performance...')
-    m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(similarity_map, lambda x: x.split("_")[0])
+
+    # Get authors
+    labels = [x.split("_")[0] for x in img_names]
+    authors = list(set(labels))
+    author_map = {x: i for i, x in enumerate(authors)}
+    labels = [author_map[x] for x in labels]
+    m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
 
     logger.info(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_a_k10:.3f}\t' f'Pr@k100 {pr_a_k100:.3f}')
-    return similarity_map
+    return distance_matrix, img_names
 
 
 @torch.no_grad()
@@ -179,31 +184,35 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     predicts = []
     for i in range(world_size):
         rank_data_path = os.path.join(config.OUTPUT, f'test_result_rank{i}.pt')
-        predicts.append(torch.load(rank_data_path, map_location='cuda'))
+        predicts.append(torch.load(rank_data_path, map_location='cpu'))
 
     predicts = torch.cat(predicts)
 
     logger.info(f"Generating similarity map...")
     assert len(predicts) == len(pairs)
-    similarity_map = {}
-    similarities = torch.sigmoid(predicts[:, 2].type(torch.float16)).cpu()
-    indexes = predicts[:, :2].type(torch.int).cpu()
-    count = 0
-    for index, score in zip(indexes.numpy(), similarities.numpy()):
-        img_1_idx, img_2_idx = tuple(index)
-        try:
-            img_1 = os.path.splitext(os.path.basename(dataset.samples[img_1_idx]))[0]
-            img_2 = os.path.splitext(os.path.basename(dataset.samples[img_2_idx]))[0]
-            similarity_map.setdefault(img_1, {})[img_2] = score
-            similarity_map.setdefault(img_2, {})[img_1] = score
-        except IndexError as e:
-            logger.info(f'Index error: {index}, {score}')
-            logger.info(f'Indexes shape: {indexes.shape}, samples shape: {len(dataset.samples)}')
-            logger.info(f'Predicts: {predicts[count]}, indexes: {indexes[count]}')
-            raise e
-        count += 1
-    logger.info("Similarity map is generated!")
-    return similarity_map
+
+    size = len(dataset.samples)
+
+    # Initialize a similarity matrix with zeros
+    similarity_matrix = torch.zeros(size, size)
+
+    # Extract index pairs and scores
+    indices = predicts[:, :2].long()
+    scores = predicts[:, 2]
+
+    # Use indexing and broadcasting to fill the similarity matrix
+    similarity_matrix[indices[:, 0], indices[:, 1]] = scores
+    similarity_matrix[indices[:, 1], indices[:, 0]] = scores
+
+    logger.info(f"Converting to distance matrix...")
+    # max_score = torch.amax(similarity_matrix, dim=1)
+    distance_matrix = 1 - similarity_matrix
+
+    labels = []
+    for i in range(size):
+        labels.append(os.path.splitext(os.path.basename(dataset.samples[i]))[0])
+    logger.info("Distance matrix is generated!")
+    return distance_matrix.numpy(), labels
 
 
 if __name__ == '__main__':

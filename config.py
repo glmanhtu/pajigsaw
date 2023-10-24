@@ -82,6 +82,13 @@ _C.MODEL.PJS.QK_SCALE = None
 _C.MODEL.PJS.KEEP_ATTN = False
 _C.MODEL.PJS.ARCH_VERSION = 'v1'
 
+
+_C.MODEL.SS = CN()
+_C.MODEL.SS.ARCH = 'resnet34'
+_C.MODEL.SS.PRETRAINED = ''
+_C.MODEL.SS.EMBED_DIM = 2048
+_C.MODEL.SS.PRED_DIM = 512
+
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------

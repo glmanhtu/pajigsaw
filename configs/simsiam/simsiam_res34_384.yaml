@@ -1,0 +1,11 @@
+MODEL:
+  TYPE: ss
+  NAME: simsiam_res34_384
+  SS:
+    ARCH: resnet34
+    PRETRAINED:
+    EMBED_DIM: 2048
+    PRED_DIM: 512
+DATA:
+  DATASET: geshaem
+  IMG_SIZE: 384

@@ -8,11 +8,13 @@
 import os
 import random
 import time
+from typing import Dict
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.distributed as dist
-from torch import inf
+from torch import inf, Tensor
 
 
 def load_checkpoint(config, model, optimizer, lr_scheduler, loss_scaler, logger):
@@ -351,3 +353,25 @@ def list_to_idx(items, name_converting_fn):
     author_map = {x: i for i, x in enumerate(authors)}
     labels = [author_map[x] for x in labels]
     return labels
+
+
+def compute_distance_matrix(data: Dict[str, Tensor], n_times_testing=100):
+    distance_map = {}
+    fragments = list(data.keys())
+    similarity_fn = torch.nn.CosineSimilarity(dim=1)
+    for i in range(len(fragments)):
+        for j in range(i, len(fragments)):
+            source, target = fragments[i], fragments[j]
+            n_items = max(len(data[source]), len(data[target]))
+
+            source_features = data[source][torch.randint(len(data[source]), (n_times_testing * n_items,))]
+            target_features = data[target][torch.randint(len(data[target]), (n_times_testing * n_items,))]
+
+            similarity = similarity_fn(source_features, target_features)
+            distance = 1 - similarity
+            distance = distance.mean().cpu().item()
+            distance_map.setdefault(source, {})[target] = distance
+            distance_map.setdefault(target, {})[source] = distance
+
+    matrix = pd.DataFrame.from_dict(distance_map, orient='index').sort_index()
+    return matrix.reindex(sorted(matrix.columns), axis=1)

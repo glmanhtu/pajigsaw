@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torchvision.transforms
 
+from data.datasets.geshaem_patch import GeshaemPatch
 from data.datasets.hisfrag20 import HisFrag20
 from data.transforms import TwoImgSyncEval, UnNormalize
 
@@ -15,8 +16,9 @@ parser = argparse.ArgumentParser('Pajigsaw testing script', add_help=False)
 parser.add_argument('--data-path', required=True, type=str, help='path to dataset')
 args = parser.parse_args()
 
-transform = TwoImgSyncEval(512)
-train_dataset = HisFrag20(args.data_path, split=HisFrag20.Split.VAL, transform=transform)
+transform = TwoImgSyncEval(384)
+train_dataset = GeshaemPatch(args.data_path, split=GeshaemPatch.Split.TRAIN,
+                             transform=transform, image_size=384)
 un_normaliser = torchvision.transforms.Compose([
     UnNormalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     torchvision.transforms.ToPILImage(),

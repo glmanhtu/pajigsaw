@@ -4,7 +4,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ze Liu
 # --------------------------------------------------------
-
+from .simsiam import SimSiam
 from .vision_transformer import VisionTransformerCustom
 
 
@@ -25,6 +25,13 @@ def build_model(config, is_pretrain=False):
             qkv_bias=config.MODEL.PJS.QKV_BIAS,
             keep_attn=config.MODEL.PJS.KEEP_ATTN,
             arch_version=config.MODEL.PJS.ARCH_VERSION
+        )
+    elif model_type == 'ss':
+        model = SimSiam(
+            arch=config.MODEL.SS.ARCH,
+            pretrained=config.MODEL.SS.PRETRAINED,
+            dim=config.MODEL.SS.EMBED_DIM,
+            pred_dim=config.MODEL.SS.PRED_DIM
         )
     else:
         raise NotImplementedError(f"Unkown model: {model_type}")

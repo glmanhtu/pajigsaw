@@ -69,12 +69,12 @@ class HisFrag20(VisionDataset):
         for writer in list(writer_map.keys()):
             if writer not in writer_set:
                 del writer_map[writer]
-        self.writers = list(writer_map.keys())
+        self.writers = sorted(writer_map.keys())
         self.writer_pages = {}
         for writer in writer_map:
             if writer not in self.writer_pages:
                 self.writer_pages[writer] = []
-            self.writer_pages[writer] += list(writer_map[writer].keys())
+            self.writer_pages[writer] += sorted(writer_map[writer].keys())
         self.writer_map = writer_map
 
     @property

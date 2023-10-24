@@ -99,8 +99,6 @@ class GeshaemTrainer(Trainer):
         features = {k: torch.stack(v).cuda() for k, v in features.items()}
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction)
         papyrus_ids = [self.data_loader_val.dataset.get_group_id(x) for x in distance_df.index]
-        papyrus_idx_map = {x: i for i, x in enumerate(list(set(papyrus_ids)))}
-        papyrus_ids = [papyrus_idx_map[x] for x in papyrus_ids]
         distance_matrix = distance_df.to_numpy()
         m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(papyrus_ids))
         mAP_meter.update(m_ap)
@@ -120,8 +118,8 @@ class GeshaemTrainer(Trainer):
             f'Batch Time {batch_time.avg:.3f}\t'
             f'mAP {mAP_meter.avg:.4f}\t'
             f'top1 {top1_meter.avg:.3f}\t'
-            f'pr@k10 {pr_a_k100.avg:.3f}\t'
-            f'pr@k100 {pr_a_k100.avg:.3f}')
+            f'pr@k10 {pk10_meter.avg:.3f}\t'
+            f'pr@k100 {pk100_meter.avg:.3f}')
 
         val_loss = 1 - mAP_meter.avg
         if val_loss < self.min_loss:

@@ -109,7 +109,7 @@ def build_dataset(mode, config):
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO, repeat=repeat)
     elif config.DATA.DATASET == 'geshaem':
         split = GeshaemPatch.Split.from_string(mode)
-        repeat = 50
+        repeat = 50 if split.is_train() else 20
         dataset = GeshaemPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
                                erosion_ratio=config.DATA.EROSION_RATIO, repeat=repeat)
     else:

@@ -96,7 +96,7 @@ class GeshaemTrainer(Trainer):
                     f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                     f'Mem {memory_used:.0f}MB')
 
-        features = {k: torch.stack(v) for k, v in features.items()}
+        features = {k: torch.stack(v).cuda() for k, v in features.items()}
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction)
         papyrus_ids = [self.data_loader_val.dataset.get_group_id(x) for x in distance_df.index]
         papyrus_idx_map = {x: i for i, x in enumerate(list(set(papyrus_ids)))}

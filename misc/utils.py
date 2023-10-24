@@ -355,7 +355,7 @@ def list_to_idx(items, name_converting_fn):
     return labels
 
 
-def compute_distance_matrix(data: Dict[str, Tensor], n_times_testing=100):
+def compute_distance_matrix(data: Dict[str, Tensor], n_times_testing=100, reduction='mean'):
     distance_map = {}
     fragments = list(data.keys())
     similarity_fn = torch.nn.CosineSimilarity(dim=1)
@@ -369,7 +369,15 @@ def compute_distance_matrix(data: Dict[str, Tensor], n_times_testing=100):
 
             similarity = similarity_fn(source_features, target_features)
             distance = 1 - similarity
-            distance = distance.mean().cpu().item()
+            if reduction == 'mean':
+                distance = distance.mean()
+            elif reduction == 'max':
+                distance = torch.max(distance)
+            elif reduction == 'min':
+                distance = torch.min(distance)
+            else:
+                raise NotImplementedError(f"Reduction {reduction} is not implemented!")
+            distance = distance.cpu().item()
             distance_map.setdefault(source, {})[target] = distance
             distance_map.setdefault(target, {})[source] = distance
 

@@ -29,6 +29,7 @@ def parse_option():
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
     parser.add_argument('--use-checkpoint', action='store_true',
                         help="whether to use gradient checkpointing to save memory")
+    parser.add_argument('--distance-reduction', type=str, default='mean')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
@@ -96,7 +97,7 @@ class GeshaemTrainer(Trainer):
                     f'Mem {memory_used:.0f}MB')
 
         features = {k: torch.stack(v) for k, v in features.items()}
-        distance_df = compute_distance_matrix(features)
+        distance_df = compute_distance_matrix(features, reduction=args.distance_reduction)
         papyrus_ids = [self.data_loader_val.dataset.get_group_id(x) for x in distance_df.index]
         papyrus_idx_map = {x: i for i, x in enumerate(list(set(papyrus_ids)))}
         papyrus_ids = [papyrus_idx_map[x] for x in papyrus_ids]

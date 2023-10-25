@@ -67,7 +67,6 @@ def build_loader(config):
         num_workers=config.DATA.NUM_WORKERS,
         pin_memory=config.DATA.PIN_MEMORY,
         drop_last=True,
-        persistent_workers=True
     )
 
     data_loader_val = torch.utils.data.DataLoader(

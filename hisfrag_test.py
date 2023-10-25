@@ -191,7 +191,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     size = len(dataset.samples)
 
     # Initialize a similarity matrix with zeros
-    similarity_matrix = torch.zeros(size, size)
+    similarity_matrix = torch.zeros((size, size), dtype=torch.float16)
 
     # Extract index pairs and scores
     indices = predicts[:, :2].long()

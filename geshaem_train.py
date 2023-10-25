@@ -77,9 +77,9 @@ class GeshaemTrainer(Trainer):
 
             # compute output
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
-                _, _, z1, z2 = self.model(images)
+                p1, p2, _, _ = self.model(images)
 
-            for feature1, feature2, target in zip(z1, z2, targets.numpy()):
+            for feature1, feature2, target in zip(p1, p2, targets.numpy()):
                 features.setdefault(target, [])
                 features[target].append(feature1)
                 features[target].append(feature2)
@@ -99,7 +99,8 @@ class GeshaemTrainer(Trainer):
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction)
         papyrus_ids = [self.data_loader_val.dataset.get_group_id(x) for x in distance_df.index]
         distance_matrix = distance_df.to_numpy()
-        m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(papyrus_ids))
+        m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(papyrus_ids),
+                                                                    remove_self_column=False)
         mAP_meter.update(m_ap)
         top1_meter.update(top1)
         pk10_meter.update(pr_a_k10)

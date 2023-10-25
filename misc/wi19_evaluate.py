@@ -9,9 +9,9 @@ def compute_pr_a_k(sorted_retrievals, k):
     return pr_a_k.sum() / len(pr_a_k)
 
 
-def get_metrics(distance_matrix, labels):
+def get_metrics(distance_matrix, labels, remove_self_column=True):
     precision_at, recall_at, sorted_retrievals = get_precision_recall_matrices(
-        distance_matrix, labels)
+        distance_matrix, labels, remove_self_column)
 
     non_singleton_idx = sorted_retrievals.sum(axis=1) > 0
     mAP = compute_map(precision_at[non_singleton_idx, :], sorted_retrievals[non_singleton_idx, :])

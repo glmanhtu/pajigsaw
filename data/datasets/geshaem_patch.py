@@ -100,8 +100,6 @@ class GeshaemPatch(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         image_size=512,
-        erosion_ratio=0.07,
-        with_negative=False,
         repeat=1,
         min_size_limit=120
     ) -> None:
@@ -110,28 +108,29 @@ class GeshaemPatch(VisionDataset):
         self.root_dir = root
 
         self.image_size = image_size
-        self.with_negative = with_negative
-        self.erosion_ratio = erosion_ratio
 
-        self.cropper_class = torchvision.transforms.RandomCrop
-        if not split.is_train():
-            self.cropper_class = torchvision.transforms.CenterCrop
         self.min_size_limit = min_size_limit
         self.repeat = repeat
+
+        groups = extract_relations(root)
+        self.fragment_to_group = {}
+        for idx, group in enumerate(groups):
+            if len(group) < 2 and not split.is_train():
+                # We only evaluate the fragments that we know they are belongs to a certain groups
+                # If the group have only one element, which means that very likely that we don't know
+                # which group this element belongs to, so we skip it
+                continue
+            for fragment in group:
+                self.fragment_to_group[fragment] = idx
+
         self.dataset = self.load_dataset()
         fragments = set([])
         for idx, items in enumerate(self.dataset):
             fragment_name = os.path.basename(os.path.dirname(items[0]))
             fragments.add(fragment_name)
 
-        self.fragments = list(fragments)
+        self.fragments = sorted(fragments)
         self.fragment_idx = {x: i for i, x in enumerate(self.fragments)}
-
-        groups = extract_relations(root)
-        self.fragment_to_group = {}
-        for idx, group in enumerate(groups):
-            for fragment in group:
-                self.fragment_to_group[fragment] = idx
 
     def get_group_id(self, idx):
         fragment = self.fragments[idx].split("_")[0]
@@ -144,6 +143,9 @@ class GeshaemPatch(VisionDataset):
             if width < self.min_size_limit or height < self.min_size_limit:
                 continue
             image_name = os.path.basename(os.path.dirname(img_path))
+            fragment_id = image_name.split("_")[0]
+            if fragment_id not in self.fragment_to_group:
+                continue
             images.setdefault(image_name, {})
             image_type = os.path.basename(img_path).rsplit("_", 1)[1].split('-')[0]
             images[image_name].setdefault(list(image_type)[-1], []).append(img_path)

@@ -143,8 +143,10 @@ class GeshaemPatch(VisionDataset):
             if width < self.min_size_limit or height < self.min_size_limit:
                 continue
             image_name = os.path.basename(os.path.dirname(img_path))
-            fragment_id = image_name.split("_")[0]
-            if fragment_id not in self.fragment_to_group:
+            fragment_ids = image_name.split("_")
+            if len(fragment_ids) > 1 and self.split.is_train():
+                continue
+            if fragment_ids[0] not in self.fragment_to_group:
                 continue
             images.setdefault(image_name, {})
             image_type = os.path.basename(img_path).rsplit("_", 1)[1].split('-')[0]

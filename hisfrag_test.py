@@ -195,7 +195,7 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
 
     # Extract index pairs and scores
     indices = predicts[:, :2].long()
-    scores = predicts[:, 2]
+    scores = predicts[:, 2].type(torch.float16)
 
     # Use indexing and broadcasting to fill the similarity matrix
     similarity_matrix[indices[:, 0], indices[:, 1]] = scores

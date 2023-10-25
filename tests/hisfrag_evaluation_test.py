@@ -69,7 +69,7 @@ def main(config):
     logger.info("Start testing")
     start_time = time.time()
     max_author = args.max_n_authors
-    distance_matrix, img_names = hisfrag_eval(config, model, max_author, logger=logger)
+    distance_matrix, img_names = hisfrag_eval(config, model, max_author, world_size, rank, logger=logger)
     labels = utils.list_to_idx(img_names, lambda x: x.split('_')[0])
     logger.info('Starting to calculate performance...')
     m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))

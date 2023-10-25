@@ -19,6 +19,7 @@ from data.datasets.hisfrag20_test import HisFrag20GT
 from hisfrag_test import hisfrag_eval
 from misc import wi19_evaluate, utils
 from misc.logger import create_logger
+from misc.utils import load_pretrained
 from models import build_model
 
 
@@ -34,6 +35,8 @@ def parse_option():
 
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for data")
+    parser.add_argument('--pretrained', required=True, help='pretrained weight from checkpoint')
+
     parser.add_argument('--max-n-authors', type=int, default=50)
     parser.add_argument('--data-path', type=str, help='path to dataset')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
@@ -57,7 +60,11 @@ def main(config):
     logger.info(f"number of params: {n_parameters}")
 
     model.cuda()
+    model_without_ddp = model
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False)
+
+    if os.path.isfile(config.MODEL.PRETRAINED):
+        load_pretrained(config, model_without_ddp, logger)
 
     logger.info("Start testing")
     start_time = time.time()

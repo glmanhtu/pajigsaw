@@ -221,6 +221,7 @@ class GeshaemPatch(VisionDataset):
                 first_img, second_img = second_img, first_img
             color_jitter = torchvision.transforms.RandomApply([
                 torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+                torchvision.transforms.RandomGrayscale(p=0.5),
             ], p=0.5)
             first_img, second_img = color_jitter(first_img), color_jitter(second_img)
 

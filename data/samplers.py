@@ -45,10 +45,7 @@ class DistributedRepeatSampler(DistributedSampler):
         # subsample
         indices = indices[self.rank:self.total_size:self.num_replicas]
         assert len(indices) == self.num_samples
-        iterables = []
-        for i in range(self.repeat):
-            iterables.append(iter(indices))
-        return chain(iterables)
+        return iter(indices * self.repeat)
 
     def __len__(self) -> int:
         return self.num_samples * self.repeat
@@ -235,11 +232,7 @@ class DistributedEvalSampler(Sampler):
         # subsample
         indices = indices[self.rank:self.total_size:self.num_replicas]
         assert len(indices) == self.num_samples
-
-        iterables = []
-        for i in range(self.repeat):
-            iterables.append(iter(indices))
-        return chain(iterables)
+        return iter(indices * self.repeat)
 
     def __len__(self):
         return self.num_samples * self.repeat

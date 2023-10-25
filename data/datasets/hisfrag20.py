@@ -104,13 +104,21 @@ class HisFrag20(VisionDataset):
             second_img = f.convert('RGB')
 
         if self.split.is_train():
+            train_transform = A.Compose(
+                [
+                    A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.5),
+                ]
+            )
+
             img_transforms = torchvision.transforms.Compose([
                 torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True),
-                torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1)),
+                lambda x: np.array(x),
+                lambda x: train_transform(image=x)['image'],
+                torchvision.transforms.ToPILImage(),
                 torchvision.transforms.RandomApply([
                     torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-                    torchvision.transforms.RandomGrayscale(p=0.5),
                 ], p=0.5),
+                torchvision.transforms.RandomGrayscale(p=0.3),
             ])
         else:
             img_transforms = torchvision.transforms.Compose([

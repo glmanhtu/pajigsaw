@@ -6,7 +6,6 @@ import time
 import numpy as np
 import torch
 
-import config
 from misc import wi19_evaluate
 from misc.engine import Trainer
 from misc.utils import AverageMeter, compute_distance_matrix
@@ -124,7 +123,7 @@ class GeshaemTrainer(Trainer):
         val_loss = 1 - mAP_meter.avg
         if val_loss < self.min_loss:
             similarity_df = (2 - distance_df) / 2.
-            similarity_df.to_csv(os.path.join(config.OUTPUT, 'similarity_matrix.csv'))
+            similarity_df.to_csv(os.path.join(self.config.OUTPUT, 'similarity_matrix.csv'))
 
         return val_loss
 

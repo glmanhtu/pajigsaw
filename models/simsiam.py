@@ -24,7 +24,8 @@ class SimSiam(nn.Module):
 
         # create the encoder
         # num_classes is the output fc dimension, zero-initialize last BNs
-        self.encoder = base_encoder(num_classes=dim, zero_init_residual=True, weights=pretrained)
+        encoder = base_encoder(num_classes=dim, zero_init_residual=True, weights=pretrained)
+        self.encoder = torch.nn.SyncBatchNorm.convert_sync_batchnorm(encoder)
 
         # Modify the average pooling layer to use a smaller kernel size
         self.encoder.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -46,6 +47,7 @@ class SimSiam(nn.Module):
                                         nn.BatchNorm1d(pred_dim),
                                         nn.ReLU(inplace=True), # hidden layer
                                         nn.Linear(pred_dim, dim)) # output layer
+
 
     def forward(self, x):
         """

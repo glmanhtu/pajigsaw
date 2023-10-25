@@ -41,14 +41,11 @@ class HisFrag20(VisionDataset):
         transforms: Optional[Callable] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
-        image_size=512,
-        repeat=1,
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
         self.root_dir = root
-        self.image_size = image_size
-        self.repeat = repeat
+        self.image_size = 512
         writer_map = {}
         for img in glob.iglob(os.path.join(self.root_dir, 'train', '**', '*.jpg'), recursive=True):
             file_name = os.path.splitext(os.path.basename(img))[0]
@@ -82,9 +79,6 @@ class HisFrag20(VisionDataset):
         return self._split
 
     def __getitem__(self, index: int):
-        if index >= len(self.writers):
-            index = index % len(self.writers)
-
         writer_id = self.writers[index]
         page_id = random.choice(self.writer_pages[writer_id])
         img_path = random.choice(self.writer_map[writer_id][page_id])
@@ -112,11 +106,10 @@ class HisFrag20(VisionDataset):
         if self.split.is_train():
             img_transforms = torchvision.transforms.Compose([
                 torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True),
-                # torchvision.transforms.Resize(self.image_size),
                 torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1)),
-                torchvision.transforms.RandomGrayscale(p=0.3),
                 torchvision.transforms.RandomApply([
-                    torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
+                    torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+                    torchvision.transforms.RandomGrayscale(p=0.5),
                 ], p=0.5),
             ])
         else:
@@ -140,5 +133,4 @@ class HisFrag20(VisionDataset):
         return stacked_img, torch.tensor([label], dtype=torch.float32)
 
     def __len__(self) -> int:
-        return len(self.writers) * self.repeat
-
+        return len(self.writers)

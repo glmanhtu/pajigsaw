@@ -100,7 +100,6 @@ class GeshaemPatch(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         image_size=512,
-        repeat=1,
         min_size_limit=120
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
@@ -110,7 +109,6 @@ class GeshaemPatch(VisionDataset):
         self.image_size = image_size
 
         self.min_size_limit = min_size_limit
-        self.repeat = repeat
 
         groups = extract_relations(root)
         self.fragment_to_group = {}
@@ -172,9 +170,6 @@ class GeshaemPatch(VisionDataset):
         return self._split
 
     def __getitem__(self, index: int):
-        if index >= len(self.dataset):
-            index = index % len(self.dataset)
-
         image_group = self.dataset[index]
         image_path = random.choice(image_group)
         fragment_name = os.path.basename(os.path.dirname(image_path))
@@ -235,5 +230,5 @@ class GeshaemPatch(VisionDataset):
         return stacked_img, fragment_id
 
     def __len__(self) -> int:
-        return len(self.dataset) * self.repeat
+        return len(self.dataset)
 

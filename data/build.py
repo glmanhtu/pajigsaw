@@ -14,7 +14,7 @@ from .datasets.div2k_patch import DIV2KPatch
 from .datasets.geshaem_patch import GeshaemPatch
 from .datasets.hisfrag20 import HisFrag20
 from .datasets.imnet_patch import ImNetPatch
-from .samplers import DistributedEvalSampler
+from .samplers import DistributedEvalSampler, DistributedRepeatSampler
 from .transforms import TwoImgSyncEval
 
 try:
@@ -42,24 +42,21 @@ except:
 
 def build_loader(config):
     config.defrost()
-    dataset_train = build_dataset(mode='train', config=config)
+    dataset_train, train_repeat = build_dataset(mode='train', config=config)
     config.freeze()
     print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
-    dataset_val = build_dataset(mode='validation', config=config)
+    dataset_val, val_repeat = build_dataset(mode='validation', config=config)
     print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
 
     num_tasks = dist.get_world_size()
     global_rank = dist.get_rank()
-    sampler_train = torch.utils.data.DistributedSampler(
-        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+    sampler_train = DistributedRepeatSampler(
+        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, repeat=train_repeat
     )
 
-    if config.TEST.SEQUENTIAL:
-        sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-    else:
-        sampler_val = DistributedEvalSampler(
-            dataset_val, shuffle=config.TEST.SHUFFLE, rank=global_rank, num_replicas=num_tasks
-        )
+    sampler_val = DistributedEvalSampler(
+        dataset_val, shuffle=config.TEST.SHUFFLE, rank=global_rank, num_replicas=num_tasks, repeat=val_repeat
+    )
 
     data_loader_train = DataLoader(
         dataset_train, sampler=sampler_train,
@@ -93,6 +90,7 @@ def build_loader(config):
 def build_dataset(mode, config):
     patch_size = config.DATA.IMG_SIZE
     transform = TwoImgSyncEval(patch_size)
+    repeat = 1
     if config.DATA.DATASET == 'imnet_patch':
         split = ImNetPatch.Split.from_string(mode)
         dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
@@ -100,17 +98,17 @@ def build_dataset(mode, config):
     elif config.DATA.DATASET == 'hisfrag20':
         split = HisFrag20.Split.from_string(mode)
         repeat = 50 if split.is_train() else 100
-        dataset = HisFrag20(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size, repeat=repeat)
+        dataset = HisFrag20(config.DATA.DATA_PATH, split, transform=transform)
     elif config.DATA.DATASET == 'div2k':
         split = DIV2KPatch.Split.from_string(mode)
         repeat = 5 if split.is_train() else 10
         dataset = DIV2KPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
-                             image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO, repeat=repeat)
+                             image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
     elif config.DATA.DATASET == 'geshaem':
         split = GeshaemPatch.Split.from_string(mode)
         repeat = 100 if split.is_train() else 20
-        dataset = GeshaemPatch(config.DATA.DATA_PATH, split, transform=transform, repeat=repeat)
+        dataset = GeshaemPatch(config.DATA.DATA_PATH, split, transform=transform)
     else:
         raise NotImplementedError(f"We haven't supported {config.DATA.DATASET}")
 
-    return dataset
+    return dataset, repeat

@@ -50,10 +50,8 @@ class DIV2KPatch(ImNetPatch):
         image_size=64,
         erosion_ratio=0.07,
         with_negative=False,
-        repeat=2
     ) -> None:
         super().__init__(root, split, transforms, transform, target_transform, image_size, erosion_ratio, with_negative)
-        self.repeat = repeat
 
     @property
     def split(self) -> "DIV2KPatch.Split":
@@ -69,8 +67,6 @@ class DIV2KPatch(ImNetPatch):
         return images
 
     def read_image(self, index):
-        if index >= len(self.dataset):
-            index = index % len(self.dataset)
         img_path = self.dataset[index]
         with Image.open(img_path) as f:
             image = f.convert('RGB')
@@ -95,7 +91,7 @@ class DIV2KPatch(ImNetPatch):
         return image
 
     def __len__(self) -> int:
-        return len(self.dataset) * self.repeat
+        return len(self.dataset)
 
 
 

@@ -122,6 +122,9 @@ class GeshaemTrainer(Trainer):
         val_loss = 1 - mAP_meter.avg
         similarity_df = (2 - distance_df) / 2.
 
+        index_to_fragment = {i: x for i, x in enumerate(data_loader.dataset.fragments)}
+        similarity_df.rename(columns=index_to_fragment, index=index_to_fragment, inplace=True)
+
         return val_loss, similarity_df
 
     @torch.no_grad()

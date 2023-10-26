@@ -125,7 +125,7 @@ class GeshaemTrainer(Trainer):
         index_to_fragment = {i: x for i, x in enumerate(data_loader.dataset.fragments)}
         similarity_df.rename(columns=index_to_fragment, index=index_to_fragment, inplace=True)
 
-        return val_loss, similarity_df
+        return val_loss, similarity_df.round(3)
 
     @torch.no_grad()
     def test(self):

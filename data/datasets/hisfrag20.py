@@ -12,6 +12,8 @@ import torchvision
 from PIL import Image
 from torchvision.datasets import VisionDataset
 
+from misc.utils import chunks
+
 logger = logging.getLogger("pajisaw")
 _Target = int
 
@@ -63,25 +65,25 @@ class HisFrag20(VisionDataset):
         else:
             writers = writers[n_train:]
         writer_set = set(writers)
-        for writer in list(writer_map.keys()):
+        samples = []
+        for writer in sorted(writer_map.keys()):
             if writer not in writer_set:
                 del writer_map[writer]
-        self.writers = sorted(writer_map.keys())
-        self.writer_pages = {}
-        for writer in writer_map:
-            if writer not in self.writer_pages:
-                self.writer_pages[writer] = []
-            self.writer_pages[writer] += sorted(writer_map[writer].keys())
+            else:
+                patches = sorted([x for page in writer_map[writer] for x in writer_map[writer][page]])
+                samples.append(chunks(patches, 5))
         self.writer_map = writer_map
+        self.samples = samples
+        self.writers = sorted(writer_set)
 
     @property
     def split(self) -> "HisFrag20.Split":
         return self._split
 
     def __getitem__(self, index: int):
-        writer_id = self.writers[index]
-        page_id = random.choice(self.writer_pages[writer_id])
-        img_path = random.choice(self.writer_map[writer_id][page_id])
+        img_path = random.choice(self.samples[index])
+        file_name = os.path.splitext(os.path.basename(img_path))[0]
+        writer_id, page_id, fragment_id = tuple(file_name.split("_"))
 
         with Image.open(img_path) as f:
             first_img = f.convert('RGB')
@@ -97,7 +99,7 @@ class HisFrag20(VisionDataset):
 
         img_path_2 = img_path
         while img_path_2 == img_path:
-            page_id_2 = random.choice(self.writer_pages[writer_id_2])
+            page_id_2 = random.choice(list(self.writer_map[writer_id_2].keys()))
             img_path_2 = random.choice(self.writer_map[writer_id_2][page_id_2])
 
         with Image.open(img_path_2) as f:
@@ -141,4 +143,4 @@ class HisFrag20(VisionDataset):
         return stacked_img, torch.tensor([label], dtype=torch.float32)
 
     def __len__(self) -> int:
-        return len(self.writers)
+        return len(self.samples)

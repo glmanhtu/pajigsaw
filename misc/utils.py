@@ -355,6 +355,16 @@ def list_to_idx(items, name_converting_fn):
     return labels
 
 
+def chunks(l, n):
+    """Yield n number of striped chunks from l."""
+    results = []
+    for i in range(0, n):
+        chunk = l[i::n]
+        if len(chunk) > 0:
+            results.append(chunk)
+    return results
+
+
 def compute_distance_matrix(data: Dict[str, Tensor], n_times_testing=100, reduction='mean'):
     distance_map = {}
     fragments = list(data.keys())

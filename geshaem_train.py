@@ -62,7 +62,7 @@ class GeshaemTrainer(Trainer):
     @torch.no_grad()
     def validate(self):
         self.model.eval()
-
+        data_loader = self.get_dataloader('validation')
         batch_time = AverageMeter()
         mAP_meter = AverageMeter()
         top1_meter = AverageMeter()
@@ -72,7 +72,7 @@ class GeshaemTrainer(Trainer):
         start = time.time()
         end = time.time()
         features = {}
-        for idx, (images, targets) in enumerate(self.data_loader_val):
+        for idx, (images, targets) in enumerate(data_loader):
             images = images.cuda(non_blocking=True)
 
             # compute output
@@ -91,13 +91,13 @@ class GeshaemTrainer(Trainer):
             if idx % self.config.PRINT_FREQ == 0:
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 self.logger.info(
-                    f'Eval: [{idx}/{len(self.data_loader_val)}]\t'
+                    f'Eval: [{idx}/{len(data_loader)}]\t'
                     f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                     f'Mem {memory_used:.0f}MB')
 
         features = {k: torch.stack(v).cuda() for k, v in features.items()}
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction)
-        papyrus_ids = [self.data_loader_val.dataset.get_group_id(x) for x in distance_df.index]
+        papyrus_ids = [data_loader.dataset.get_group_id(x) for x in distance_df.index]
         distance_matrix = distance_df.to_numpy()
         m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(papyrus_ids),
                                                                     remove_self_column=False)

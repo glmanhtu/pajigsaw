@@ -50,7 +50,8 @@ class DefaultTrainer(Trainer):
     @torch.no_grad()
     def validate(self):
         self.model.eval()
-
+        data_loader = self.get_dataloader('validation')
+        criterion = self.get_criterion()
         batch_time = AverageMeter()
         loss_meter = AverageMeter()
         acc_meter = AverageMeter()
@@ -60,7 +61,7 @@ class DefaultTrainer(Trainer):
 
         start = time.time()
         end = time.time()
-        for idx, (images, target) in enumerate(self.data_loader_val):
+        for idx, (images, target) in enumerate(data_loader):
             images = images.cuda(non_blocking=True)
             target = target.cuda(non_blocking=True)
 
@@ -68,7 +69,7 @@ class DefaultTrainer(Trainer):
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
                 output = self.model(images)
 
-            loss = self.criterion(output, target)
+            loss = criterion(output, target)
 
             outputs = torch.unbind(output.cpu(), dim=1)
             targets = torch.unbind(target.cpu(), dim=1)
@@ -100,7 +101,7 @@ class DefaultTrainer(Trainer):
             if idx % self.config.PRINT_FREQ == 0:
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 self.logger.info(
-                    f'Eval: [{idx}/{len(self.data_loader_val)}]\t'
+                    f'Eval: [{idx}/{len(data_loader)}]\t'
                     f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                     f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
                     f'ACC {acc_meter.val:.3f} ({acc_meter.avg:.3f})\t'

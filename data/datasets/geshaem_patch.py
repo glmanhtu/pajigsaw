@@ -134,7 +134,8 @@ class GeshaemPatch(VisionDataset):
         self.fragments = sorted(fragments)
         self.fragment_idx = {x: i for i, x in enumerate(self.fragments)}
 
-    def get_group_id(self, fragment):
+    def get_group_id(self, idx):
+        fragment = self.fragments[idx].split("_")[0]
         return self.fragment_to_group[fragment]
 
     def load_dataset(self):

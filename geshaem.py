@@ -28,12 +28,12 @@ def parse_option():
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
     parser.add_argument('--use-checkpoint', action='store_true',
                         help="whether to use gradient checkpointing to save memory")
-    parser.add_argument('--distance-reduction', type=str, default='mean')
+    parser.add_argument('--distance-reduction', type=str, default='min')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
     parser.add_argument('--tag', help='tag of experiment')
-    parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
+    parser.add_argument('--mode', type=str, choices=['train', 'eval', 'test', 'throughput'], default='train')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
 
     # overwrite optimizer in config (*.yaml) if specified, e.g., fused_adam/fused_lamb
@@ -51,7 +51,7 @@ class NegativeCosineSimilarityLoss(torch.nn.Module):
     def forward(self, predicts, _):
         p1, p2, z1, z2 = predicts
         loss = -(self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
-        return loss + 1.    # Since the loss has its ra
+        return loss + 1.    # Since the loss has its range [-1, 1]
 
 
 class GeshaemTrainer(Trainer):
@@ -59,10 +59,7 @@ class GeshaemTrainer(Trainer):
     def get_criterion(self):
         return NegativeCosineSimilarityLoss()
 
-    @torch.no_grad()
-    def validate(self):
-        self.model.eval()
-
+    def validate_dataloader(self, data_loader):
         batch_time = AverageMeter()
         mAP_meter = AverageMeter()
         top1_meter = AverageMeter()
@@ -72,7 +69,7 @@ class GeshaemTrainer(Trainer):
         start = time.time()
         end = time.time()
         features = {}
-        for idx, (images, targets) in enumerate(self.data_loader_val):
+        for idx, (images, targets) in enumerate(data_loader):
             images = images.cuda(non_blocking=True)
 
             # compute output
@@ -91,13 +88,13 @@ class GeshaemTrainer(Trainer):
             if idx % self.config.PRINT_FREQ == 0:
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 self.logger.info(
-                    f'Eval: [{idx}/{len(self.data_loader_val)}]\t'
+                    f'Eval: [{idx}/{len(data_loader)}]\t'
                     f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                     f'Mem {memory_used:.0f}MB')
 
         features = {k: torch.stack(v).cuda() for k, v in features.items()}
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction)
-        papyrus_ids = [self.data_loader_val.dataset.get_group_id(x) for x in distance_df.index]
+        papyrus_ids = [data_loader.dataset.get_group_id(x) for x in distance_df.index]
         distance_matrix = distance_df.to_numpy()
         m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(papyrus_ids),
                                                                     remove_self_column=False)
@@ -122,19 +119,36 @@ class GeshaemTrainer(Trainer):
             f'pr@k100 {pk100_meter.avg:.3f}')
 
         val_loss = 1 - mAP_meter.avg
-        if val_loss < self.min_loss:
-            similarity_df = (2 - distance_df) / 2.
-            similarity_df.to_csv(os.path.join(self.config.OUTPUT, 'similarity_matrix.csv'))
+        similarity_df = (2 - distance_df) / 2.
 
-        return val_loss
+        index_to_fragment = {i: x for i, x in enumerate(data_loader.dataset.fragments)}
+        similarity_df.rename(columns=index_to_fragment, index=index_to_fragment, inplace=True)
+
+        return val_loss, similarity_df.round(3)
+
+    @torch.no_grad()
+    def test(self):
+        self.model.eval()
+        data_loader = self.get_dataloader('test')
+        _, similarity_df = self.validate_dataloader(data_loader)
+        similarity_df.to_csv(os.path.join(self.config.OUTPUT, 'similarity_matrix.csv'))
+
+    @torch.no_grad()
+    def validate(self):
+        self.model.eval()
+        data_loader = self.get_dataloader('validation')
+        loss, _ = self.validate_dataloader(data_loader)
+        return loss
 
 
 if __name__ == '__main__':
     args, _ = parse_option()
     trainer = GeshaemTrainer(args)
-    if args.eval:
+    if args.mode == 'eval':
         trainer.validate()
-    elif args.throughput:
+    elif args.mode == 'test':
+        trainer.test()
+    elif args == 'throughput':
         trainer.throughput()
     else:
         trainer.train()

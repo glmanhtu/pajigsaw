@@ -1,6 +1,6 @@
 MODEL:
   TYPE: ss
-  NAME: simsiam_res18_384
+  NAME: geshaem_res18_384
   SS:
     ARCH: resnet18
     PRETRAINED:

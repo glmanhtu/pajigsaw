@@ -6,9 +6,11 @@ import time
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
+from torch.utils.data import DataLoader
 
 from config import get_config
-from data.build import build_loader
+from data.build import build_dataset
+from data.samplers import DistributedRepeatSampler, DistributedEvalSampler
 from misc import utils
 from misc.logger import create_logger
 from misc.lr_scheduler import build_scheduler
@@ -44,7 +46,8 @@ class Trainer:
         self.config.freeze()
 
         os.makedirs(self.config.OUTPUT, exist_ok=True)
-        logger = create_logger(output_dir=self.config.OUTPUT, dist_rank=self.rank, name=f"{self.config.MODEL.NAME}")
+        logger = create_logger(output_dir=self.config.OUTPUT, dist_rank=self.rank,
+                               name=f"{self.config.MODEL.NAME}", affix=args.mode)
 
         if dist.get_rank() == 0:
             path = os.path.join(self.config.OUTPUT, "config.json")
@@ -55,10 +58,6 @@ class Trainer:
         # print config
         logger.info(self.config.dump())
         logger.info(json.dumps(vars(args)))
-
-        data_loader_train, data_loader_val, mixup_fn = build_loader(self.config)
-        self.data_loader_train = data_loader_train
-        self.data_loader_val = data_loader_val
 
         logger.info(f"Creating model:{self.config.MODEL.TYPE}/{self.config.MODEL.NAME}")
         model = build_model(self.config)
@@ -72,60 +71,89 @@ class Trainer:
 
         model.cuda()
         model_wo_ddp = model
-
-        optimizer = build_optimizer(self.config, model)
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[self.local_rank], broadcast_buffers=False)
-        loss_scaler = NativeScalerWithGradNormCount()
-        lr_scheduler = build_scheduler(self.config, optimizer,
-                                       len(data_loader_train) // self.config.TRAIN.ACCUMULATION_STEPS)
 
-        self.criterion = self.get_criterion()
         self.min_loss = 99999
         self.model = model
         self.model_wo_ddp = model_wo_ddp
-        self.loss_scaler = loss_scaler
-        self.lr_scheduler = lr_scheduler
-        self.optimizer = optimizer
         self.logger = logger
-        self.mixup_fn = mixup_fn
 
         if self.config.TRAIN.AUTO_RESUME:
             resume_file = auto_resume_helper(self.config.OUTPUT)
             if resume_file:
                 if self.config.MODEL.RESUME:
-                    logger.warning(f"auto-resume changing resume file from {self.config.MODEL.RESUME} to {resume_file}")
+                    self.logger.warning(f"Auto-resume changing resume file "
+                                        f"from {self.config.MODEL.RESUME} to {resume_file}")
                 self.config.defrost()
                 self.config.MODEL.RESUME = resume_file
                 self.config.freeze()
-                logger.info(f'auto resuming from {resume_file}')
+                self.logger.info(f'Auto resuming from {resume_file}')
             else:
-                logger.info(f'no checkpoint found in {self.config.OUTPUT}, ignoring auto resume')
-
-        if self.config.MODEL.RESUME:
-            self.min_loss = load_checkpoint(self.config, model_wo_ddp, optimizer, lr_scheduler, loss_scaler, logger)
-            loss = self.validate()
-            logger.info(f"Loss of the network on the val set: {loss:.4f}")
+                self.logger.info(f'No checkpoint found in {self.config.OUTPUT}, ignoring auto resume')
 
         if self.config.MODEL.PRETRAINED and (not self.config.MODEL.RESUME):
             load_pretrained(self.config, model_wo_ddp, logger)
-            loss = self.validate()
-            logger.info(f"Loss of the network on the val set: {loss:.4f}")
+
+    def get_dataloader(self, mode):
+        dataset, repeat = build_dataset(mode=mode, config=self.config)
+        print(f"local rank {self.local_rank} / global rank {self.rank} successfully build {mode} dataset")
+
+        num_tasks = self.world_size
+        global_rank = self.rank
+        if mode == 'train':
+            sampler = DistributedRepeatSampler(
+                dataset, num_replicas=num_tasks, rank=global_rank, shuffle=True, repeat=repeat
+            )
+            data_loader = DataLoader(
+                dataset, sampler=sampler,
+                batch_size=self.config.DATA.BATCH_SIZE,
+                num_workers=self.config.DATA.NUM_WORKERS,
+                pin_memory=self.config.DATA.PIN_MEMORY,
+                drop_last=True,
+            )
+        else:
+            sampler = DistributedEvalSampler(
+                dataset, shuffle=self.config.TEST.SHUFFLE, rank=global_rank, num_replicas=num_tasks, repeat=repeat
+            )
+
+            data_loader = torch.utils.data.DataLoader(
+                dataset, sampler=sampler,
+                batch_size=self.config.DATA.TEST_BATCH_SIZE,
+                shuffle=False,
+                num_workers=self.config.DATA.NUM_WORKERS,
+                pin_memory=self.config.DATA.PIN_MEMORY,
+                drop_last=False
+            )
+        return data_loader
 
     def train(self):
+        data_loader = self.get_dataloader('train')
+        optimizer = build_optimizer(self.config, self.model_wo_ddp)
+        loss_scaler = NativeScalerWithGradNormCount()
+        lr_scheduler = build_scheduler(self.config, optimizer, len(data_loader) // self.config.TRAIN.ACCUMULATION_STEPS)
+        criterion = self.get_criterion()
+
+        if self.config.MODEL.RESUME:
+            min_loss = load_checkpoint(self.config, self.model_wo_ddp, optimizer, lr_scheduler, loss_scaler, self.logger)
+            self.logger.info(f"Model resuming success, starting to evaluate...")
+            loss = self.validate()
+            self.min_loss = min(loss, min_loss)
+            self.logger.info(f"Loss of the network on the val set: {loss:.4f}")
+
         self.logger.info("Start training...")
         config = self.config
         start_time = time.time()
         for epoch in range(self.config.TRAIN.START_EPOCH, self.config.TRAIN.EPOCHS):
-            self.train_one_epoch(epoch)
+            self.train_one_epoch(epoch, data_loader, optimizer, lr_scheduler, loss_scaler, criterion)
 
             if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
-                save_checkpoint(config, epoch, self.model_wo_ddp, self.min_loss, self.optimizer, self.lr_scheduler,
-                                self.loss_scaler, self.logger, 'checkpoint')
+                save_checkpoint(config, epoch, self.model_wo_ddp, self.min_loss, optimizer, lr_scheduler, loss_scaler,
+                                self.logger, 'checkpoint')
 
             loss = self.validate()
             if loss < self.min_loss:
-                save_checkpoint(config, epoch, self.model_wo_ddp, self.min_loss, self.optimizer, self.lr_scheduler,
-                                self.loss_scaler, self.logger, 'best_model')
+                save_checkpoint(config, epoch, self.model_wo_ddp, self.min_loss, optimizer, lr_scheduler, loss_scaler,
+                                self.logger, 'best_model')
                 self.logger.info(f"Loss is reduced from {self.min_loss} to {loss}")
 
             self.min_loss = min(self.min_loss, loss)
@@ -134,11 +162,11 @@ class Trainer:
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         self.logger.info('Training time {}'.format(total_time_str))
 
-    def train_one_epoch(self, epoch):
+    def train_one_epoch(self, epoch, data_loader, optimizer, lr_scheduler, loss_scaler, criterion):
         self.model.train()
-        self.optimizer.zero_grad()
-        self.data_loader_train.sampler.set_epoch(epoch)
-        num_steps = len(self.data_loader_train)
+        optimizer.zero_grad()
+        data_loader.sampler.set_epoch(epoch)
+        num_steps = len(data_loader)
         batch_time = AverageMeter()
         loss_meter = AverageMeter()
         norm_meter = AverageMeter()
@@ -146,29 +174,26 @@ class Trainer:
 
         start = time.time()
         end = time.time()
-        for idx, (samples, targets) in enumerate(self.data_loader_train):
+        for idx, (samples, targets) in enumerate(data_loader):
             samples = samples.cuda(non_blocking=True)
             targets = targets.cuda(non_blocking=True)
-
-            if self.mixup_fn is not None:
-                samples, targets = self.mixup_fn(samples, targets)
 
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
                 outputs = self.model(samples)
 
-            loss = self.criterion(outputs, targets)
+            loss = criterion(outputs, targets)
             loss = loss / self.config.TRAIN.ACCUMULATION_STEPS
 
             # this attribute is added by timm on one optimizer (adahessian)
-            is_second_order = hasattr(self.optimizer, 'is_second_order') and self.optimizer.is_second_order
-            grad_norm = self.loss_scaler(loss, self.optimizer, clip_grad=self.config.TRAIN.CLIP_GRAD,
-                                         parameters=self.model.parameters(), create_graph=is_second_order,
-                                         update_grad=(idx + 1) % self.config.TRAIN.ACCUMULATION_STEPS == 0)
+            is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
+            grad_norm = loss_scaler(loss, optimizer, clip_grad=self.config.TRAIN.CLIP_GRAD,
+                                    parameters=self.model.parameters(), create_graph=is_second_order,
+                                    update_grad=(idx + 1) % self.config.TRAIN.ACCUMULATION_STEPS == 0)
 
             if (idx + 1) % self.config.TRAIN.ACCUMULATION_STEPS == 0:
-                self.optimizer.zero_grad()
-                self.lr_scheduler.step_update((epoch * num_steps + idx) // self.config.TRAIN.ACCUMULATION_STEPS)
-            loss_scale_value = self.loss_scaler.state_dict()["scale"]
+                optimizer.zero_grad()
+                lr_scheduler.step_update((epoch * num_steps + idx) // self.config.TRAIN.ACCUMULATION_STEPS)
+            loss_scale_value = loss_scaler.state_dict()["scale"]
 
             torch.cuda.synchronize()
 
@@ -181,8 +206,8 @@ class Trainer:
             end = time.time()
 
             if idx % self.config.PRINT_FREQ == 0:
-                lr = self.optimizer.param_groups[0]['lr']
-                wd = self.optimizer.param_groups[0]['weight_decay']
+                lr = optimizer.param_groups[0]['lr']
+                wd = optimizer.param_groups[0]['weight_decay']
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 etas = batch_time.avg * (num_steps - idx)
                 self.logger.info(
@@ -209,8 +234,8 @@ class Trainer:
 
     def throughput(self):
         self.model.eval()
-
-        for idx, (images, _) in enumerate(self.data_loader_val):
+        data_loader = self.get_dataloader('validation')
+        for idx, (images, _) in enumerate(data_loader):
             images = images.cuda(non_blocking=True)
             batch_size = images.shape[0]
             for i in range(50):

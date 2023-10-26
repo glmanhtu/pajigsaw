@@ -34,6 +34,7 @@ def parse_option():
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
     parser.add_argument('--tag', help='tag of experiment')
     parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
+    parser.add_argument('--test', action='store_true', help='Perform test only')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
 
     # overwrite optimizer in config (*.yaml) if specified, e.g., fused_adam/fused_lamb
@@ -59,10 +60,7 @@ class GeshaemTrainer(Trainer):
     def get_criterion(self):
         return NegativeCosineSimilarityLoss()
 
-    @torch.no_grad()
-    def validate(self):
-        self.model.eval()
-        data_loader = self.get_dataloader('validation')
+    def validate_dataloader(self, data_loader):
         batch_time = AverageMeter()
         mAP_meter = AverageMeter()
         top1_meter = AverageMeter()
@@ -122,11 +120,23 @@ class GeshaemTrainer(Trainer):
             f'pr@k100 {pk100_meter.avg:.3f}')
 
         val_loss = 1 - mAP_meter.avg
-        if val_loss < self.min_loss:
-            similarity_df = (2 - distance_df) / 2.
-            similarity_df.to_csv(os.path.join(self.config.OUTPUT, 'similarity_matrix.csv'))
+        similarity_df = (2 - distance_df) / 2.
 
-        return val_loss
+        return val_loss, similarity_df
+
+    @torch.no_grad()
+    def test(self):
+        self.model.eval()
+        data_loader = self.get_dataloader('test')
+        _, similarity_df = self.validate_dataloader(data_loader)
+        similarity_df.to_csv(os.path.join(self.config.OUTPUT, 'similarity_matrix.csv'))
+
+    @torch.no_grad()
+    def validate(self):
+        self.model.eval()
+        data_loader = self.get_dataloader('validation')
+        loss, _ = self.validate_dataloader(data_loader)
+        return loss
 
 
 if __name__ == '__main__':
@@ -134,6 +144,8 @@ if __name__ == '__main__':
     trainer = GeshaemTrainer(args)
     if args.eval:
         trainer.validate()
+    elif args.test:
+        trainer.test()
     elif args.throughput:
         trainer.throughput()
     else:

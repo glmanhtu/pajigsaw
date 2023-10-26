@@ -40,52 +40,52 @@ except:
     from timm.data.transforms import _pil_interp
 
 
-def build_loader(config):
-    config.defrost()
-    dataset_train, train_repeat = build_dataset(mode='train', config=config)
-    config.freeze()
-    print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
-    dataset_val, val_repeat = build_dataset(mode='validation', config=config)
-    print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
-
-    num_tasks = dist.get_world_size()
-    global_rank = dist.get_rank()
-    sampler_train = DistributedRepeatSampler(
-        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, repeat=train_repeat
-    )
-
-    sampler_val = DistributedEvalSampler(
-        dataset_val, shuffle=config.TEST.SHUFFLE, rank=global_rank, num_replicas=num_tasks, repeat=val_repeat
-    )
-
-    data_loader_train = DataLoader(
-        dataset_train, sampler=sampler_train,
-        batch_size=config.DATA.BATCH_SIZE,
-        num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=config.DATA.PIN_MEMORY,
-        drop_last=True,
-    )
-
-    data_loader_val = torch.utils.data.DataLoader(
-        dataset_val, sampler=sampler_val,
-        batch_size=config.DATA.TEST_BATCH_SIZE,
-        shuffle=False,
-        num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=config.DATA.PIN_MEMORY,
-        drop_last=False
-    )
-
-    # setup mixup / cutmix
-    mixup_fn = None
-    mixup_active = config.AUG.MIXUP > 0 or config.AUG.CUTMIX > 0. or config.AUG.CUTMIX_MINMAX is not None
-    if mixup_active:
-        mixup_fn = Mixup(
-            mixup_alpha=config.AUG.MIXUP, cutmix_alpha=config.AUG.CUTMIX, cutmix_minmax=config.AUG.CUTMIX_MINMAX,
-            prob=config.AUG.MIXUP_PROB, switch_prob=config.AUG.MIXUP_SWITCH_PROB, mode=config.AUG.MIXUP_MODE,
-            label_smoothing=config.MODEL.LABEL_SMOOTHING, num_classes=config.MODEL.NUM_CLASSES)
-
-    return data_loader_train, data_loader_val, mixup_fn
-
+# def build_loader(config):
+#     config.defrost()
+#     dataset_train, train_repeat = build_dataset(mode='train', config=config)
+#     config.freeze()
+#     print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
+#     dataset_val, val_repeat = build_dataset(mode='validation', config=config)
+#     print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
+#
+#     num_tasks = dist.get_world_size()
+#     global_rank = dist.get_rank()
+#     sampler_train = DistributedRepeatSampler(
+#         dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True, repeat=train_repeat
+#     )
+#
+#     sampler_val = DistributedEvalSampler(
+#         dataset_val, shuffle=config.TEST.SHUFFLE, rank=global_rank, num_replicas=num_tasks, repeat=val_repeat
+#     )
+#
+#     data_loader_train = DataLoader(
+#         dataset_train, sampler=sampler_train,
+#         batch_size=config.DATA.BATCH_SIZE,
+#         num_workers=config.DATA.NUM_WORKERS,
+#         pin_memory=config.DATA.PIN_MEMORY,
+#         drop_last=True,
+#     )
+#
+#     data_loader_val = torch.utils.data.DataLoader(
+#         dataset_val, sampler=sampler_val,
+#         batch_size=config.DATA.TEST_BATCH_SIZE,
+#         shuffle=False,
+#         num_workers=config.DATA.NUM_WORKERS,
+#         pin_memory=config.DATA.PIN_MEMORY,
+#         drop_last=False
+#     )
+#
+#     # setup mixup / cutmix
+#     mixup_fn = None
+#     mixup_active = config.AUG.MIXUP > 0 or config.AUG.CUTMIX > 0. or config.AUG.CUTMIX_MINMAX is not None
+#     if mixup_active:
+#         mixup_fn = Mixup(
+#             mixup_alpha=config.AUG.MIXUP, cutmix_alpha=config.AUG.CUTMIX, cutmix_minmax=config.AUG.CUTMIX_MINMAX,
+#             prob=config.AUG.MIXUP_PROB, switch_prob=config.AUG.MIXUP_SWITCH_PROB, mode=config.AUG.MIXUP_MODE,
+#             label_smoothing=config.MODEL.LABEL_SMOOTHING, num_classes=config.MODEL.NUM_CLASSES)
+#
+#     return data_loader_train, data_loader_val, mixup_fn
+#
 
 def build_dataset(mode, config):
     patch_size = config.DATA.IMG_SIZE

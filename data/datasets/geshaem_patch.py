@@ -22,9 +22,13 @@ _Target = int
 class _Split(Enum):
     TRAIN = "train"
     VAL = "validation"
+    TEST = "test"
 
     def is_train(self):
         return self.value == 'train'
+
+    def is_test(self):
+        return self.value == 'test'
 
     @staticmethod
     def from_string(name):
@@ -113,7 +117,7 @@ class GeshaemPatch(VisionDataset):
         groups = extract_relations(root)
         self.fragment_to_group = {}
         for idx, group in enumerate(groups):
-            if len(group) < 2 and not split.is_train():
+            if len(group) < 2 and not split.is_train() and not split.is_test():
                 # We only evaluate the fragments that we know they are belongs to a certain groups
                 # If the group have only one element, which means that very likely that we don't know
                 # which group this element belongs to, so we skip it

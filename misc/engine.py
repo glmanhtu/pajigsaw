@@ -46,7 +46,8 @@ class Trainer:
         self.config.freeze()
 
         os.makedirs(self.config.OUTPUT, exist_ok=True)
-        logger = create_logger(output_dir=self.config.OUTPUT, dist_rank=self.rank, name=f"{self.config.MODEL.NAME}")
+        logger = create_logger(output_dir=self.config.OUTPUT, dist_rank=self.rank,
+                               name=f"{self.config.MODEL.NAME}", affix=args.mode)
 
         if dist.get_rank() == 0:
             path = os.path.join(self.config.OUTPUT, "config.json")

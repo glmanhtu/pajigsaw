@@ -28,13 +28,12 @@ def parse_option():
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
     parser.add_argument('--use-checkpoint', action='store_true',
                         help="whether to use gradient checkpointing to save memory")
-    parser.add_argument('--distance-reduction', type=str, default='mean')
+    parser.add_argument('--distance-reduction', type=str, default='min')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
     parser.add_argument('--tag', help='tag of experiment')
-    parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
-    parser.add_argument('--test', action='store_true', help='Perform test only')
+    parser.add_argument('--mode', type=str, choices=['train', 'eval', 'test', 'throughput'], default='train')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
 
     # overwrite optimizer in config (*.yaml) if specified, e.g., fused_adam/fused_lamb
@@ -52,7 +51,7 @@ class NegativeCosineSimilarityLoss(torch.nn.Module):
     def forward(self, predicts, _):
         p1, p2, z1, z2 = predicts
         loss = -(self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
-        return loss + 1.    # Since the loss has its ra
+        return loss + 1.    # Since the loss has its range [-1, 1]
 
 
 class GeshaemTrainer(Trainer):
@@ -145,11 +144,11 @@ class GeshaemTrainer(Trainer):
 if __name__ == '__main__':
     args, _ = parse_option()
     trainer = GeshaemTrainer(args)
-    if args.eval:
+    if args.mode == 'eval':
         trainer.validate()
-    elif args.test:
+    elif args.mode == 'test':
         trainer.test()
-    elif args.throughput:
+    elif args == 'throughput':
         trainer.throughput()
     else:
         trainer.train()

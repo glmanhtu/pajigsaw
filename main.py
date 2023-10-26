@@ -32,8 +32,7 @@ def parse_option():
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
     parser.add_argument('--tag', help='tag of experiment')
-    parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
-    parser.add_argument('--throughput', action='store_true', help='Test throughput only')
+    parser.add_argument('--mode', type=str, choices=['train', 'eval', 'throughput'], default='train')
 
     # overwrite optimizer in config (*.yaml) if specified, e.g., fused_adam/fused_lamb
     parser.add_argument('--optim', type=str,
@@ -136,9 +135,9 @@ class DefaultTrainer(Trainer):
 if __name__ == '__main__':
     args, _ = parse_option()
     trainer = DefaultTrainer(args)
-    if args.eval:
+    if args.mode == 'eval':
         trainer.validate()
-    elif args.throughput:
+    elif args.mode == 'throughput':
         trainer.throughput()
     else:
         trainer.train()

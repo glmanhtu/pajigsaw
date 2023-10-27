@@ -129,9 +129,6 @@ class HisFrag20(VisionDataset):
         first_img = img_transforms(first_img)
         second_img = img_transforms(second_img)
 
-        if 0.5 > torch.rand(1) and self.split.is_train():
-            first_img, second_img = second_img, first_img
-
         if self.transform is not None:
             first_img, second_img = self.transform(first_img, second_img)
 

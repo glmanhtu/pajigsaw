@@ -94,7 +94,12 @@ class Trainer:
         if self.config.MODEL.PRETRAINED and (not self.config.MODEL.RESUME):
             load_pretrained(self.config, model_wo_ddp, logger)
 
+        self.data_loader_registers = {}
+
     def get_dataloader(self, mode):
+        if mode in self.data_loader_registers:
+            return self.data_loader_registers[mode]
+
         dataset, repeat = build_dataset(mode=mode, config=self.config)
         print(f"local rank {self.local_rank} / global rank {self.rank} successfully build {mode} dataset")
 
@@ -124,6 +129,7 @@ class Trainer:
                 pin_memory=self.config.DATA.PIN_MEMORY,
                 drop_last=False
             )
+        self.data_loader_registers[mode] = data_loader
         return data_loader
 
     def train(self):

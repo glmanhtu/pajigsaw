@@ -71,7 +71,7 @@ class HisFrag20(VisionDataset):
                 del writer_map[writer]
             else:
                 patches = sorted([x for page in writer_map[writer] for x in writer_map[writer][page]])
-                samples += chunks(patches, 5)
+                samples += chunks(patches, 3)
         self.writer_map = writer_map
         self.samples = samples
         self.writers = sorted(writer_set)
@@ -119,8 +119,7 @@ class HisFrag20(VisionDataset):
                 torchvision.transforms.ToPILImage(),
                 torchvision.transforms.RandomApply([
                     torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-                ], p=0.5),
-                torchvision.transforms.RandomGrayscale(p=0.3),
+                ], p=0.5)
             ])
         else:
             img_transforms = torchvision.transforms.Compose([

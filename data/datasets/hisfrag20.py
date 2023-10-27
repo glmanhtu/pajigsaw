@@ -71,7 +71,7 @@ class HisFrag20(VisionDataset):
                 del writer_map[writer]
             else:
                 patches = sorted([x for page in writer_map[writer] for x in writer_map[writer][page]])
-                samples.append(chunks(patches, 5))
+                samples += chunks(patches, 5)
         self.writer_map = writer_map
         self.samples = samples
         self.writers = sorted(writer_set)
@@ -81,7 +81,7 @@ class HisFrag20(VisionDataset):
         return self._split
 
     def __getitem__(self, index: int):
-        img_path = random.choice(random.choice(self.samples[index]))
+        img_path = random.choice(self.samples[index])
         file_name = os.path.splitext(os.path.basename(img_path))[0]
         writer_id, page_id, fragment_id = tuple(file_name.split("_"))
 

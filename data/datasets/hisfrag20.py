@@ -71,7 +71,7 @@ class HisFrag20(VisionDataset):
                 del writer_map[writer]
             else:
                 patches = sorted([x for page in writer_map[writer] for x in writer_map[writer][page]])
-                samples += chunks(patches, 3)
+                samples += chunks(patches, 5)
         self.writer_map = writer_map
         self.samples = samples
         self.writers = sorted(writer_set)

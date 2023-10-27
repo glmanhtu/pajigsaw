@@ -9,8 +9,8 @@ from misc.utils import UnableToCrop
 class TwoImgSyncEval:
     def __init__(self, image_size):
         self.normalize = transforms.Compose([
-            transforms.ToTensor(),
             transforms.Resize(image_size),
+            transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
         self.image_size = image_size

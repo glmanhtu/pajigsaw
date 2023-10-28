@@ -118,6 +118,7 @@ class HisFrag20(VisionDataset):
                 lambda x: train_transform(image=x)['image'],
                 torchvision.transforms.ToPILImage(),
                 torchvision.transforms.RandomApply([
+                    torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
                     torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
                 ], p=0.5)
             ])

@@ -6,7 +6,9 @@ MODEL:
   PJS:
     EMBED_DIM: 384
     PATCH_SIZE: 16
-    NUM_HEADS: 8
+    NUM_HEADS: 6
+    DEPTH: 12
+    C_DEPTH: 12
 DATA:
   DATASET: hisfrag20
   IMG_SIZE: 512

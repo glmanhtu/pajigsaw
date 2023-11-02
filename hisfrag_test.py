@@ -117,11 +117,20 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
         drop_last=False
     )
     predicts = torch.zeros((0, 3), dtype=torch.float32).cuda()
+    is_finished = False
     tmp_data_path = os.path.join(config.OUTPUT, f'test_result_rank{rank}.pt')
-    if not os.path.exists(tmp_data_path):
+    if os.path.exists(tmp_data_path):
+        data = torch.load(tmp_data_path)
+        predicts, is_finished = data['predicts'], data['is_finished']
+
+    if not is_finished:
         batch_time = AverageMeter()
         for x1_idx, (x1, x1_indexes) in enumerate(x1_dataloader):
             x1_lower_bound, x1_upper_bound = x1_indexes[0], x1_indexes[-1]
+            if len(predicts) > 0 and x1_upper_bound <= predicts[-1][0] and x1_lower_bound >= predicts[0][0]:
+                logger.info(f'Block {x1_lower_bound}:{x1_upper_bound} is processed, skipping...')
+                continue
+
             x1 = x1.cuda(non_blocking=True)
             pair_masks = torch.greater_equal(pairs[:, 0], x1_lower_bound)
             pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], x1_upper_bound))
@@ -168,17 +177,24 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
                         f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                         f'mem {memory_used:.0f}MB')
 
-        torch.save(predicts, tmp_data_path)
+            if x1_idx % config.SAVE_TMP_FREQ == 0 or x1_idx == len(x1_dataloader) - 1:
+                if x1_idx == len(x1_dataloader) - 1:
+                    is_finished = True
+                torch.save({'predicts': predicts, 'is_finished': is_finished}, tmp_data_path)
 
+    logger.info("Gathering data on all ranks...")
+    logger.warn("Warning, this works only when all the ranks use the same file system! "
+                "Otherwise, this will hang forever...!")
     for i in range(world_size):
         logger.info(f"Waiting for rank {i}.")
-        logger.info("Note, this works only when all the ranks use the same file system! "
-                    "Otherwise, this will hang forever...!")
         rank_data_path = os.path.join(config.OUTPUT, f'test_result_rank{i}.pt')
         while not os.path.exists(rank_data_path):
             time.sleep(120)
+        data = torch.load(tmp_data_path, map_location='cpu')
+        predicts, is_finished = data['predicts'], data['is_finished']
+        if not is_finished:
+            time.sleep(120)
 
-    logger.info(f"Gathering data...")
     predicts = []
     for i in range(world_size):
         rank_data_path = os.path.join(config.OUTPUT, f'test_result_rank{i}.pt')

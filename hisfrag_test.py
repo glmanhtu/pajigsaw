@@ -198,7 +198,8 @@ def hisfrag_eval(config, model, max_authors=None, world_size=1, rank=0, logger=N
     predicts = []
     for i in range(world_size):
         rank_data_path = os.path.join(config.OUTPUT, f'test_result_rank{i}.pt')
-        predicts.append(torch.load(rank_data_path, map_location='cpu'))
+        data = torch.load(rank_data_path, map_location='cpu')
+        predicts.append(data['predicts'])
 
     predicts = torch.cat(predicts)
 

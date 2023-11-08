@@ -14,6 +14,7 @@ from .datasets.div2k_patch import DIV2KPatch
 from .datasets.geshaem_patch import GeshaemPatch
 from .datasets.hisfrag20 import HisFrag20
 from .datasets.imnet_patch import ImNetPatch
+from .datasets.pajigsaw import Pajigsaw
 from .samplers import DistributedEvalSampler, DistributedRepeatSampler
 from .transforms import TwoImgSyncEval
 
@@ -104,6 +105,11 @@ def build_dataset(mode, config):
         repeat = 5 if split.is_train() else 10
         dataset = DIV2KPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
+
+    elif config.DATA.DATASET == 'pajigsaw':
+        split = Pajigsaw.Split.from_string(mode)
+        dataset = Pajigsaw(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
+
     elif config.DATA.DATASET == 'geshaem':
         split = GeshaemPatch.Split.from_string(mode)
         repeat = 100 if split.is_train() else 20

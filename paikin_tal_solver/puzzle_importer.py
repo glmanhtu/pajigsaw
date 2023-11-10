@@ -802,7 +802,7 @@ class PuzzleResultsCollection(object):
         """
         return self._puzzle_results
 
-    def print_results(self):
+    def collect_results(self):
         """
         Solver Accuracy Results Printer
 
@@ -840,11 +840,7 @@ class PuzzleResultsCollection(object):
             neighbor_count_weight = neighbor_acc.numb_pieces_in_original_puzzle + neighbor_acc.wrong_puzzle_id
             neighbor_count_weight *= PuzzlePieceSide.get_numb_sides()
             result['neighbor'].append(neighbor_acc.correct_neighbor_count / neighbor_count_weight)
-
-        print('Average_Results: ')
-        for key in result:
-            print(f'{key}: {sum(result[key]) / len(result[key])}')
-        print(f'Perfect: {sum(perfect_puzzles)}')
+        return result, perfect_puzzles
 
 
 class PuzzleResultsInformation(object):

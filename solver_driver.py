@@ -53,7 +53,7 @@ if __name__ == "__main__":
         # Calculate and print the accuracy results
         results_information.calculate_accuracies([new_puzzle])
         # Print the results to the console
-        results_information.print_results()
+        results_information.collect_results()
 
         output_dir = os.path.join('output', 'reconstructed')
         os.makedirs(output_dir, exist_ok=True)

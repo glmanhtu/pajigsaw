@@ -1,14 +1,19 @@
 import argparse
-import datetime
 import os
+import random
 import time
 
-import numpy as np
 import torch
+from torch.utils.data import DataLoader
 
-from misc import wi19_evaluate
+from data.datasets.pajigsaw_dataset import PajigsawPieces, Pajigsaw
+from data.datasets.pieces_dataset import PiecesDataset
+from data.transforms import TwoImgSyncEval
 from misc.engine import Trainer
-from misc.utils import AverageMeter, compute_distance_matrix
+from misc.utils import AverageMeter
+from paikin_tal_solver.puzzle_importer import PuzzleResultsCollection, PuzzleSolver, PuzzleType
+from paikin_tal_solver.puzzle_piece import PuzzlePieceSide
+from solver_driver import paikin_tal_driver
 
 
 def parse_option():
@@ -28,7 +33,6 @@ def parse_option():
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
     parser.add_argument('--use-checkpoint', action='store_true',
                         help="whether to use gradient checkpointing to save memory")
-    parser.add_argument('--distance-reduction', type=str, default='min')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
@@ -48,86 +52,102 @@ class PajigsawTrainer(Trainer):
     def get_criterion(self):
         return torch.nn.BCEWithLogitsLoss()
 
-    def validate_dataloader(self, data_loader):
+    def validate_dataloader(self, dataset):
+        self.model.eval()
+        puzzles = []
+        im_names = []
         batch_time = AverageMeter()
-        mAP_meter = AverageMeter()
-        top1_meter = AverageMeter()
-        pk10_meter = AverageMeter()
-        pk100_meter = AverageMeter()
-
-        start = time.time()
         end = time.time()
-        features = {}
-        for idx, (images, targets) in enumerate(data_loader):
-            images = images.cuda(non_blocking=True)
+        for idx, (pieces, im_name, grid_size) in enumerate(dataset):
+            random.shuffle(pieces)
+            im_names.append(im_name)
+            pieces_dataset = PiecesDataset(pieces, transform=TwoImgSyncEval(self.config.DATA.IMG_SIZE))
+            data_loader = DataLoader(
+                pieces_dataset,
+                batch_size=self.config.DATA.BATCH_SIZE,
+                shuffle=False,
+                num_workers=self.config.DATA.NUM_WORKERS,
+                pin_memory=self.config.DATA.PIN_MEMORY,
+                drop_last=False
+            )
 
-            # compute output
-            with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
-                p1, p2, _, _ = self.model(images)
+            distance_map = {}
+            for images, targets in data_loader:
+                images = images.cuda(non_blocking=True)
 
-            for feature1, feature2, target in zip(p1, p2, targets.numpy()):
-                features.setdefault(target, [])
-                features[target].append(feature1)
-                features[target].append(feature2)
+                # compute output
+                with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
+                    output = self.model(images)
+
+                for pred, entry_id in zip(torch.sigmoid(output).cpu().numpy(), targets.numpy()):
+                    i, j = pieces_dataset.entries[entry_id]
+                    piece_i, piece_j = pieces[i].origin_piece_id, pieces[j].origin_piece_id
+                    if piece_i not in distance_map:
+                        distance_map[piece_i] = {}
+                    distance_map[piece_i][piece_j] = 1. - pred
+
+            def distance_function(piece_i, piece_i_side, piece_j, piece_j_side):
+                nonlocal distance_map
+                pred = distance_map[piece_i.origin_piece_id][piece_j.origin_piece_id]
+                if piece_j_side == PuzzlePieceSide.left:
+                    if piece_i_side == PuzzlePieceSide.right:
+                        return pred[0] * 1000.
+                if piece_j_side == PuzzlePieceSide.right:
+                    if piece_i_side == PuzzlePieceSide.left:
+                        return pred[2] * 1000.
+                if piece_j_side == PuzzlePieceSide.top:
+                    if piece_i_side == PuzzlePieceSide.bottom:
+                        return pred[1] * 1000.
+                if piece_j_side == PuzzlePieceSide.bottom:
+                    if piece_i_side == PuzzlePieceSide.top:
+                        return pred[3] * 1000.
+                return float('inf')
+
+            new_puzzle = paikin_tal_driver(pieces, self.config.DATA.IMG_SIZE, distance_function, grid_size)
+            puzzles.append(new_puzzle)
 
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
-
             if idx % self.config.PRINT_FREQ == 0:
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 self.logger.info(
-                    f'Eval: [{idx}/{len(data_loader)}]\t'
+                    f'Eval: [{idx}/{len(dataset)}]\t'
                     f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                     f'Mem {memory_used:.0f}MB')
 
-        features = {k: torch.stack(v).cuda() for k, v in features.items()}
-        distance_df = compute_distance_matrix(features, reduction=args.distance_reduction)
-        papyrus_ids = [data_loader.dataset.get_group_id(x) for x in distance_df.index]
-        distance_matrix = distance_df.to_numpy()
-        m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(papyrus_ids),
-                                                                    remove_self_column=False)
-        mAP_meter.update(m_ap)
-        top1_meter.update(top1)
-        pk10_meter.update(pr_a_k10)
-        pk100_meter.update(pr_a_k100)
-        test_time = datetime.timedelta(seconds=int(time.time() - start))
+        results_information = PuzzleResultsCollection(PuzzleSolver.PaikinTal, PuzzleType.type1,
+                                                      [x.pieces for x in puzzles], im_names)
 
-        mAP_meter.all_reduce()
-        top1_meter.all_reduce()
-        pk10_meter.all_reduce()
-        pk100_meter.all_reduce()
+        # Calculate and print the accuracy results
+        results_information.calculate_accuracies(puzzles)
+        # Print the results to the console
+        result, perfect_puzzles = results_information.collect_results()
 
-        self.logger.info(
-            f'Overall:'
-            f'Time {test_time}\t'
-            f'Batch Time {batch_time.avg:.3f}\t'
-            f'mAP {mAP_meter.avg:.4f}\t'
-            f'top1 {top1_meter.avg:.3f}\t'
-            f'pr@k10 {pk10_meter.avg:.3f}\t'
-            f'pr@k100 {pk100_meter.avg:.3f}')
-
-        val_loss = 1 - mAP_meter.avg
-        similarity_df = (2 - distance_df) / 2.
-
-        index_to_fragment = {i: x for i, x in enumerate(data_loader.dataset.fragments)}
-        similarity_df.rename(columns=index_to_fragment, index=index_to_fragment, inplace=True)
-
-        return val_loss, similarity_df.round(3)
+        out = 'Average_Results:\t'
+        for key in result:
+            out += f'{key}: {round(sum(result[key]) / len(result[key]), 4)}\t'
+        out += f'Perfect: {sum(perfect_puzzles)}'
+        self.logger.info(out)
+        return sum(result['neighbor']) / len(result['neighbor']), puzzles, im_names
 
     @torch.no_grad()
     def test(self):
-        self.model.eval()
-        data_loader = self.get_dataloader('test')
-        _, similarity_df = self.validate_dataloader(data_loader)
-        similarity_df.to_csv(os.path.join(self.config.OUTPUT, 'similarity_matrix.csv'))
+        self.logger.info("Starting test...")
+        dataset = PajigsawPieces(self.config.DATA.DATA_PATH, Pajigsaw.Split.TEST)
+        _, puzzles, im_names = self.validate_dataloader(dataset)
+
+        for puzzle, im_name in zip(puzzles, im_names):
+            output_file = os.path.join(self.config.OUTPUT, 'reconstructed', f'{im_name}.jpg')
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
+            puzzle.save_to_file(output_file)
 
     @torch.no_grad()
     def validate(self):
-        self.model.eval()
-        data_loader = self.get_dataloader('val')
-        loss, _ = self.validate_dataloader(data_loader)
-        return loss
+        self.logger.info("Starting validation...")
+        dataset = PajigsawPieces(self.config.DATA.DATA_PATH, Pajigsaw.Split.VAL)
+        neighbor_precision, _, _ = self.validate_dataloader(dataset)
+        return 1 - neighbor_precision
 
 
 if __name__ == '__main__':

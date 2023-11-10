@@ -144,7 +144,13 @@ def testing(config, model):
         # Calculate and print the accuracy results
         results_information.calculate_accuracies(puzzles)
         # Print the results to the console
-        results_information.print_results()
+        result, perfect_puzzles = results_information.collect_results()
+
+        out = 'Average_Results:\t'
+        for key in result:
+            out += f'{key}: {round(sum(result[key]) / len(result[key]), 4)}\t'
+        out += f'Perfect: {sum(perfect_puzzles)}'
+        logger.info(out)
 
 
 if __name__ == '__main__':

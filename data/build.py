@@ -14,7 +14,7 @@ from .datasets.div2k_patch import DIV2KPatch
 from .datasets.geshaem_patch import GeshaemPatch
 from .datasets.hisfrag20 import HisFrag20
 from .datasets.imnet_patch import ImNetPatch
-from .datasets.pajigsaw import Pajigsaw
+from .datasets.pajigsaw_dataset import Pajigsaw
 from .samplers import DistributedEvalSampler, DistributedRepeatSampler
 from .transforms import TwoImgSyncEval
 

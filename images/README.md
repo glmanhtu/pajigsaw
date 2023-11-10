@@ -1,1 +1,0 @@
-Images are taken from https://github.com/ZaydH/sjsu_thesis/tree/master/mixed_bag_solver/images

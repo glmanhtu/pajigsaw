@@ -65,7 +65,7 @@ class ImNetPatch(VisionDataset):
         else:
             categories = {}
             for idx, item in enumerate(self.dataset):
-                categories.setdefault(item['label'], []).append(idx)
+                categories.setdefault(str(item['label']), []).append(idx)
             with open(categories_path, 'w') as f:
                 json.dump(categories, f)
         self.categories_map = categories

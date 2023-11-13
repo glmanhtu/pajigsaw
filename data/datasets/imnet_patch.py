@@ -58,7 +58,7 @@ class ImNetPatch(VisionDataset):
         os.makedirs(self.root_dir, exist_ok=True)
         print('Loading imagenet...')
         self.dataset = load_dataset("imagenet-1k", split=self._split.value, cache_dir=self.root_dir)
-        categories_path = os.path.join(root, 'categories.json')
+        categories_path = os.path.join(root, f'{split.value}_categories.json')
         if os.path.isfile(categories_path):
             with open(categories_path) as f:
                 categories = json.load(f)

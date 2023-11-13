@@ -92,7 +92,7 @@ class ImNetPatch(VisionDataset):
                 category2 = random.choice(self.categories)
             label = 0.
 
-        index2 = random.choice(self.categories_map[category2])
+        index2 = random.choice(self.categories_map[str(category2)])
         item2 = self.dataset[index2]
         second_img = item2['image'].convert('RGB')
 

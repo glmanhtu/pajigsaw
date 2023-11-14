@@ -179,20 +179,21 @@ class HisFrag20Test(VisionDataset):
         if split.is_train():
             raise Exception('This class can only be used in Validation or Testing mode!')
 
-        sub_dir = _Split.TRAIN.value    # Train and Val use the same training set
-        if split is _Split.TEST:
-            sub_dir = split.value
-        self.root_dir = os.path.join(root, sub_dir)
         if samples is None:
+            sub_dir = _Split.TRAIN.value  # Train and Val use the same training set
+            if split is _Split.TEST:
+                sub_dir = split.value
+            root_dir = os.path.join(root, sub_dir)
             proportion = 0., 1.     # Testing mode uses all samples
             if split.is_val():
                 proportion = 1. - split.length, 1.
-            writers, writer_map = get_writers(self.root_dir, proportion)
+            writers, writer_map = get_writers(root_dir, proportion)
 
             samples = []
             for writer_id in writers:
-                for page_id in writer_map[writer_id].keys():
+                for page_id in writer_map[writer_id]:
                     samples += writer_map[writer_id][page_id]
+
             samples = sorted(samples)
 
         self.samples = samples
@@ -238,7 +239,7 @@ class HisFrag20GT(VisionDataset):
             for page_id in writer_map[writer_id]:
                 samples += writer_map[writer_id][page_id]
 
-        self.samples = samples
+        self.samples = sorted(samples)
         indicates = torch.arange(len(samples)).type(torch.int)
         pairs = torch.combinations(indicates, r=2, with_replacement=True)
         self.pairs = pairs

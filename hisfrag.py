@@ -9,7 +9,7 @@ import torch
 import torchvision
 from torch.utils.data import DataLoader
 
-from data.datasets.hisfrag20 import HisFrag20Test
+from data.datasets.hisfrag_dataset import HisFrag20Test
 from data.samplers import DistributedIndicatesSampler
 from misc import wi19_evaluate, utils
 from misc.engine import Trainer
@@ -172,10 +172,10 @@ class HisfragTrainer(Trainer):
                 else:
                     predicts.append(rank_predicts)
 
-        predicts = torch.cat(predicts)
+        predicts = torch.cat(predicts, dim=0)
 
         self.logger.info(f"Generating similarity map...")
-        assert len(predicts) == len(pairs)
+        assert len(predicts) == len(pairs), f'Incorrect size {predicts.shape} vs {pairs.shape}'
 
         size = len(dataset.samples)
 

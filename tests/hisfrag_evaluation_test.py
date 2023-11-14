@@ -9,7 +9,7 @@ import torchvision
 from timm.utils import AverageMeter
 from torch.utils.data import Dataset
 
-from data.datasets.hisfrag20 import HisFrag20GT
+from data.datasets.hisfrag_dataset import HisFrag20GT
 from hisfrag import HisfragTrainer
 from misc import wi19_evaluate, utils
 

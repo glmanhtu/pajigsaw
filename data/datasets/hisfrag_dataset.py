@@ -193,10 +193,9 @@ class HisFrag20Test(VisionDataset):
             samples = []
             for writer_id in writers:
                 page_patches = []
-                for page_id in writer_map[writer_id]:
-                    page_patches += writer_map[writer_id][page_id]
+                for page_id in sorted(writer_map[writer_id].keys()):
+                    page_patches += sorted(writer_map[writer_id][page_id])
 
-                page_patches = sorted(page_patches)
                 if split.is_val():
                     n_items_per_chunk = math.ceil(len(page_patches) / 2)
                     page_patches = chunks(page_patches, n_items_per_chunk)[0]
@@ -245,8 +244,8 @@ class HisFrag20GT(VisionDataset):
         samples = []
         for writer_id in writers:
             page_patches = []
-            for page_id in writer_map[writer_id]:
-                page_patches += writer_map[writer_id][page_id]
+            for page_id in sorted(writer_map[writer_id].keys()):
+                page_patches += sorted(writer_map[writer_id][page_id])
 
             if split.is_val():
                 n_items_per_chunk = math.ceil(len(page_patches) / 3)

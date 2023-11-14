@@ -35,18 +35,17 @@ def hisfrag_eval_original(config, model, logger, world_size, rank):
         drop_last=False
     )
 
-    predicts = torch.zeros((0, 1), dtype=torch.float16).cuda()
-    pair_indexes = torch.zeros((0, 2), dtype=torch.int32)
+    predicts = torch.zeros((0, 3), dtype=torch.float32).cuda()
 
     batch_time = AverageMeter()
     end = time.time()
     for idx, (images, pair) in enumerate(dataloader):
         images = images.cuda(non_blocking=True)
-        pair_indexes = torch.cat([pair_indexes, pair])
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             output = model(images)
 
-        predicts = torch.cat([predicts, output])
+        sub_pair_predicts = torch.column_stack([pair.float(), output.float()])
+        predicts = torch.cat([predicts, sub_pair_predicts])
         batch_time.update(time.time() - end)
         end = time.time()
         if idx % config.PRINT_FREQ == 0:
@@ -59,9 +58,9 @@ def hisfrag_eval_original(config, model, logger, world_size, rank):
                 f'mem {memory_used:.0f}MB')
 
     if world_size > 1:
-        max_n_items = int(len(dataset.pairs) * 0.6)
+        max_n_items = len(dataset.pairs)
         # create an empty list we will use to hold the gathered values
-        predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float16, device=predicts.device)
+        predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float32, device=predicts.device)
                          for _ in range(world_size)]
         # Tensors from different processes have to have the same N items, therefore we pad it with -1
         predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)
@@ -74,28 +73,25 @@ def hisfrag_eval_original(config, model, logger, world_size, rank):
         predicts_list = [x[x[:, 0] != -1] for x in predicts_list]
         predicts = torch.cat(predicts_list, dim=0)
 
-    max_index = int(torch.max(pair_indexes).item())
-    size = max_index + 1
+    size = len(dataset.samples)
 
     # Initialize a similarity matrix with zeros
-    similarity_matrix = torch.zeros(size, size)
+    similarity_matrix = torch.zeros((size, size), dtype=torch.float16)
 
     # Extract index pairs and scores
-    indices = pair_indexes
-    scores = predicts.float().squeeze().cpu()
+    indices = predicts[:, :2].long()
+    scores = predicts[:, 2].type(torch.float16)
 
     # Use indexing and broadcasting to fill the similarity matrix
     similarity_matrix[indices[:, 0], indices[:, 1]] = scores
     similarity_matrix[indices[:, 1], indices[:, 0]] = scores
 
-    logger.info(f"Converting to distance matrix...")
     # max_score = torch.amax(similarity_matrix, dim=1)
     distance_matrix = 1 - similarity_matrix
 
     labels = []
     for i in range(size):
-        labels.append(os.path.basename(dataset.samples[i]))
-    logger.info("Distance matrix is generated!")
+        labels.append(os.path.splitext(os.path.basename(dataset.samples[i]))[0])
     return distance_matrix.numpy(), labels
 
 

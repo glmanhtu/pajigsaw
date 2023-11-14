@@ -192,14 +192,17 @@ class HisFrag20Test(VisionDataset):
 
             samples = []
             for writer_id in writers:
+                page_patches = []
                 for page_id in writer_map[writer_id]:
-                    patches = writer_map[writer_id][page_id]
-                    if split.is_val():
-                        n_items_per_chunk = math.ceil(len(patches) / 3)
-                        patches = chunks(patches, n_items_per_chunk)[0]
-                    samples += patches
+                    page_patches += writer_map[writer_id][page_id]
 
-            samples = sorted(samples)
+                page_patches = sorted(page_patches)
+                if split.is_val():
+                    n_items_per_chunk = math.ceil(len(page_patches) / 2)
+                    page_patches = chunks(page_patches, n_items_per_chunk)[0]
+
+                samples += page_patches
+            samples = samples
 
         self.samples = samples
         self.lower_bound = lower_bound
@@ -241,13 +244,15 @@ class HisFrag20GT(VisionDataset):
 
         samples = []
         for writer_id in writers:
+            page_patches = []
             for page_id in writer_map[writer_id]:
-                patches = writer_map[writer_id][page_id]
-                if split.is_val():
-                    n_items_per_chunk = math.ceil(len(patches) / 3)
-                    patches = chunks(patches, n_items_per_chunk)[0]
+                page_patches += writer_map[writer_id][page_id]
 
-                samples += patches
+            if split.is_val():
+                n_items_per_chunk = math.ceil(len(page_patches) / 3)
+                page_patches = chunks(page_patches, n_items_per_chunk)[0]
+
+            samples += page_patches
 
         self.samples = sorted(samples)
         indicates = torch.arange(len(samples)).type(torch.int)

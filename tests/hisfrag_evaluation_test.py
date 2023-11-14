@@ -2,7 +2,7 @@ import argparse
 import datetime
 import os
 import time
-
+import torch.nn.functional as F
 import numpy as np
 import torch
 import torchvision
@@ -10,12 +10,13 @@ from timm.utils import AverageMeter
 from torch.utils.data import Dataset
 
 from data.datasets.hisfrag_dataset import HisFrag20GT
+from data.samplers import DistributedEvalSampler
 from hisfrag import HisfragTrainer
 from misc import wi19_evaluate, utils
 
 
 @torch.no_grad()
-def hisfrag_eval_original(config, model, logger):
+def hisfrag_eval_original(config, model, logger, world_size, rank):
     model.eval()
     transform = torchvision.transforms.Compose([
         torchvision.transforms.CenterCrop(512),
@@ -24,8 +25,9 @@ def hisfrag_eval_original(config, model, logger):
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
     dataset = HisFrag20GT(config.DATA.DATA_PATH, HisFrag20GT.Split.VAL, transform=transform)
+    sampler = DistributedEvalSampler(dataset, num_replicas=world_size, rank=rank)
     dataloader = torch.utils.data.DataLoader(
-        dataset,
+        dataset, sampler=sampler,
         batch_size=config.DATA.TEST_BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
@@ -55,6 +57,22 @@ def hisfrag_eval_original(config, model, logger):
                 f'X2 eta {datetime.timedelta(seconds=int(etas))}\t'
                 f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')
+
+    if world_size > 1:
+        max_n_items = int(len(dataset) * 0.6)
+        # create an empty list we will use to hold the gathered values
+        predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float32, device=predicts.device)
+                         for _ in range(world_size)]
+        # Tensors from different processes have to have the same N items, therefore we pad it with -1
+        predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)
+
+        # sending all tensors to the others
+        torch.distributed.barrier()
+        torch.distributed.all_gather(predicts_list, predicts, async_op=False)
+
+        # Remove all padded items
+        predicts_list = [x[x[:, 0] != -1] for x in predicts_list]
+        predicts = torch.cat(predicts_list, dim=0)
 
     max_index = int(torch.max(pair_indexes).item())
     size = max_index + 1

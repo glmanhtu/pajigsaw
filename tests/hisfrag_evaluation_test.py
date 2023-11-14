@@ -26,7 +26,7 @@ def hisfrag_eval_original(config, model, logger):
     dataset = HisFrag20GT(config.DATA.DATA_PATH, HisFrag20GT.Split.VAL, transform=transform)
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=config.DATA.BATCH_SIZE,
+        batch_size=config.DATA.TEST_BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
         pin_memory=True,

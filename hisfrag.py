@@ -166,11 +166,11 @@ class HisfragTrainer(Trainer):
             rank_i_finished = False
             while not rank_i_finished:
                 data = torch.load(tmp_data_path, map_location='cpu')
-                predicts, rank_i_finished = data['predicts'], data['is_finished']
+                rank_predicts, rank_i_finished = data['predicts'], data['is_finished']
                 if not is_finished:
                     time.sleep(120)
                 else:
-                    predicts.append(data['predicts'])
+                    predicts.append(rank_predicts)
 
         predicts = torch.cat(predicts)
 

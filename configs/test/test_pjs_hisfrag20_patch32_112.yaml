@@ -11,4 +11,4 @@ MODEL:
     C_DEPTH: 1
 DATA:
   DATASET: hisfrag20
-  IMG_SIZE: 512
+  IMG_SIZE: 112

@@ -61,7 +61,7 @@ def hisfrag_eval_original(config, model, logger, world_size, rank):
     if world_size > 1:
         max_n_items = int(len(dataset) * 0.6)
         # create an empty list we will use to hold the gathered values
-        predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float32, device=predicts.device)
+        predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float16, device=predicts.device)
                          for _ in range(world_size)]
         # Tensors from different processes have to have the same N items, therefore we pad it with -1
         predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)

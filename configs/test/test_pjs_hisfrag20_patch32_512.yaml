@@ -6,7 +6,7 @@ MODEL:
   PJS:
     EMBED_DIM: 32
     PATCH_SIZE: 32
-    NUM_HEADS: 8
+    NUM_HEADS: 1
     DEPTH: 1
     C_DEPTH: 1
 DATA:

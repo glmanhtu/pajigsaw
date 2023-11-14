@@ -20,16 +20,50 @@ _Target = int
 
 class _Split(Enum):
     TRAIN = "train"
-    VAL = "validation"
+    VAL = "val"
+    TEST = "test"
+
+    @property
+    def length(self) -> float:
+        split_lengths = {
+            _Split.TRAIN: 0.98,  # percentage of the dataset
+            _Split.VAL: 0.02
+        }
+        return split_lengths[self]
 
     def is_train(self):
         return self.value == 'train'
+
+    def is_val(self):
+        return self.value == 'val'
 
     @staticmethod
     def from_string(name):
         for key in _Split:
             if key.value == name:
                 return key
+
+
+def get_writers(root_dir, proportion=(0., 1.)):
+    writer_map = {}
+    for img in glob.iglob(os.path.join(root_dir, '**', '*.jpg'), recursive=True):
+        file_name = os.path.splitext(os.path.basename(img))[0]
+        writer_id, page_id, fragment_id = tuple(file_name.split("_"))
+        if writer_id not in writer_map:
+            writer_map[writer_id] = {}
+        if page_id not in writer_map[writer_id]:
+            writer_map[writer_id][page_id] = []
+        writer_map[writer_id][page_id].append(img)
+
+    writers = sorted(writer_map.keys())
+    n_writers = len(writers)
+    from_idx, to_idx = int(proportion[0] * n_writers), int(proportion[1] * n_writers)
+    writers = writers[from_idx:to_idx]
+    writer_set = set(writers)
+    for writer in sorted(writer_map.keys()):
+        if writer not in writer_set:
+            del writer_map[writer]
+    return writers, writer_map
 
 
 class HisFrag20(VisionDataset):
@@ -46,35 +80,19 @@ class HisFrag20(VisionDataset):
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
-        self.root_dir = root
-        self.image_size = 512
-        writer_map = {}
-        for img in glob.iglob(os.path.join(self.root_dir, 'train', '**', '*.jpg'), recursive=True):
-            file_name = os.path.splitext(os.path.basename(img))[0]
-            writer_id, page_id, fragment_id = tuple(file_name.split("_"))
-            if writer_id not in writer_map:
-                writer_map[writer_id] = {}
-            if page_id not in writer_map[writer_id]:
-                writer_map[writer_id][page_id] = []
-            writer_map[writer_id][page_id].append(img)
+        self.root_dir = os.path.join(root, split.value)
+        self.image_size = 512   # For the Hisfrag dataset, we fixed the image size of 512 pixels
+        if not split.is_train():
+            raise Exception("This class can only be used for training mode!")
 
-        writers = sorted(writer_map.keys())
-        n_train = int(0.85 * len(writers))
-        if split.is_train():
-            writers = writers[:n_train]
-        else:
-            writers = writers[n_train:]
-        writer_set = set(writers)
+        writers, writer_map = get_writers(self.root_dir, (0., split.length))
         samples = []
         for writer in sorted(writer_map.keys()):
-            if writer not in writer_set:
-                del writer_map[writer]
-            else:
-                patches = sorted([x for page in writer_map[writer] for x in writer_map[writer][page]])
-                samples += chunks(patches, 5)
+            patches = sorted([x for page in writer_map[writer] for x in writer_map[writer][page]])
+            samples += chunks(patches, 5)
         self.writer_map = writer_map
         self.samples = samples
-        self.writers = sorted(writer_set)
+        self.writers = writers
 
     @property
     def split(self) -> "HisFrag20.Split":
@@ -141,3 +159,106 @@ class HisFrag20(VisionDataset):
 
     def __len__(self) -> int:
         return len(self.samples)
+
+
+class HisFrag20Test(VisionDataset):
+    Target = Union[_Target]
+    Split = Union[_Split]
+
+    def __init__(
+        self,
+        root: str,
+        split: "HisFrag20Test.Split",
+        transforms: Optional[Callable] = None,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        samples = None,
+        lower_bound = 0
+    ) -> None:
+        super().__init__(root, transforms, transform, target_transform)
+        if split.is_train():
+            raise Exception('This class can only be used in Validation or Testing mode!')
+
+        sub_dir = _Split.TRAIN.value    # Train and Val use the same training set
+        if split is _Split.TEST:
+            sub_dir = split.value
+        self.root_dir = os.path.join(root, sub_dir)
+        if samples is None:
+            proportion = 0., 1.     # Testing mode uses all samples
+            if split.is_val():
+                proportion = 1. - split.length, 1.
+            writers, writer_map = get_writers(self.root_dir, proportion)
+
+            samples = []
+            for writer_id in writers:
+                for page_id in writer_map[writer_id].keys():
+                    samples += writer_map[writer_id][page_id]
+            samples = sorted(samples)
+
+        self.samples = samples
+        self.lower_bound = lower_bound
+
+    def __getitem__(self, index: int):
+        index = index + self.lower_bound
+        img_path = self.samples[index]
+
+        with Image.open(img_path) as f:
+            image = f.convert('RGB')
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, index
+
+    def __len__(self) -> int:
+        return len(self.samples) - self.lower_bound
+
+
+class HisFrag20GT(VisionDataset):
+    Target = Union[_Target]
+    Split = _Split
+
+    def __init__(
+        self,
+        root: str,
+        split: "HisFrag20GT.Split",
+        transforms: Optional[Callable] = None,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+    ) -> None:
+        super().__init__(root, transforms, transform, target_transform)
+        self.root_dir = root
+        sub_dir = _Split.TRAIN.value  # Train and Val use the same training set
+        self.root_dir = os.path.join(root, sub_dir)
+        proportion = 1. - split.length, 1.
+        writers, writer_map = get_writers(self.root_dir, proportion)
+
+        samples = []
+        for writer_id in writers:
+            for page_id in writer_map[writer_id]:
+                samples += writer_map[writer_id][page_id]
+
+        self.samples = samples
+        indicates = torch.arange(len(samples)).type(torch.int)
+        pairs = torch.combinations(indicates, r=2, with_replacement=True)
+        self.pairs = pairs
+
+    def __getitem__(self, index: int):
+        x1_id, x2_id = tuple(self.pairs[index])
+        img_path = self.samples[x1_id.item()]
+
+        with Image.open(img_path) as f:
+            image = f.convert('RGB')
+
+        img2_path = self.samples[x2_id.item()]
+        with Image.open(img2_path) as f:
+            image2 = f.convert('RGB')
+
+        if self.transform:
+            image = self.transform(image)
+            image2 = self.transform(image2)
+        stacked_img = torch.stack([image, image2], dim=0)
+        return stacked_img, self.pairs[index]
+
+    def __len__(self) -> int:
+        return len(self.pairs)

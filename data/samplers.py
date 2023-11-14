@@ -72,7 +72,7 @@ class SubsetRandomSampler(torch.utils.data.Sampler):
         self.epoch = epoch
 
 
-class DistributedOrderedIndicatesSampler(Sampler):
+class DistributedIndicatesSampler(Sampler):
     r"""
     DistributedOrderedIndicatesSampler is different from DistributedSampler.
     It does NOT add extra samples to make it evenly divisible.

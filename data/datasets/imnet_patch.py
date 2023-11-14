@@ -41,16 +41,12 @@ class ImNetPatch(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         image_size=224,
-        erosion_ratio=0.07,
-        with_negative=False
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
         self.root_dir = root
 
         self.image_size = image_size
-        self.with_negative = with_negative
-        self.erosion_ratio = erosion_ratio
 
         self.cropper_class = torchvision.transforms.RandomCrop
         if not split.is_train():

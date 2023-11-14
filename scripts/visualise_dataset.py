@@ -7,7 +7,6 @@ import torch
 import torchvision.transforms
 
 from data.datasets.geshaem_patch import GeshaemPatch
-from data.datasets.hisfrag20 import HisFrag20
 from data.transforms import TwoImgSyncEval, UnNormalize
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s :: %(levelname)s :: %(message)s')

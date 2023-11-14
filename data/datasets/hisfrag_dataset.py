@@ -1,5 +1,6 @@
 import glob
 import logging
+import math
 import os
 import random
 from enum import Enum
@@ -26,8 +27,8 @@ class _Split(Enum):
     @property
     def length(self) -> float:
         split_lengths = {
-            _Split.TRAIN: 0.985,  # percentage of the dataset
-            _Split.VAL: 0.015
+            _Split.TRAIN: 0.9,  # percentage of the dataset
+            _Split.VAL: 0.1
         }
         return split_lengths[self]
 
@@ -192,7 +193,11 @@ class HisFrag20Test(VisionDataset):
             samples = []
             for writer_id in writers:
                 for page_id in writer_map[writer_id]:
-                    samples += writer_map[writer_id][page_id]
+                    patches = writer_map[writer_id][page_id]
+                    if split.is_val():
+                        n_items_per_chunk = math.ceil(len(patches) / 3)
+                        patches = chunks(patches, n_items_per_chunk)[0]
+                    samples += patches
 
             samples = sorted(samples)
 
@@ -237,7 +242,12 @@ class HisFrag20GT(VisionDataset):
         samples = []
         for writer_id in writers:
             for page_id in writer_map[writer_id]:
-                samples += writer_map[writer_id][page_id]
+                patches = writer_map[writer_id][page_id]
+                if split.is_val():
+                    n_items_per_chunk = math.ceil(len(patches) / 3)
+                    patches = chunks(patches, n_items_per_chunk)[0]
+
+                samples += patches
 
         self.samples = sorted(samples)
         indicates = torch.arange(len(samples)).type(torch.int)

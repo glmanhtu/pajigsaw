@@ -127,7 +127,8 @@ if __name__ == '__main__':
     m_ap = 1 - trainer.validate()
 
     start_time = time.time()
-    distance_matrix, img_names = hisfrag_eval_original(trainer.config, trainer.model, trainer.logger)
+    distance_matrix, img_names = hisfrag_eval_original(trainer.config, trainer.model, trainer.logger,
+                                                       trainer.world_size, trainer.rank)
     labels = utils.list_to_idx(img_names, lambda x: x.split('_')[0])
     logger.info('Starting to calculate performance...')
     m_ap2, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))

@@ -73,6 +73,7 @@ def hisfrag_eval_original(config, model, logger, world_size, rank):
         predicts_list = [x[x[:, 0] != -1] for x in predicts_list]
         predicts = torch.cat(predicts_list, dim=0)
 
+    predicts = predicts.cpu()
     size = len(dataset.samples)
 
     # Initialize a similarity matrix with zeros

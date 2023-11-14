@@ -59,7 +59,7 @@ def hisfrag_eval_original(config, model, logger, world_size, rank):
                 f'mem {memory_used:.0f}MB')
 
     if world_size > 1:
-        max_n_items = int(len(dataset) * 0.6)
+        max_n_items = int(len(dataset.pairs) * 0.6)
         # create an empty list we will use to hold the gathered values
         predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float16, device=predicts.device)
                          for _ in range(world_size)]

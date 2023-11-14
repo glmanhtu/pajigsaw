@@ -44,7 +44,7 @@ def hisfrag_eval_original(config, model, logger, world_size, rank):
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             output = model(images)
 
-        sub_pair_predicts = torch.column_stack([pair.float(), output.float()])
+        sub_pair_predicts = torch.column_stack([pair.cuda().float(), output.float()])
         predicts = torch.cat([predicts, sub_pair_predicts])
         batch_time.update(time.time() - end)
         end = time.time()

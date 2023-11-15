@@ -41,6 +41,8 @@ _C.DATA.NUM_WORKERS = 8
 # Erosion between patches
 _C.DATA.EROSION_RATIO = 0.07
 
+_C.DATA.EVAL_N_ITEMS_PER_CATEGORY = 5
+
 # -----------------------------------------------------------------------------
 # Model settings
 # -----------------------------------------------------------------------------
@@ -235,6 +237,8 @@ def update_config(config, args):
     if _check_args('batch_size'):
         config.DATA.BATCH_SIZE = args.batch_size
         config.DATA.TEST_BATCH_SIZE = args.batch_size
+    if _check_args('eval_n_items_per_category'):
+        config.DATA.EVAL_N_ITEMS_PER_CATEGORY = args.eval_n_items_per_category
     if _check_args('data_path'):
         config.DATA.DATA_PATH = args.data_path
     if _check_args('zip'):

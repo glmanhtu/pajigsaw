@@ -24,7 +24,8 @@ def eval_standard(config, model, logger, world_size, rank):
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
-    dataset = HisFrag20GT(config.DATA.DATA_PATH, HisFrag20GT.Split.VAL, transform=transform)
+    dataset = HisFrag20GT(config.DATA.DATA_PATH, HisFrag20GT.Split.VAL, transform=transform,
+                          val_n_items_per_writer=config.DATA.EVAL_N_ITEMS_PER_CATEGORY)
     sampler = DistributedEvalSampler(dataset, num_replicas=world_size, rank=rank)
     dataloader = torch.utils.data.DataLoader(
         dataset, sampler=sampler,
@@ -111,6 +112,8 @@ if __name__ == '__main__':
     # easy config modification
     parser.add_argument('--mode', type=str, default='eval')
     parser.add_argument('--batch-size', type=int, help="batch size for data")
+    parser.add_argument('--eval-n-items-per-category', type=int, default=5,
+                        help="Number of items per category to test")
     parser.add_argument('--data-path', type=str, help='path to dataset')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',

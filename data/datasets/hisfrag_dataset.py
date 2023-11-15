@@ -27,8 +27,8 @@ class _Split(Enum):
     @property
     def length(self) -> float:
         split_lengths = {
-            _Split.TRAIN: 0.95,  # percentage of the dataset
-            _Split.VAL: 0.05
+            _Split.TRAIN: 0.9,  # percentage of the dataset
+            _Split.VAL: 0.1
         }
         return split_lengths[self]
 
@@ -174,7 +174,8 @@ class HisFrag20Test(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         samples = None,
-        lower_bound = 0
+        lower_bound = 0,
+        val_n_items_per_writer=2,
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         if split.is_train():
@@ -197,7 +198,7 @@ class HisFrag20Test(VisionDataset):
                     page_patches += sorted(writer_map[writer_id][page_id])
 
                 if split.is_val():
-                    n_items_per_chunk = math.ceil(len(page_patches) / 2)
+                    n_items_per_chunk = math.ceil(len(page_patches) / val_n_items_per_writer)
                     page_patches = chunks(page_patches, n_items_per_chunk)[0]
 
                 samples += page_patches
@@ -233,6 +234,7 @@ class HisFrag20GT(VisionDataset):
         transforms: Optional[Callable] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
+        val_n_items_per_writer=2,
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self.root_dir = root
@@ -248,7 +250,7 @@ class HisFrag20GT(VisionDataset):
                 page_patches += sorted(writer_map[writer_id][page_id])
 
             if split.is_val():
-                n_items_per_chunk = math.ceil(len(page_patches) / 3)
+                n_items_per_chunk = math.ceil(len(page_patches) / val_n_items_per_writer)
                 page_patches = chunks(page_patches, n_items_per_chunk)[0]
 
             samples += page_patches

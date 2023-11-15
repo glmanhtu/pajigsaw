@@ -28,6 +28,8 @@ def parse_option():
 
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
+    parser.add_argument('--eval-n-items-per-category', type=int, default=5,
+                        help="Number of items per category to test")
     parser.add_argument('--data-path', type=str, help='path to dataset')
     parser.add_argument('--resume', help='resume from checkpoint')
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
@@ -61,7 +63,8 @@ class HisfragTrainer(Trainer):
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
-        dataset = HisFrag20Test(self.config.DATA.DATA_PATH, split, transform=transform)
+        dataset = HisFrag20Test(self.config.DATA.DATA_PATH, split, transform=transform,
+                                val_n_items_per_writer=self.config.DATA.EVAL_N_ITEMS_PER_CATEGORY)
         indicates = torch.arange(len(dataset)).type(torch.int).cuda()
         pairs = torch.combinations(indicates, r=2, with_replacement=True)
         del indicates

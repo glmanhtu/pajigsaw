@@ -140,4 +140,4 @@ if __name__ == '__main__':
                 f'Pr@k100 {pr_a_k100:.3f} Time: {total_time_str}')
 
     logger.info(f'First: {m_ap}, second: {m_ap2}')
-    assert m_ap == m_ap2
+    np.testing.assert_almost_equal(m_ap, m_ap2)

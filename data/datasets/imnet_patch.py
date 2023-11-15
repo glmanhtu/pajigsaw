@@ -105,11 +105,7 @@ class ImNetPatch(VisionDataset):
                 torchvision.transforms.RandomHorizontalFlip(),
                 torchvision.transforms.RandomVerticalFlip(),
                 RandomResize(self.image_size, ratio=(0.6, 1.0)),
-                torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True),
-                torchvision.transforms.RandomApply([
-                    torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
-                    torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-                ], p=0.5)
+                torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True)
             ])
         else:
             img_transforms = torchvision.transforms.Compose([

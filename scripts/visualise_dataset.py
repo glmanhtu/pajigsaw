@@ -5,8 +5,10 @@ import cv2
 import numpy as np
 import torch
 import torchvision.transforms
+from datasets import load_dataset
 
 from data.datasets.geshaem_patch import GeshaemPatch
+from data.datasets.imnet_patch import ImNetPatch
 from data.transforms import TwoImgSyncEval, UnNormalize
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s :: %(levelname)s :: %(message)s')
@@ -15,9 +17,17 @@ parser = argparse.ArgumentParser('Pajigsaw testing script', add_help=False)
 parser.add_argument('--data-path', required=True, type=str, help='path to dataset')
 args = parser.parse_args()
 
-transform = TwoImgSyncEval(384)
-train_dataset = GeshaemPatch(args.data_path, split=GeshaemPatch.Split.TRAIN,
-                             transform=transform, image_size=384)
+
+class TestDS(ImNetPatch):
+    def get_dataset(self, split, cache_dir):
+        return load_dataset("beans", split=split, cache_dir=args.data_path)
+
+    def extract_item(self, item):
+        return item['image'], str(item['labels'])
+
+
+transform = TwoImgSyncEval(512)
+train_dataset = TestDS(args.data_path, split=ImNetPatch.Split.VAL, transform=transform, image_size=512)
 un_normaliser = torchvision.transforms.Compose([
     UnNormalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     torchvision.transforms.ToPILImage(),

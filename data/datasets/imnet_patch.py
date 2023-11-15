@@ -98,6 +98,7 @@ class ImNetPatch(VisionDataset):
         index2 = random.choice(self.categories_map[str(category2)])
         item2 = self.dataset[index2]
         second_img = self.extract_item(item2)[0]
+        second_img = second_img.convert('RGB')
 
         if self.split.is_train():
             img_transforms = torchvision.transforms.Compose([

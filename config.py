@@ -40,12 +40,6 @@ _C.DATA.PIN_MEMORY = True
 _C.DATA.NUM_WORKERS = 8
 # Erosion between patches
 _C.DATA.EROSION_RATIO = 0.07
-# [SimMIM] Mask patch size for MaskGenerator
-_C.DATA.MASK_PATCH_SIZE = 32
-# [SimMIM] Mask ratio for MaskGenerator
-_C.DATA.MASK_RATIO = 0.6
-# [Pajigsaw]
-_C.DATA.P_NEGATIVE_IN_SAME_IMG = 0.7
 
 # -----------------------------------------------------------------------------
 # Model settings

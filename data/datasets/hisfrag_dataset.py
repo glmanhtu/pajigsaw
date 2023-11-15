@@ -27,8 +27,8 @@ class _Split(Enum):
     @property
     def length(self) -> float:
         split_lengths = {
-            _Split.TRAIN: 0.9,  # percentage of the dataset
-            _Split.VAL: 0.1
+            _Split.TRAIN: 0.95,  # percentage of the dataset
+            _Split.VAL: 0.05
         }
         return split_lengths[self]
 
@@ -253,7 +253,7 @@ class HisFrag20GT(VisionDataset):
 
             samples += page_patches
 
-        self.samples = sorted(samples)
+        self.samples = samples
         indicates = torch.arange(len(samples)).type(torch.int)
         pairs = torch.combinations(indicates, r=2, with_replacement=True)
         self.pairs = pairs

@@ -4,9 +4,6 @@ import os
 import random
 from enum import Enum
 from typing import Callable, Optional, Union
-import albumentations as A
-import cv2
-import numpy as np
 
 import torch
 import torchvision
@@ -83,21 +80,20 @@ class ImNetPatch(VisionDataset):
         return self._split
 
     def __getitem__(self, index: int):
-        item = self.dataset[index]
-        first_img, category = self.extract_item(item)
+        first_img, first_category = self.extract_item(self.dataset[index])
         first_img = first_img.convert('RGB')
 
-        category2 = category
+        second_category = first_category
         if 0.5 > torch.rand(1):
             label = 1.
         else:
-            while category2 == category:
-                category2 = random.choice(self.categories)
+            while second_category == first_category:
+                second_category = random.choice(self.categories)
             label = 0.
 
-        index2 = random.choice(self.categories_map[str(category2)])
-        item2 = self.dataset[index2]
-        second_img = self.extract_item(item2)[0]
+        second_index = random.choice(self.categories_map[str(second_category)])
+        second_img, second_label = self.extract_item(self.dataset[second_index])
+        assert second_label == second_category, f"Incorrect labeling, {second_category} vs {second_label}"
         second_img = second_img.convert('RGB')
 
         if self.split.is_train():

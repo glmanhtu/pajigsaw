@@ -49,7 +49,9 @@ class DefaultTrainer(Trainer):
         optimizer = build_optimizer(self.config, self.model_wo_ddp)
         criterion = self.get_criterion()
         device = next(self.model.parameters()).device
-        model_trainer = create_supervised_trainer(self.model, optimizer, criterion, device=device)
+        scaler = torch.cuda.amp.GradScaler()
+        model_trainer = create_supervised_trainer(self.model, optimizer, criterion, amp_mode='amp', scaler=scaler,
+                                                  device=device)
         lr_finder = FastaiLRFinder()
         ProgressBar(persist=True).attach(model_trainer, output_transform=lambda x: {"batch_loss": x})
         with lr_finder.attach(model_trainer, {'optimizer': optimizer}, num_iter=args.numb_iter,

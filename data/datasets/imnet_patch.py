@@ -54,7 +54,7 @@ class ImNetPatch(VisionDataset):
         if not split.is_train():
             self.cropper_class = torchvision.transforms.CenterCrop
         os.makedirs(self.root_dir, exist_ok=True)
-        print('Loading imagenet...')
+
         self.dataset = self.get_dataset(split=self._split.value, cache_dir=self.root_dir)
         categories_path = os.path.join(root, f'{split.value}_categories.json')
         if os.path.isfile(categories_path):
@@ -91,7 +91,7 @@ class ImNetPatch(VisionDataset):
                 second_category = str(random.choice(self.categories))
             label = 0.
 
-        second_index = random.choice(self.categories_map[str(second_category)])
+        second_index = random.choice(self.categories_map[second_category])
         second_img, second_label = self.extract_item(self.dataset[second_index])
         assert second_label == second_category, f"Incorrect labeling, {second_category} vs {second_label}"
         second_img = second_img.convert('RGB')

@@ -88,7 +88,7 @@ class ImNetPatch(VisionDataset):
             label = 1.
         else:
             while second_category == first_category:
-                second_category = random.choice(self.categories)
+                second_category = str(random.choice(self.categories))
             label = 0.
 
         second_index = random.choice(self.categories_map[str(second_category)])

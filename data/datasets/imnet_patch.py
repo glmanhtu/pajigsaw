@@ -96,19 +96,6 @@ class ImNetPatch(VisionDataset):
         assert second_label == second_category, f"Incorrect labeling, {second_category} vs {second_label}"
         second_img = second_img.convert('RGB')
 
-        if self.split.is_train():
-            img_transforms = torchvision.transforms.Compose([
-                RandomResize(self.image_size, ratio=(0.6, 1.0)),
-                torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True)
-            ])
-        else:
-            img_transforms = torchvision.transforms.Compose([
-                torchvision.transforms.Resize(int(self.image_size * 0.8)),
-                torchvision.transforms.CenterCrop(self.image_size)
-            ])
-
-        first_img = img_transforms(first_img)
-        second_img = img_transforms(second_img)
         if self.transform is not None:
             first_img, second_img = self.transform(first_img, second_img)
 

@@ -4,6 +4,8 @@ import os
 import random
 from enum import Enum
 from typing import Callable, Optional, Union
+import albumentations as A
+import numpy as np
 
 import torch
 import torchvision
@@ -96,6 +98,31 @@ class ImNetPatch(VisionDataset):
         assert second_label == second_category, f"Incorrect labeling, {second_category} vs {second_label}"
         second_img = second_img.convert('RGB')
 
+        custom_transform = A.Compose(
+            [
+                A.LongestMaxSize(max_size=self.image_size),
+            ]
+        )
+        transforms = torchvision.transforms.Compose([
+            lambda x: np.array(x),
+            lambda x: custom_transform(image=x)['image'],
+            torchvision.transforms.ToPILImage(),
+        ])
+
+        if self.split.is_train():
+            img_transforms = torchvision.transforms.Compose([
+                transforms,
+                torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True)
+            ])
+        else:
+            img_transforms = torchvision.transforms.Compose([
+                transforms,
+                torchvision.transforms.CenterCrop(self.image_size)
+            ])
+
+
+        first_img = img_transforms(first_img)
+        second_img = img_transforms(second_img)
         if self.transform is not None:
             first_img, second_img = self.transform(first_img, second_img)
 

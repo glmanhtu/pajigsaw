@@ -84,7 +84,7 @@ class ImNetPatch(VisionDataset):
         first_img = first_img.convert('RGB')
 
         second_category = first_category
-        if 0.5 > torch.rand(1):
+        if 0.6 > torch.rand(1):
             label = 1.
         else:
             while second_category == first_category:
@@ -98,8 +98,6 @@ class ImNetPatch(VisionDataset):
 
         if self.split.is_train():
             img_transforms = torchvision.transforms.Compose([
-                torchvision.transforms.RandomHorizontalFlip(),
-                torchvision.transforms.RandomVerticalFlip(),
                 RandomResize(self.image_size, ratio=(0.6, 1.0)),
                 torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True)
             ])

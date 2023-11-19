@@ -91,6 +91,7 @@ class ImNetPatch(VisionDataset):
         return self._split
 
     def __getitem__(self, index: int):
+        index = self.idxs[index]
         image, first_category = self.extract_item(self.dataset[index])
         image = image.convert('RGB')
         img_size = min(image.width, image.height)
@@ -171,5 +172,5 @@ class ImNetPatch(VisionDataset):
         return stacked_img, torch.tensor(label, dtype=torch.float32)
 
     def __len__(self) -> int:
-        return len(self.dataset)
+        return len(self.idxs)
 

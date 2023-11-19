@@ -68,7 +68,7 @@ class ImNet(VisionDataset):
             idxs = []
             for idx, item in enumerate(self.dataset):
                 image, category = self.extract_item(item)
-                if image.width and image.height < 400:
+                if image.width < 400 and image.height < 400:
                     continue
                 categories.setdefault(self.extract_item(item)[1], []).append(idx)
                 idxs.append(idx)

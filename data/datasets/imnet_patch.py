@@ -5,6 +5,8 @@ import os
 import random
 from enum import Enum
 from typing import Callable, Optional, Union
+import albumentations as A
+import numpy as np
 
 import torch
 import torchvision
@@ -12,7 +14,7 @@ from datasets import load_dataset
 from torchvision.datasets import VisionDataset
 
 from data import transforms
-from data.transforms import RandomResize
+from data.transforms import RandomResize, PadCenterCrop
 
 logger = logging.getLogger("pajisaw")
 _Target = int
@@ -58,18 +60,24 @@ class ImNetPatch(VisionDataset):
             self.cropper_class = torchvision.transforms.CenterCrop
         os.makedirs(self.root_dir, exist_ok=True)
         self.dataset = self.get_dataset(split=self._split.value, cache_dir=self.root_dir)
-        categories_path = os.path.join(root, f'{split.value}_categories.json')
-        if os.path.isfile(categories_path):
-            with open(categories_path) as f:
-                categories = json.load(f)
+        data_path = os.path.join(root, f'{split.value}_data.json')
+        if os.path.isfile(data_path):
+            with open(data_path) as f:
+                data = json.load(f)
+                categories, idxs = data['categories'], data['idxs']
         else:
             categories = {}
+            idxs = []
             for idx, item in enumerate(self.dataset):
-                _, category = self.extract_item(item)
-                categories.setdefault(category, []).append(idx)
-            with open(categories_path, 'w') as f:
-                json.dump(categories, f)
+                image, category = self.extract_item(item)
+                if image.width < 400 and image.height < 400:
+                    continue
+                categories.setdefault(self.extract_item(item)[1], []).append(idx)
+                idxs.append(idx)
+            with open(data_path, 'w') as f:
+                json.dump({'categories': categories, 'idxs': idxs}, f)
         self.categories_map = categories
+        self.idxs = idxs
         self.categories = sorted(categories.keys())
 
     def extract_item(self, item):
@@ -85,6 +93,15 @@ class ImNetPatch(VisionDataset):
     def __getitem__(self, index: int):
         image, first_category = self.extract_item(self.dataset[index])
         image = image.convert('RGB')
+        img_size = min(image.width, image.height)
+        image = self.cropper_class(img_size)(image)
+
+        if self._split.is_train():
+            img_transforms = torchvision.transforms.Compose([
+                torchvision.transforms.RandomHorizontalFlip(),
+                torchvision.transforms.RandomVerticalFlip()
+            ])
+            image = img_transforms(image)
 
         # Crop the image into a grid of 3 x 2 patches
         crops = transforms.crop(image, 2, 2)
@@ -129,14 +146,16 @@ class ImNetPatch(VisionDataset):
                     label = [0., 0., 0., 1.]
 
         if self.split.is_train():
+            im_size = int(random.uniform(0.6, 1.0) * self.image_size)
             img_transforms = torchvision.transforms.Compose([
-                RandomResize(self.image_size, ratio=(1.0, 1.4)),
-                torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True)
+                torchvision.transforms.Resize(im_size),
+                torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True, fill=255)
             ])
         else:
+            im_size = int(0.8 * self.image_size)
             img_transforms = torchvision.transforms.Compose([
-                torchvision.transforms.Resize(int(self.image_size * 1.2)),
-                torchvision.transforms.CenterCrop(self.image_size)
+                torchvision.transforms.Resize(im_size),
+                PadCenterCrop(self.image_size, pad_if_needed=True, fill=255)
             ])
 
         first_img = img_transforms(first_img)

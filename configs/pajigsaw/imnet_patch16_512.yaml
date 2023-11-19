@@ -10,5 +10,5 @@ MODEL:
     DEPTH: 12
     C_DEPTH: 12
 DATA:
-  DATASET: imnet_patch
+  DATASET: imnet
   IMG_SIZE: 512

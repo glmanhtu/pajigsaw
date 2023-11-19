@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from .datasets.div2k_patch import DIV2KPatch
 from .datasets.geshaem_patch import GeshaemPatch
 from .datasets.hisfrag_dataset import HisFrag20
-from .datasets.imnet_patch import ImNetPatch
+from .datasets.imnet import ImNet
 from .datasets.pajigsaw_dataset import Pajigsaw
 from .samplers import DistributedEvalSampler, DistributedRepeatSampler
 from .transforms import TwoImgSyncEval
@@ -92,9 +92,9 @@ def build_dataset(mode, config):
     patch_size = config.DATA.IMG_SIZE
     transform = TwoImgSyncEval(patch_size)
     repeat = 1
-    if config.DATA.DATASET == 'imnet_patch':
-        split = ImNetPatch.Split.from_string(mode)
-        dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
+    if config.DATA.DATASET == 'imnet':
+        split = ImNet.Split.from_string(mode)
+        dataset = ImNet(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
     elif config.DATA.DATASET == 'hisfrag20':
         split = HisFrag20.Split.from_string(mode)
         repeat = 5 if split.is_train() else 10

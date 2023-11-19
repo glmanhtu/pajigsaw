@@ -8,7 +8,7 @@ import torchvision.transforms
 from datasets import load_dataset
 
 from data.datasets.geshaem_patch import GeshaemPatch
-from data.datasets.imnet_patch import ImNetPatch
+from data.datasets.imnet import ImNet
 from data.transforms import TwoImgSyncEval, UnNormalize
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s :: %(levelname)s :: %(message)s')
@@ -18,7 +18,7 @@ parser.add_argument('--data-path', required=True, type=str, help='path to datase
 args = parser.parse_args()
 
 
-class TestDS(ImNetPatch):
+class TestDS(ImNet):
     def get_dataset(self, split, cache_dir):
         return load_dataset("beans", split=split, cache_dir=args.data_path)
 
@@ -27,7 +27,7 @@ class TestDS(ImNetPatch):
 
 
 transform = TwoImgSyncEval(512)
-train_dataset = TestDS(args.data_path, split=ImNetPatch.Split.VAL, transform=transform, image_size=512)
+train_dataset = TestDS(args.data_path, split=ImNet.Split.VAL, transform=transform, image_size=512)
 un_normaliser = torchvision.transforms.Compose([
     UnNormalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     torchvision.transforms.ToPILImage(),

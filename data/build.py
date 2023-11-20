@@ -98,7 +98,8 @@ def build_dataset(mode, config):
         dataset = ImNet(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
     elif config.DATA.DATASET == 'imnet_patch':
         split = ImNetPatch.Split.from_string(mode)
-        dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
+        dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size,
+                             erosion_ratio=config.DATA.EROSION_RATIO)
     elif config.DATA.DATASET == 'hisfrag20':
         split = HisFrag20.Split.from_string(mode)
         repeat = 5 if split.is_train() else 10

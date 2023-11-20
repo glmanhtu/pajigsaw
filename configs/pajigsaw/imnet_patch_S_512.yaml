@@ -1,6 +1,6 @@
 MODEL:
   TYPE: pjs
-  NAME: imnet_S_512
+  NAME: imnet_S_patch_512
   DROP_PATH_RATE: 0.1
   NUM_CLASSES: 4
   PJS:

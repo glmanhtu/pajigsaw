@@ -108,7 +108,8 @@ class ImNetPatch(VisionDataset):
         crops = transforms.crop(image, 2, 2)
         erosion_ratio = self.erosion_ratio
         if self._split.is_train():
-            erosion_ratio = random.uniform(self.erosion_ratio, self.erosion_ratio * 2)
+            approx = self.erosion_ratio * 0.3
+            erosion_ratio = random.uniform(self.erosion_ratio - approx, self.erosion_ratio + approx)
         piece_size_erosion = math.ceil(crops[0].width * (1 - erosion_ratio))
         cropper = torchvision.transforms.CenterCrop(piece_size_erosion)
         first_img = cropper(crops[0])

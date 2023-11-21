@@ -4,15 +4,16 @@ import os
 import random
 from enum import Enum
 from typing import Callable, Optional, Union
+import albumentations as A
 
 import imagesize
+import numpy as np
 import torch
 import torchvision
 from PIL import Image
 from torchvision.datasets import VisionDataset
 
 from data import transforms
-from data.transforms import PadCenterCrop, CustomRandomCrop
 
 logger = logging.getLogger("pajisaw")
 _Target = int
@@ -127,7 +128,7 @@ class GeshaemPatch(VisionDataset):
 
         self.dataset = self.load_dataset()
         fragments = set([])
-        for idx, items in enumerate(self.dataset):
+        for items in self.dataset:
             fragment_name = os.path.basename(os.path.dirname(items[0]))
             fragments.add(fragment_name)
 
@@ -140,7 +141,7 @@ class GeshaemPatch(VisionDataset):
 
     def load_dataset(self):
         images = {}
-        for img_path in glob.iglob(os.path.join(self.root_dir, '**', '*.jpg'), recursive=True):
+        for img_path in sorted(glob.glob(os.path.join(self.root_dir, '**', '*.jpg'), recursive=True)):
             width, height = imagesize.get(img_path)
             if width < self.min_size_limit or height < self.min_size_limit:
                 continue
@@ -188,9 +189,19 @@ class GeshaemPatch(VisionDataset):
         img_transforms = torchvision.transforms.Compose([])
 
         if self.split.is_train():
+            train_transform = A.Compose(
+                [
+                    A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.5),
+                ]
+            )
             img_transforms = torchvision.transforms.Compose([
+                torchvision.transforms.RandomHorizontalFlip(),
+                torchvision.transforms.RandomVerticalFlip(),
+                lambda x: np.array(x),
+                lambda x: train_transform(image=x)['image'],
+                torchvision.transforms.ToPILImage(),
                 torchvision.transforms.RandomApply([
-                    torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+                    torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
                 ], p=0.5)
             ])
 
@@ -213,10 +224,6 @@ class GeshaemPatch(VisionDataset):
 
         split_fn = random.choice(img_split_fn_candidates)
         first_img, second_img = split_fn()
-
-        if self.split.is_train():
-            if 0.5 > torch.rand(1):
-                first_img, second_img = second_img, first_img
 
         if self.transform is not None:
             first_img, second_img = self.transform(first_img, second_img)

@@ -365,7 +365,7 @@ def chunks(l, n):
     return results
 
 
-def compute_distance_matrix(data: Dict[str, Tensor], n_times_testing=100, reduction='mean'):
+def compute_distance_matrix(data: Dict[str, Tensor], n_times_testing=50, reduction='mean'):
     distance_map = {}
     fragments = list(data.keys())
     similarity_fn = torch.nn.CosineSimilarity(dim=1)

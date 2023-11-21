@@ -116,7 +116,7 @@ def build_dataset(mode, config, transforms):
 
     elif config.DATA.DATASET == 'geshaem':
         split = GeshaemPatch.Split.from_string(mode)
-        repeat = 100 if split.is_train() else 20
+        repeat = 100
         dataset = GeshaemPatch(config.DATA.DATA_PATH, split, transform=transform)
     else:
         raise NotImplementedError(f"We haven't supported {config.DATA.DATASET}")

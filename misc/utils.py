@@ -4,7 +4,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ze Liu
 # --------------------------------------------------------
-
+import math
 import os
 import random
 import time
@@ -365,6 +365,12 @@ def chunks(l, n):
     return results
 
 
+def get_repeated_indexes(input_size, output_size):
+    n_times = math.ceil(output_size / input_size)
+    indexes = [torch.arange(input_size) for _ in range(n_times)]
+    return torch.cat(indexes, dim=0)[:output_size]
+
+
 def compute_distance_matrix(data: Dict[str, Tensor], n_times_testing=50, reduction='mean'):
     distance_map = {}
     fragments = list(data.keys())
@@ -374,8 +380,8 @@ def compute_distance_matrix(data: Dict[str, Tensor], n_times_testing=50, reducti
             source, target = fragments[i], fragments[j]
             n_items = max(len(data[source]), len(data[target]))
 
-            source_features = data[source][torch.randint(len(data[source]), (n_times_testing * n_items,))]
-            target_features = data[target][torch.randint(len(data[target]), (n_times_testing * n_items,))]
+            source_features = data[source][get_repeated_indexes(len(data[source]), n_times_testing * n_items)]
+            target_features = data[target][get_repeated_indexes(len(data[target]), n_times_testing * n_items)]
 
             similarity = similarity_fn(source_features, target_features)
             distance = 1 - similarity

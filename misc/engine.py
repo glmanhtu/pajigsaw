@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from config import get_config
 from data.build import build_dataset
 from data.samplers import DistributedRepeatSampler, DistributedEvalSampler
+from data.transforms import TwoImgSyncEval
 from misc import utils
 from misc.logger import create_logger
 from misc.lr_scheduler import build_scheduler
@@ -96,11 +97,20 @@ class Trainer:
 
         self.data_loader_registers = {}
 
+    def get_transforms(self):
+        patch_size = self.config.DATA.IMG_SIZE
+        transform = TwoImgSyncEval(patch_size)
+        return {
+            'train': transform,
+            'validation': transform,
+            'test': transform
+        }
+
     def get_dataloader(self, mode):
         if mode in self.data_loader_registers:
             return self.data_loader_registers[mode]
-
-        dataset, repeat = build_dataset(mode=mode, config=self.config)
+        transforms = self.get_transforms()
+        dataset, repeat = build_dataset(mode=mode, config=self.config, transforms=transforms)
         print(f"local rank {self.local_rank} / global rank {self.rank} successfully build {mode} dataset")
 
         num_tasks = self.world_size

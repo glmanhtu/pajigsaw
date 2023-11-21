@@ -26,8 +26,8 @@ class TestDS(ImNet):
         return item['image'], str(item['labels'])
 
 
-transform = TwoImgSyncEval(512)
-train_dataset = TestDS(args.data_path, split=ImNet.Split.VAL, transform=transform, image_size=512)
+transform = TwoImgSyncEval(384)
+train_dataset = GeshaemPatch(args.data_path, split=GeshaemPatch.Split.TRAIN, transform=transform, image_size=384)
 un_normaliser = torchvision.transforms.Compose([
     UnNormalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     torchvision.transforms.ToPILImage(),
@@ -53,7 +53,7 @@ for pair, label in train_dataset:
     cv2.imshow('image', cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 
     # waitKey() waits for a key press to close the window and 0 specifies indefinite loop
-    cv2.waitKey(5000)
+    cv2.waitKey(2000)
 
     # cv2.destroyAllWindows() simply destroys all the windows we created.
 cv2.destroyAllWindows()

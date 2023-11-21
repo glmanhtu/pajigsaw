@@ -89,10 +89,10 @@ except:
 #     return data_loader_train, data_loader_val, mixup_fn
 #
 
-def build_dataset(mode, config):
+def build_dataset(mode, config, transforms):
     patch_size = config.DATA.IMG_SIZE
-    transform = TwoImgSyncEval(patch_size)
     repeat = 1
+    transform = transforms[mode]
     if config.DATA.DATASET == 'imnet':
         split = ImNet.Split.from_string(mode)
         dataset = ImNet(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
@@ -116,7 +116,7 @@ def build_dataset(mode, config):
 
     elif config.DATA.DATASET == 'geshaem':
         split = GeshaemPatch.Split.from_string(mode)
-        repeat = 100 if split.is_train() else 20
+        repeat = 5 if split.is_train() else 20
         dataset = GeshaemPatch(config.DATA.DATA_PATH, split, transform=transform)
     else:
         raise NotImplementedError(f"We haven't supported {config.DATA.DATASET}")

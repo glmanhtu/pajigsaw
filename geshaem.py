@@ -96,6 +96,7 @@ class GeshaemTrainer(Trainer):
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction)
         papyrus_ids = [data_loader.dataset.get_group_id(x) for x in distance_df.index]
         distance_matrix = distance_df.to_numpy()
+        self.logger.info(f"Number of groups: {len(data_loader.dataset.fragment_to_group)}")
         m_ap, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(papyrus_ids),
                                                                     remove_self_column=False)
         mAP_meter.update(m_ap)

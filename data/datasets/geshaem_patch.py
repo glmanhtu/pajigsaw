@@ -5,15 +5,14 @@ import random
 from enum import Enum
 from typing import Callable, Optional, Union
 
-import albumentations as A
 import imagesize
-import numpy as np
 import torch
 import torchvision
 from PIL import Image
 from torchvision.datasets import VisionDataset
 
 from data import transforms
+from data.transforms import PadCenterCrop, CustomRandomCrop
 
 logger = logging.getLogger("pajisaw")
 _Target = int
@@ -29,6 +28,9 @@ class _Split(Enum):
 
     def is_test(self):
         return self.value == 'test'
+
+    def is_val(self):
+        return self.value == 'validation'
 
     @staticmethod
     def from_string(name):
@@ -73,7 +75,7 @@ def extract_relations(dataset_path):
     return groups
 
 
-def single_image_split(image: Image, image_size: int):
+def single_image_split(image: Image, cropper):
     if image.width > image.height:
         n_cols, n_rows = 2, 1
     else:
@@ -81,14 +83,12 @@ def single_image_split(image: Image, image_size: int):
 
     patches = transforms.crop(image, n_cols, n_rows)
     results = []
-    cropper = torchvision.transforms.RandomCrop(image_size, pad_if_needed=True, fill=255)
     for patch in patches:
         results.append(cropper(patch))
     return tuple(results)
 
 
-def two_images_split(image1: Image, image2: Image, image_size: int):
-    cropper = torchvision.transforms.RandomCrop(image_size, pad_if_needed=True, fill=255)
+def two_images_split(image1: Image, image2: Image, cropper):
     return cropper(image1), cropper(image2)
 
 
@@ -104,7 +104,7 @@ class GeshaemPatch(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         image_size=512,
-        min_size_limit=120
+        min_size_limit=224
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
@@ -117,7 +117,7 @@ class GeshaemPatch(VisionDataset):
         groups = extract_relations(root)
         self.fragment_to_group = {}
         for idx, group in enumerate(groups):
-            if len(group) < 2 and not split.is_train() and not split.is_test():
+            if len(group) < 2 and split.is_val():
                 # We only evaluate the fragments that we know they are belongs to a certain groups
                 # If the group have only one element, which means that very likely that we don't know
                 # which group this element belongs to, so we skip it
@@ -147,6 +147,7 @@ class GeshaemPatch(VisionDataset):
             image_name = os.path.basename(os.path.dirname(img_path))
             fragment_ids = image_name.split("_")
             if len(fragment_ids) > 1 and self.split.is_train():
+                # We exclude the assembled fragments in training to prevent data leaking
                 continue
             if fragment_ids[0] not in self.fragment_to_group:
                 continue
@@ -158,11 +159,14 @@ class GeshaemPatch(VisionDataset):
         for img_name in list(images.keys()):
             for img_type in list(images[img_name].keys()):
                 if len(images[img_name][img_type]) > 1:
+                    # If there is more than one type of image (COLV | COLR | IRR | IRV)
                     results.append(images[img_name][img_type])
                 max_size_img = max(imagesize.get(images[img_name][img_type][0]))
                 if max_size_img > self.image_size * 1.5:
+                    # If we can split the image into at least 2 patches
                     results.append(images[img_name][img_type])
                 else:
+                    # Otherwise, exclude the image
                     del images[img_name][img_type]
             if len(images[img_name].keys()) == 0:
                 del images[img_name]
@@ -175,41 +179,36 @@ class GeshaemPatch(VisionDataset):
 
     def __getitem__(self, index: int):
         image_group = self.dataset[index]
-        image_path = random.choice(image_group)
-        fragment_name = os.path.basename(os.path.dirname(image_path))
+        first_img_path = random.choice(image_group)
+        fragment_name = os.path.basename(os.path.dirname(first_img_path))
         fragment_id = self.fragment_idx[fragment_name]
-        with Image.open(image_path) as f:
-            image = f.convert('RGB')
+        with Image.open(first_img_path) as f:
+            first_img = f.convert('RGB')
 
         img_transforms = torchvision.transforms.Compose([])
+
         if self.split.is_train():
-            train_transform = A.Compose(
-                [
-                    A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.5),
-                ]
-            )
             img_transforms = torchvision.transforms.Compose([
-                torchvision.transforms.RandomHorizontalFlip(),
-                torchvision.transforms.RandomVerticalFlip(),
-                lambda x: np.array(x),
-                lambda x: train_transform(image=x)['image'],
-                torchvision.transforms.ToPILImage(),
+                torchvision.transforms.RandomApply([
+                    torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+                ], p=0.5)
             ])
 
         img_split_fn_candidates = []
-        if max(image.width, image.height) > self.image_size:
+        cropper = torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True, fill=255)
+        if max(first_img.width, first_img.height) > self.image_size:
             def single_split_fn():
-                return single_image_split(img_transforms(image), self.image_size)
+                return single_image_split(img_transforms(first_img), cropper)
             img_split_fn_candidates.append(single_split_fn)
 
         if len(image_group) > 1:
             def two_split_fn():
-                image2_path = image_path
-                while image2_path == image_path:
-                    image2_path = random.choice(image_group)
-                with Image.open(image2_path) as f:
-                    image2 = f.convert('RGB')
-                return two_images_split(img_transforms(image), img_transforms(image2), self.image_size)
+                second_img_path = first_img_path
+                while second_img_path == first_img_path:
+                    second_img_path = random.choice(image_group)
+                with Image.open(second_img_path) as f:
+                    second_img = f.convert('RGB')
+                return two_images_split(img_transforms(first_img), img_transforms(second_img), cropper)
             img_split_fn_candidates.append(two_split_fn)
 
         split_fn = random.choice(img_split_fn_candidates)
@@ -218,11 +217,6 @@ class GeshaemPatch(VisionDataset):
         if self.split.is_train():
             if 0.5 > torch.rand(1):
                 first_img, second_img = second_img, first_img
-            color_jitter = torchvision.transforms.RandomApply([
-                torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-                torchvision.transforms.RandomGrayscale(p=0.5),
-            ], p=0.5)
-            first_img, second_img = color_jitter(first_img), color_jitter(second_img)
 
         if self.transform is not None:
             first_img, second_img = self.transform(first_img, second_img)

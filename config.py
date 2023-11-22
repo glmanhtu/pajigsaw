@@ -85,6 +85,21 @@ _C.MODEL.SS.PRETRAINED = ''
 _C.MODEL.SS.EMBED_DIM = 2048
 _C.MODEL.SS.PRED_DIM = 512
 
+
+_C.MODEL.RES = CN()
+_C.MODEL.RES.ARCH = 'resnet18'
+_C.MODEL.RES.PRETRAINED = ''
+_C.MODEL.RES.LAYERS_FREEZE = -1
+
+
+_C.MODEL.MIXCONV = CN()
+_C.MODEL.MIXCONV.ARCH = 'resnet18'
+_C.MODEL.MIXCONV.PRETRAINED = ''
+_C.MODEL.MIXCONV.MIX_DEPTH = 4
+_C.MODEL.MIXCONV.OUT_ROWS = 1
+_C.MODEL.MIXCONV.OUT_CHANNELS = 512
+_C.MODEL.MIXCONV.LAYERS_FREEZE = -1
+
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------

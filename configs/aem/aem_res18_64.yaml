@@ -1,0 +1,9 @@
+MODEL:
+  TYPE: resnet
+  NAME: aem_res18_res18_64
+  MIXCONV:
+    ARCH: resnet18
+    PRETRAINED: IMAGENET1K_V1
+DATA:
+  DATASET: aem
+  IMG_SIZE: 64

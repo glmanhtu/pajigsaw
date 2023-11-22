@@ -178,6 +178,9 @@ class Trainer:
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         self.logger.info('Training time {}'.format(total_time_str))
 
+    def train_step(self, samples):
+        return self.model(samples)
+
     def train_one_epoch(self, epoch, data_loader, optimizer, lr_scheduler, loss_scaler, criterion):
         self.model.train()
         optimizer.zero_grad()
@@ -195,7 +198,7 @@ class Trainer:
             targets = targets.cuda(non_blocking=True)
 
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
-                outputs = self.model(samples)
+                outputs = self.train_step(samples)
 
             loss = criterion(outputs, targets)
             loss = loss / self.config.TRAIN.ACCUMULATION_STEPS

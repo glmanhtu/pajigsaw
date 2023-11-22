@@ -16,3 +16,4 @@ albumentations~=1.3.1
 imagesize~=1.4.1
 opencv-contrib-python
 pandas~=2.1.1
+pytorch-metric-learning~=2.3.0

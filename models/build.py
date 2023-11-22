@@ -4,6 +4,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ze Liu
 # --------------------------------------------------------
+from .resnet import ResNet32MixConv, ResNet, ResNetWrapper
 from .simsiam import SimSiam
 from .vision_transformer import VisionTransformerCustom
 
@@ -32,6 +33,22 @@ def build_model(config, is_pretrain=False):
             pretrained=config.MODEL.SS.PRETRAINED,
             dim=config.MODEL.SS.EMBED_DIM,
             pred_dim=config.MODEL.SS.PRED_DIM
+        )
+    elif model_type == 'resnet':
+        model = ResNetWrapper(
+            backbone=config.MODEL.MIXCONV.ARCH,
+            weights=config.MODEL.MIXCONV.PRETRAINED,
+            layers_to_freeze=config.MODEL.MIXCONV.LAYERS_FREEZE
+        )
+    elif model_type == 'mixconv':
+        model = ResNet32MixConv(
+            img_size=(config.DATA.IMG_SIZE, config.DATA.IMG_SIZE),
+            backbone=config.MODEL.MIXCONV.ARCH,
+            out_channels=config.MODEL.MIXCONV.OUT_CHANNELS,
+            mix_depth=config.MODEL.MIXCONV.MIX_DEPTH,
+            out_rows=config.MODEL.MIXCONV.OUT_ROWS,
+            weights=config.MODEL.MIXCONV.PRETRAINED,
+            layers_to_freeze=config.MODEL.MIXCONV.LAYERS_FREEZE
         )
     else:
         raise NotImplementedError(f"Unkown model: {model_type}")

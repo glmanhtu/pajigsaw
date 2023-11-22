@@ -1,12 +1,10 @@
 import argparse
-import datetime
 import json
-import os
 import time
 
+import albumentations as A
 import numpy as np
 import torch
-import albumentations as A
 import torchvision
 from torch.utils.data import DataLoader
 
@@ -108,7 +106,7 @@ def load_triplet_file(filter_file, with_likely=False):
 
 
 class TripletLoss(torch.nn.Module):
-    def __init__(self, margin=0.1, n_subsets=3, **kwargs):
+    def __init__(self, margin=0.1, n_subsets=3):
         super(TripletLoss, self).__init__()
         self.margin = margin
         self.n_subsets = n_subsets
@@ -178,14 +176,11 @@ class AEMTripletTrainer(Trainer):
             return self.data_loader_registers[mode]
 
         img_size = self.config.DATA.IMG_SIZE
-        custom_transform = A.Compose(
-            [
+        custom_transform = A.Compose([
                 A.LongestMaxSize(max_size=img_size),
-            ]
-        )
+        ])
         transforms = torchvision.transforms.Compose([
-            lambda x: np.array(x),
-            lambda x: custom_transform(image=x)['image'],
+            lambda x: custom_transform(image=np.array(x))['image'],
             torchvision.transforms.ToPILImage(),
         ])
         if mode == 'train':
@@ -195,6 +190,7 @@ class AEMTripletTrainer(Trainer):
                     torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
                 ], p=0.5),
                 torchvision.transforms.RandomCrop(img_size, pad_if_needed=True, fill=255),
+                torchvision.transforms.RandomGrayscale(p=0.3),
             ])
         else:
             transforms = torchvision.transforms.Compose([

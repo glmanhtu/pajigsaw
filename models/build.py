@@ -4,6 +4,8 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ze Liu
 # --------------------------------------------------------
+import torch
+
 from .resnet import ResNet32MixConv, ResNet, ResNetWrapper
 from .simsiam import SimSiam
 from .vision_transformer import VisionTransformerCustom
@@ -34,12 +36,14 @@ def build_model(config, is_pretrain=False):
             dim=config.MODEL.SS.EMBED_DIM,
             pred_dim=config.MODEL.SS.PRED_DIM
         )
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     elif model_type == 'resnet':
         model = ResNetWrapper(
             backbone=config.MODEL.MIXCONV.ARCH,
             weights=config.MODEL.MIXCONV.PRETRAINED,
             layers_to_freeze=config.MODEL.MIXCONV.LAYERS_FREEZE
         )
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     elif model_type == 'mixconv':
         model = ResNet32MixConv(
             img_size=(config.DATA.IMG_SIZE, config.DATA.IMG_SIZE),
@@ -50,6 +54,7 @@ def build_model(config, is_pretrain=False):
             weights=config.MODEL.MIXCONV.PRETRAINED,
             layers_to_freeze=config.MODEL.MIXCONV.LAYERS_FREEZE
         )
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     else:
         raise NotImplementedError(f"Unkown model: {model_type}")
 

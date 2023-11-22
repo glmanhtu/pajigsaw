@@ -154,16 +154,17 @@ class GeshaemPatch(VisionDataset):
                 continue
             images.setdefault(image_name, {})
             image_type = os.path.basename(img_path).rsplit("_", 1)[1].split('-')[0]
+            # image_type is including Recto (R) and Verso (V)
             images[image_name].setdefault(list(image_type)[-1], []).append(img_path)
 
         results = []
         for img_name in list(images.keys()):
             for img_type in list(images[img_name].keys()):
+                max_size_img = max(imagesize.get(images[img_name][img_type][0]))
                 if len(images[img_name][img_type]) > 1:
                     # If there is more than one type of image (COLV | COLR | IRR | IRV)
                     results.append(images[img_name][img_type])
-                max_size_img = max(imagesize.get(images[img_name][img_type][0]))
-                if max_size_img > self.image_size * 1.5:
+                elif max_size_img > self.image_size * 1.5:
                     # If we can split the image into at least 2 patches
                     results.append(images[img_name][img_type])
                 else:

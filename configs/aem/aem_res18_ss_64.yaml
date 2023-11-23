@@ -1,0 +1,11 @@
+MODEL:
+  TYPE: ss2
+  NAME: aem_res18_ss_64
+  SS:
+    ARCH: resnet18
+    PRETRAINED:
+    EMBED_DIM: 2048
+    PRED_DIM: 512
+DATA:
+  DATASET: aem
+  IMG_SIZE: 64

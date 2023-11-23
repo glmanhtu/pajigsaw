@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torchvision
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 
 from sklearn.preprocessing import normalize
 from sklearn.decomposition import PCA
@@ -304,14 +305,16 @@ class AEMTrainer(Trainer):
         if args.use_pca:
             pca = PCA(self.config.PCA.DIM, whiten=True)
             self.logger.info(f"Fitting PCA with dim {self.config.PCA.DIM}!")
-            desc = np.nan_to_num(embeddings)
+            desc = embeddings.cpu().numpy()
+            desc = np.nan_to_num(desc)
 
             try:
                 embeddings = pca.fit_transform(desc)
+                embeddings = torch.from_numpy(embeddings)
             except:
                 self.logger.info("Found nans in input. Skipping PCA!")
 
-        embeddings = normalize(embeddings, axis=1)
+        embeddings = F.normalize(embeddings, p=2, dim=1)
         labels = torch.cat(labels)
 
         features = {}

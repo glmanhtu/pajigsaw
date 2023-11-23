@@ -143,6 +143,7 @@ class SimSiamLoss(torch.nn.Module):
                 groups.append(torch.combinations(pos_pair_idx, r=2))
 
         groups = torch.cat(groups, dim=0)
+        groups = torch.unique(groups, dim=0)    # remove duplications
         p1, p2 = ps[groups[:, 0]], ps[groups[:, 1]]
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 

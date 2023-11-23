@@ -105,6 +105,47 @@ def load_triplet_file(filter_file, with_likely=False):
     return positive_pairs, negative_pairs
 
 
+class SimSiamLoss(torch.nn.Module):
+    def __init__(self, n_subsets=3, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.n_subsets = n_subsets
+        self.criterion = torch.nn.CosineSimilarity(dim=1)
+
+    def forward(self, embeddings, targets):
+        ps, zs = embeddings
+        mini_batch = len(targets) // self.n_subsets
+        ps = torch.split(ps, [mini_batch] * self.n_subsets, dim=0)
+        zs = torch.split(zs, [mini_batch] * self.n_subsets, dim=0)
+        targets = torch.split(targets, [mini_batch] * self.n_subsets, dim=0)
+
+        losses = []
+        for p, z, target in zip(ps, zs, targets):
+            losses.append(self.forward_impl(p, z, target))
+
+        return sum(losses) / len(losses)
+
+    def forward_impl(self, ps, zs, targets):
+        n = ps.size(0)
+        eyes_ = torch.eye(n, dtype=torch.uint8).cuda()
+        pos_mask = targets.expand(
+            targets.shape[0], n
+        ).t() == targets.expand(n, targets.shape[0])
+        pos_mask[:, :n] = pos_mask[:, :n] * ~eyes_
+
+        groups = []
+        for i in range(n):
+            pos_pair_idx = torch.nonzero(pos_mask[i, :]).view(-1)
+            if pos_pair_idx.shape[0] > 0:
+                groups.append(torch.combinations(pos_pair_idx, r=2))
+
+        groups = torch.cat(groups, dim=0)
+        p1, p2 = ps[groups[:, 0]], ps[groups[:, 1]]
+        z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
+
+        loss = -(self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
+        return loss + 1.  # Since the loss has its range [-1, 1]
+
+
 class TripletLoss(torch.nn.Module):
     def __init__(self, margin=0.1, n_subsets=3):
         super(TripletLoss, self).__init__()
@@ -169,7 +210,7 @@ class TripletLoss(torch.nn.Module):
         return loss
 
 
-class AEMTripletTrainer(Trainer):
+class AEMTrainer(Trainer):
 
     def get_dataloader(self, mode):
         if mode in self.data_loader_registers:
@@ -224,6 +265,8 @@ class AEMTripletTrainer(Trainer):
         return data_loader
 
     def get_criterion(self):
+        if self.config.MODEL.TYPE == 'ss2':
+            return SimSiamLoss(n_subsets=len(args.letters))
         return TripletLoss(margin=0.15, n_subsets=len(args.letters))
 
     def validate_dataloader(self, data_loader, triplet_def):
@@ -274,6 +317,7 @@ class AEMTripletTrainer(Trainer):
                 if col in positive_pairs[row]:
                     correct_retrievals[col][row] = 1
                     correct_retrievals[row][col] = 1
+
         correct_retrievals = correct_retrievals.to_numpy() > 0
         distance_matrix = distance_df.to_numpy()
         precision_at, recall_at, sorted_retrievals = wi19_evaluate.get_precision_recall_matrices(
@@ -329,7 +373,7 @@ class AEMTripletTrainer(Trainer):
 
 if __name__ == '__main__':
     args, _ = parse_option()
-    trainer = AEMTripletTrainer(args)
+    trainer = AEMTrainer(args)
     if args.mode == 'eval':
         trainer.validate()
     elif args == 'throughput':

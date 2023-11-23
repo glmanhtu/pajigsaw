@@ -47,7 +47,6 @@ class SimSiam(nn.Module):
                                         nn.ReLU(inplace=True), # hidden layer
                                         nn.Linear(pred_dim, dim)) # output layer
 
-
     def forward(self, x):
         """
         Input:
@@ -66,3 +65,10 @@ class SimSiam(nn.Module):
         p2 = self.predictor(z2) # NxC
 
         return p1, p2, z1.detach(), z2.detach()
+
+
+class SimSiamV2(SimSiam):
+    def forward(self, x):
+        z1 = self.encoder(x) # NxC
+        p1 = self.predictor(z1) # NxC
+        return p1, z1.detach()

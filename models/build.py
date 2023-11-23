@@ -7,7 +7,7 @@
 import torch
 
 from .resnet import ResNet32MixConv, ResNet, ResNetWrapper
-from .simsiam import SimSiam
+from .simsiam import SimSiam, SimSiamV2
 from .vision_transformer import VisionTransformerCustom
 
 
@@ -37,11 +37,19 @@ def build_model(config, is_pretrain=False):
             pred_dim=config.MODEL.SS.PRED_DIM
         )
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    elif model_type == 'ss2':
+        model = SimSiamV2(
+            arch=config.MODEL.SS.ARCH,
+            pretrained=config.MODEL.SS.PRETRAINED,
+            dim=config.MODEL.SS.EMBED_DIM,
+            pred_dim=config.MODEL.SS.PRED_DIM
+        )
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     elif model_type == 'resnet':
         model = ResNetWrapper(
-            backbone=config.MODEL.MIXCONV.ARCH,
-            weights=config.MODEL.MIXCONV.PRETRAINED,
-            layers_to_freeze=config.MODEL.MIXCONV.LAYERS_FREEZE
+            backbone=config.MODEL.RES.ARCH,
+            weights=config.MODEL.RES.PRETRAINED,
+            layers_to_freeze=config.MODEL.RES.LAYERS_FREEZE
         )
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     elif model_type == 'mixconv':

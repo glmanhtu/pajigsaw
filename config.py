@@ -100,6 +100,9 @@ _C.MODEL.MIXCONV.OUT_ROWS = 1
 _C.MODEL.MIXCONV.OUT_CHANNELS = 512
 _C.MODEL.MIXCONV.LAYERS_FREEZE = -1
 
+_C.PCA = CN()
+_C.PCA.DIM = 256
+
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------

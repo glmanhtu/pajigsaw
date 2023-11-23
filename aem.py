@@ -8,6 +8,8 @@ import torch
 import torchvision
 from torch.utils.data import DataLoader
 
+from sklearn.preprocessing import normalize
+from sklearn.decomposition import PCA
 from data.datasets.aem_dataset import AEMLetterDataset, AEMDataLoader
 from data.transforms import PadCenterCrop
 from misc import wi19_evaluate
@@ -37,7 +39,8 @@ def parse_option():
     parser.add_argument('--letters', type=str, default=['α', 'ε', 'μ'], nargs='+')
     parser.add_argument('--triplet-files', type=str, default=['BT120220128.triplet', 'Eps20220408.triplet',
                                                             'mtest.triplet'], nargs='+')
-    parser.add_argument('--with_likely', action='store_true')
+    parser.add_argument('--with-likely', action='store_true')
+    parser.add_argument('--use-pca', action='store_true', help='Utilise PCA whitening')
     parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
@@ -279,7 +282,7 @@ class AEMTrainer(Trainer):
         pk5_meter = AverageMeter()
 
         end = time.time()
-        features = {}
+        embeddings, labels = [], []
         for idx, (images, targets) in enumerate(data_loader):
             images = images.cuda(non_blocking=True)
 
@@ -289,13 +292,32 @@ class AEMTrainer(Trainer):
                 if self.is_simsiam():
                     embs, _ = embs
 
-            for feature, target in zip(embs, targets.numpy()):
-                tm = data_loader.dataset.labels[target]
-                features.setdefault(tm, []).append(feature)
+            embeddings.append(embs)
+            labels.append(targets)
 
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
+
+        embeddings = torch.cat(embeddings)
+
+        if args.use_pca:
+            pca = PCA(self.config.PCA.DIM, whiten=True)
+            self.logger.info(f"Fitting PCA with dim {self.config.PCA.DIM}!")
+            desc = np.nan_to_num(embeddings)
+
+            try:
+                embeddings = pca.fit_transform(desc)
+            except:
+                self.logger.info("Found nans in input. Skipping PCA!")
+
+        embeddings = normalize(embeddings, axis=1)
+        labels = torch.cat(labels)
+
+        features = {}
+        for feature, target in zip(embeddings, labels.numpy()):
+            tm = data_loader.dataset.labels[target]
+            features.setdefault(tm, []).append(feature)
 
         features = {k: torch.stack(v).cuda() for k, v in features.items()}
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction)

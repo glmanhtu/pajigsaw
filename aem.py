@@ -265,9 +265,12 @@ class AEMTrainer(Trainer):
         return data_loader
 
     def get_criterion(self):
-        if self.config.MODEL.TYPE == 'ss2':
+        if self.is_simsiam():
             return SimSiamLoss(n_subsets=len(args.letters))
         return TripletLoss(margin=0.15, n_subsets=len(args.letters))
+
+    def is_simsiam(self):
+        return self.config.MODEL.TYPE == 'ss2'
 
     def validate_dataloader(self, data_loader, triplet_def):
         batch_time = AverageMeter()
@@ -283,6 +286,8 @@ class AEMTrainer(Trainer):
             # compute output
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
                 embs = self.model(images)
+                if self.is_simsiam():
+                    embs, _ = embs
 
             for feature, target in zip(embs, targets.numpy()):
                 tm = data_loader.dataset.labels[target]

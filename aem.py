@@ -142,7 +142,7 @@ class SimSiamLoss(torch.nn.Module):
             pos_pair_idx = torch.nonzero(pos_mask[i, i:]).view(-1)
             if pos_pair_idx.shape[0] > 0:
                 # Create a grid of all combinations
-                grid_number, grid_vector = torch.meshgrid(it, pos_pair_idx + i)
+                grid_number, grid_vector = torch.meshgrid(it, pos_pair_idx + i, indexing='ij')
 
                 # Stack the grids to get all combinations
                 combinations = torch.stack((grid_number, grid_vector), dim=-1).reshape(-1, 2)

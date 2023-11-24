@@ -139,10 +139,10 @@ class SimSiamLoss(torch.nn.Module):
         groups = []
         for i in range(n):
             it = torch.tensor([i], device=ps.device)
-            pos_pair_idx = torch.nonzero(pos_mask[i, :]).view(-1)
+            pos_pair_idx = torch.nonzero(pos_mask[i, i:]).view(-1)
             if pos_pair_idx.shape[0] > 0:
                 # Create a grid of all combinations
-                grid_number, grid_vector = torch.meshgrid(it, pos_pair_idx, indexing='ij')
+                grid_number, grid_vector = torch.meshgrid(it, pos_pair_idx + i, indexing='ij')
 
                 # Stack the grids to get all combinations
                 combinations = torch.stack((grid_number, grid_vector), dim=-1).reshape(-1, 2)
@@ -153,7 +153,7 @@ class SimSiamLoss(torch.nn.Module):
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 
         loss = -(self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
-        return loss
+        return loss + 1.  # Since the loss has its range [-1, 1]
 
 
 class TripletLoss(torch.nn.Module):

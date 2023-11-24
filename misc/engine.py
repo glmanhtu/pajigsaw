@@ -181,6 +181,9 @@ class Trainer:
     def train_step(self, samples):
         return self.model(samples)
 
+    def prepare_data(self, samples, targets):
+        return samples, targets
+
     def train_one_epoch(self, epoch, data_loader, optimizer, lr_scheduler, loss_scaler, criterion):
         self.model.train()
         optimizer.zero_grad()
@@ -196,6 +199,8 @@ class Trainer:
         for idx, (samples, targets) in enumerate(data_loader):
             samples = samples.cuda(non_blocking=True)
             targets = targets.cuda(non_blocking=True)
+
+            samples, targets = self.prepare_data(samples, targets)
 
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
                 outputs = self.train_step(samples)

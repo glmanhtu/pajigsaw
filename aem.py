@@ -217,39 +217,43 @@ class TripletLoss(torch.nn.Module):
 
 class AEMTrainer(Trainer):
 
-    def get_dataloader(self, mode):
-        if mode in self.data_loader_registers:
-            return self.data_loader_registers[mode]
-
+    def get_transforms(self):
         img_size = self.config.DATA.IMG_SIZE
         custom_transform = A.Compose([
-                A.LongestMaxSize(max_size=img_size),
+            A.LongestMaxSize(max_size=img_size),
         ])
         transforms = torchvision.transforms.Compose([
             lambda x: custom_transform(image=np.array(x))['image'],
             torchvision.transforms.ToPILImage(),
         ])
-        if mode == 'train':
-            transforms = torchvision.transforms.Compose([
-                transforms,
-                torchvision.transforms.RandomApply([
-                    torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
-                ], p=0.5),
-                torchvision.transforms.RandomCrop(img_size, pad_if_needed=True, fill=255),
-                torchvision.transforms.RandomGrayscale(p=0.3),
-            ])
-        else:
-            transforms = torchvision.transforms.Compose([
-                transforms,
-                PadCenterCrop(img_size, pad_if_needed=True, fill=255)
-            ])
-
-        transforms = torchvision.transforms.Compose([
+        train_transforms = torchvision.transforms.Compose([
             transforms,
+            torchvision.transforms.RandomApply([
+                torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
+            ], p=0.5),
+            torchvision.transforms.RandomCrop(img_size, pad_if_needed=True, fill=255),
+            torchvision.transforms.RandomGrayscale(p=0.3),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ])
 
+        val_transforms = torchvision.transforms.Compose([
+            transforms,
+            PadCenterCrop(img_size, pad_if_needed=True, fill=255),
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ])
+
+        return {
+            'train': train_transforms,
+            'validation': val_transforms,
+        }
+
+    def get_dataloader(self, mode):
+        if mode in self.data_loader_registers:
+            return self.data_loader_registers[mode]
+
+        transforms = self.get_transforms()[mode]
         datasets = []
         for letter in args.letters:
             dataset = AEMLetterDataset(self.config.DATA.DATA_PATH, transforms, letter)

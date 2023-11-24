@@ -3,12 +3,15 @@ import datetime
 import os
 import time
 
+import albumentations as A
 import numpy as np
 import pandas as pd
 import torch
 import torchvision
+from pytorch_metric_learning import samplers
 from torch.utils.data import DataLoader
 
+from data.build import build_dataset
 from data.datasets.hisfrag_dataset import HisFrag20Test
 from data.samplers import DistributedIndicatesSampler
 from misc import wi19_evaluate, utils
@@ -55,14 +58,96 @@ class HisfragTrainer(Trainer):
     def get_criterion(self):
         return torch.nn.BCEWithLogitsLoss()
 
-    def validate_dataloader(self, split: HisFrag20Test.Split, remove_cache_file=False):
-        self.model.eval()
-        transform = torchvision.transforms.Compose([
-            torchvision.transforms.CenterCrop(512),
-            torchvision.transforms.Resize(self.config.DATA.IMG_SIZE),
+    def get_transforms(self):
+        patch_size = self.config.DATA.IMG_SIZE
+
+        a_transform = A.Compose(
+            [
+                A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.5),
+            ]
+        )
+
+        train_transform = torchvision.transforms.Compose([
+            torchvision.transforms.RandomCrop(patch_size, pad_if_needed=True),
+            lambda x: np.array(x),
+            lambda x: a_transform(image=x)['image'],
+            torchvision.transforms.ToPILImage(),
+            torchvision.transforms.RandomApply([
+                torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
+                torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+            ], p=0.5),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
+
+        val_transforms = torchvision.transforms.Compose([
+            torchvision.transforms.CenterCrop(patch_size),
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ])
+
+        return {
+            'train': train_transform,
+            'validation': val_transforms,
+            'test': val_transforms
+        }
+
+    def get_dataloader(self, mode):
+        if mode in self.data_loader_registers:
+            return self.data_loader_registers[mode]
+
+        transforms = self.get_transforms()
+        dataset, repeat = build_dataset(mode=mode, config=self.config, transforms=transforms)
+
+        max_dataset_length = len(dataset) * repeat
+        sampler = samplers.MPerClassSampler(dataset.data_labels, m=3, length_before_new_iter=max_dataset_length)
+        sampler.set_epoch = lambda x: x
+        dataloader = DataLoader(dataset, sampler=sampler, pin_memory=True, batch_size=self.config.DATA.BATCH_SIZE,
+                                drop_last=True, num_workers=self.config.DATA.NUM_WORKERS)
+
+        self.data_loader_registers[mode] = dataloader
+        return dataloader
+
+    def prepare_data(self, samples, targets):
+        n = samples.size(0)
+        # split the positive and negative pairs
+        eyes_ = torch.eye(n, dtype=torch.uint8).cuda()
+        pos_mask = targets.expand(
+            targets.shape[0], n
+        ).t() == targets.expand(n, targets.shape[0])
+        neg_mask = ~pos_mask
+        pos_mask[:, :n] = pos_mask[:, :n] * ~eyes_
+
+        pos_groups, neg_groups = [], []
+        for i in range(n):
+            pos_pair_idx = torch.nonzero(pos_mask[i, :]).view(-1)
+            if pos_pair_idx.shape[0] > 0:
+                pos_groups.append(torch.combinations(pos_pair_idx, r=2))
+
+            pos_pair_idx = torch.nonzero(neg_mask[i, :]).view(-1)
+            if pos_pair_idx.shape[0] > 0:
+                neg_groups.append(torch.combinations(pos_pair_idx, r=2))
+
+        pos_groups = torch.cat(pos_groups, dim=0)
+        pos_groups = torch.unique(pos_groups, dim=0)    # remove duplications
+
+        neg_groups = torch.cat(neg_groups, dim=0)
+        neg_groups = torch.unique(neg_groups, dim=0)    # remove duplications
+
+        neg_length = min(neg_groups.shape[0], int(2 * pos_groups.shape[0]))
+        neg_groups = neg_groups[torch.randperm(neg_groups.shape[0])[:neg_length]]
+
+        pos_samples = torch.stack([samples[pos_groups[:, 0]], samples[pos_groups[:, 1]]], dim=1)
+        neg_samples = torch.stack([samples[neg_groups[:, 0]], samples[neg_groups[:, 1]]], dim=1)
+
+        labels = [1.] * pos_samples.shape[0] + [0.] * neg_samples.shape[0]
+        labels = torch.tensor(labels, dtype=torch.float32, device=pos_samples.device)
+        samples = torch.cat([pos_samples, neg_samples], dim=0)
+        return samples, labels
+
+    def validate_dataloader(self, split: HisFrag20Test.Split, remove_cache_file=False):
+        self.model.eval()
+        transform = self.get_transforms()['validation']
         dataset = HisFrag20Test(self.config.DATA.DATA_PATH, split, transform=transform,
                                 val_n_items_per_writer=self.config.DATA.EVAL_N_ITEMS_PER_CATEGORY)
         indicates = torch.arange(len(dataset)).type(torch.int).cuda()

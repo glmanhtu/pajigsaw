@@ -5,7 +5,7 @@ import torchvision
 from PIL import Image
 from torchvision import transforms
 import torchvision.transforms.functional as F
-
+import albumentations as A
 from misc.utils import UnableToCrop
 
 
@@ -24,6 +24,16 @@ class TwoImgSyncEval:
         second_img = self.normalize(second_img)
 
         return first_img, second_img
+
+
+class ACompose:
+    def __init__(self, a_transforms):
+        self.transform = A.Compose(a_transforms)
+
+    def __call__(self, image):
+        np_img = np.asarray(image)
+        np_img = self.transform(image=np_img)['image']
+        return Image.fromarray(np_img)
 
 
 class PadCenterCrop(object):

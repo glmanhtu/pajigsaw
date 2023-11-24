@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from sklearn.preprocessing import normalize
 from sklearn.decomposition import PCA
 from data.datasets.aem_dataset import AEMLetterDataset, AEMDataLoader
-from data.transforms import PadCenterCrop
+from data.transforms import PadCenterCrop, ACompose
 from misc import wi19_evaluate
 from misc.engine import Trainer
 from misc.utils import AverageMeter, compute_distance_matrix
@@ -224,15 +224,11 @@ class AEMTrainer(Trainer):
 
     def get_transforms(self):
         img_size = self.config.DATA.IMG_SIZE
-        custom_transform = A.Compose([
-            A.LongestMaxSize(max_size=img_size),
-        ])
-        transforms = torchvision.transforms.Compose([
-            lambda x: custom_transform(image=np.array(x))['image'],
-            torchvision.transforms.ToPILImage(),
-        ])
         train_transforms = torchvision.transforms.Compose([
-            transforms,
+            ACompose([
+                A.LongestMaxSize(max_size=img_size),
+                A.ShiftScaleRotate(shift_limit=0, scale_limit=0.05, rotate_limit=15, p=0.5),
+            ]),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
             ], p=0.5),
@@ -243,7 +239,9 @@ class AEMTrainer(Trainer):
         ])
 
         val_transforms = torchvision.transforms.Compose([
-            transforms,
+            ACompose([
+                A.LongestMaxSize(max_size=img_size),
+            ]),
             PadCenterCrop(img_size, pad_if_needed=True, fill=255),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),

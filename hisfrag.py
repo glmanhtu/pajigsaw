@@ -111,7 +111,7 @@ class HisfragTrainer(Trainer):
     def prepare_data(self, samples, targets):
         n = samples.size(0)
         # split the positive and negative pairs
-        eyes_ = torch.eye(n, dtype=torch.uint8).cuda()
+        eyes_ = torch.eye(n, dtype=torch.bool).cuda()
         pos_mask = targets.expand(
             targets.shape[0], n
         ).t() == targets.expand(n, targets.shape[0])
@@ -120,30 +120,43 @@ class HisfragTrainer(Trainer):
 
         pos_groups, neg_groups = [], []
         for i in range(n):
-            pos_pair_idx = torch.nonzero(pos_mask[i, :]).view(-1)
+            it = torch.tensor([i], device=samples.device)
+            pos_pair_idx = torch.nonzero(pos_mask[i, i:]).view(-1)
             if pos_pair_idx.shape[0] > 0:
-                pos_groups.append(torch.combinations(pos_pair_idx, r=2))
+                # Create a grid of all combinations
+                grid_number, grid_vector = torch.meshgrid(it, pos_pair_idx + i)
 
-            pos_pair_idx = torch.nonzero(neg_mask[i, :]).view(-1)
-            if pos_pair_idx.shape[0] > 0:
-                neg_groups.append(torch.combinations(pos_pair_idx, r=2))
+                # Stack the grids to get all combinations
+                combinations = torch.stack((grid_number, grid_vector), dim=-1).reshape(-1, 2)
+                pos_groups.append(combinations)
+
+            neg_pair_idx = torch.nonzero(neg_mask[i, i:]).view(-1)
+            if neg_pair_idx.shape[0] > 0:
+                grid_number, grid_vector = torch.meshgrid(it, neg_pair_idx + i)
+                combinations = torch.stack((grid_number, grid_vector), dim=-1).reshape(-1, 2)
+                neg_groups.append(combinations)
 
         pos_groups = torch.cat(pos_groups, dim=0)
-        pos_groups = torch.unique(pos_groups, dim=0)    # remove duplications
-
         neg_groups = torch.cat(neg_groups, dim=0)
-        neg_groups = torch.unique(neg_groups, dim=0)    # remove duplications
 
         neg_length = min(neg_groups.shape[0], int(2 * pos_groups.shape[0]))
         neg_groups = neg_groups[torch.randperm(neg_groups.shape[0])[:neg_length]]
 
-        pos_samples = torch.stack([samples[pos_groups[:, 0]], samples[pos_groups[:, 1]]], dim=1)
-        neg_samples = torch.stack([samples[neg_groups[:, 0]], samples[neg_groups[:, 1]]], dim=1)
+        labels = [1.] * pos_groups.shape[0] + [0.] * neg_groups.shape[0]
+        labels = torch.tensor(labels, dtype=torch.float32, device=samples.device).view(-1, 1)
+        groups = torch.cat([pos_groups, neg_groups], dim=0)
 
-        labels = [1.] * pos_samples.shape[0] + [0.] * neg_samples.shape[0]
-        labels = torch.tensor(labels, dtype=torch.float32, device=pos_samples.device).view(-1, 1)
-        samples = torch.cat([pos_samples, neg_samples], dim=0)
-        return samples, labels
+        with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
+            x1 = self.model(samples, forward_first_part=True)
+
+        x = samples[groups[:, 0]]
+        x1 = x1[groups[:, 1]]
+        return (x, x1), labels
+
+    def train_step(self, samples):
+        x, x1 = samples
+        return self.model(x1, x)
+
 
     def validate_dataloader(self, split: HisFrag20Test.Split, remove_cache_file=False):
         self.model.eval()

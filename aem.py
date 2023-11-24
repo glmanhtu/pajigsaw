@@ -130,7 +130,7 @@ class SimSiamLoss(torch.nn.Module):
 
     def forward_impl(self, ps, zs, targets):
         n = ps.size(0)
-        eyes_ = torch.eye(n, dtype=torch.uint8).cuda()
+        eyes_ = torch.eye(n, dtype=torch.bool).cuda()
         pos_mask = targets.expand(
             targets.shape[0], n
         ).t() == targets.expand(n, targets.shape[0])
@@ -138,12 +138,17 @@ class SimSiamLoss(torch.nn.Module):
 
         groups = []
         for i in range(n):
+            it = torch.tensor([i], device=ps.device)
             pos_pair_idx = torch.nonzero(pos_mask[i, :]).view(-1)
             if pos_pair_idx.shape[0] > 0:
-                groups.append(torch.combinations(pos_pair_idx, r=2))
+                # Create a grid of all combinations
+                grid_number, grid_vector = torch.meshgrid(it, pos_pair_idx + i)
+
+                # Stack the grids to get all combinations
+                combinations = torch.stack((grid_number, grid_vector), dim=-1).reshape(-1, 2)
+                groups.append(combinations)
 
         groups = torch.cat(groups, dim=0)
-        groups = torch.unique(groups, dim=0)    # remove duplications
         p1, p2 = ps[groups[:, 0]], ps[groups[:, 1]]
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 
@@ -172,7 +177,7 @@ class TripletLoss(torch.nn.Module):
         # Compute similarity matrix
         sim_mat = torch.matmul(inputs_col, inputs_row.t())
         # split the positive and negative pairs
-        eyes_ = torch.eye(n, dtype=torch.uint8).cuda()
+        eyes_ = torch.eye(n, dtype=torch.bool).cuda()
         pos_mask = targets_col.expand(
             targets_row.shape[0], n
         ).t() == targets_row.expand(n, targets_row.shape[0])

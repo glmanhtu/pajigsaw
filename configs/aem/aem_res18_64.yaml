@@ -1,6 +1,6 @@
 MODEL:
   TYPE: resnet
-  NAME: aem_res18_res18_64
+  NAME: aem_res18_64
   RES:
     ARCH: resnet18
     PRETRAINED: IMAGENET1K_V1

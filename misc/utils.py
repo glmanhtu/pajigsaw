@@ -107,15 +107,16 @@ def load_pretrained(config, model, logger):
     #             state_dict[k] = absolute_pos_embed_pretrained_resized
 
     # check classifier, if not match, then re-init classifier to zero
-    head_bias_pretrained = state_dict['head.bias']
-    n_c1 = head_bias_pretrained.shape[0]
-    n_c2 = model.head.bias.shape[0]
-    if n_c1 != n_c2:
-        torch.nn.init.constant_(model.head.bias, 0.)
-        torch.nn.init.constant_(model.head.weight, 0.)
-        del state_dict['head.weight']
-        del state_dict['head.bias']
-        logger.warning(f"Error in loading classifier head, re-init classifier head to 0")
+    if 'head.bias' in state_dict:
+        head_bias_pretrained = state_dict['head.bias']
+        n_c1 = head_bias_pretrained.shape[0]
+        n_c2 = model.head.bias.shape[0]
+        if n_c1 != n_c2:
+            torch.nn.init.constant_(model.head.bias, 0.)
+            torch.nn.init.constant_(model.head.weight, 0.)
+            del state_dict['head.weight']
+            del state_dict['head.bias']
+            logger.warning(f"Error in loading classifier head, re-init classifier head to 0")
 
     msg = model.load_state_dict(state_dict, strict=False)
     logger.warning(msg)

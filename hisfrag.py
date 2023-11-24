@@ -141,7 +141,7 @@ class HisfragTrainer(Trainer):
         neg_samples = torch.stack([samples[neg_groups[:, 0]], samples[neg_groups[:, 1]]], dim=1)
 
         labels = [1.] * pos_samples.shape[0] + [0.] * neg_samples.shape[0]
-        labels = torch.tensor(labels, dtype=torch.float32, device=pos_samples.device)
+        labels = torch.tensor(labels, dtype=torch.float32, device=pos_samples.device).view(-1, 1)
         samples = torch.cat([pos_samples, neg_samples], dim=0)
         return samples, labels
 

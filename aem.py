@@ -227,7 +227,7 @@ class AEMTrainer(Trainer):
         train_transforms = torchvision.transforms.Compose([
             ACompose([
                 A.LongestMaxSize(max_size=img_size),
-                A.ShiftScaleRotate(shift_limit=0, scale_limit=0.05, rotate_limit=15, p=0.5),
+                A.ShiftScaleRotate(shift_limit=0, scale_limit=0.1, rotate_limit=15, p=0.5),
             ]),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
@@ -404,7 +404,7 @@ class AEMTrainer(Trainer):
             f'Average:'
             f'mAP {final_map:.4f}\t'
             f'top1 {final_top1:.3f}\t'
-            f'pr@k10 {final_pra5:.3f}\t')
+            f'pr@k5 {final_pra5:.3f}\t')
 
         return 1 - final_map
 

@@ -262,17 +262,17 @@ class AEMTrainer(Trainer):
             dataset = AEMLetterDataset(self.config.DATA.DATA_PATH, transforms, letter)
             datasets.append(dataset)
 
+        data_loader = []
         if mode == 'train':
             data_loader = AEMDataLoader(datasets, batch_size=self.config.DATA.BATCH_SIZE,
                                         numb_workers=self.config.DATA.NUM_WORKERS,
                                         pin_memory=self.config.DATA.PIN_MEMORY)
         else:
-            data_loader = {}
             for idx, letter in enumerate(args.letters):
-                data_loader[letter] = DataLoader(datasets[idx], batch_size=self.config.DATA.BATCH_SIZE,
-                                                 num_workers=self.config.DATA.NUM_WORKERS,
-                                                 pin_memory=self.config.DATA.PIN_MEMORY, drop_last=False,
-                                                 shuffle=False)
+                sub_data_loader = DataLoader(datasets[idx], batch_size=self.config.DATA.BATCH_SIZE,
+                                             num_workers=self.config.DATA.NUM_WORKERS,
+                                             pin_memory=self.config.DATA.PIN_MEMORY, drop_last=False, shuffle=False)
+                data_loader.append(sub_data_loader)
         self.data_loader_registers[mode] = data_loader
         return data_loader
 
@@ -345,7 +345,6 @@ class AEMTrainer(Trainer):
             if len(positive_pairs[tm]) > 1:
                 tms.append(tm)
 
-        self.logger.info(f'N categories: {len(tms)}')
         categories = sorted(tms)
         distance_df = distance_df.loc[categories, categories]
 
@@ -375,20 +374,20 @@ class AEMTrainer(Trainer):
         top1_meter.all_reduce()
         pk5_meter.all_reduce()
 
-        return mAP_meter.avg, top1_meter.avg, pk5_meter.avg
+        return mAP_meter.avg, top1_meter.avg, pk5_meter.avg, tms
 
     @torch.no_grad()
     def validate(self):
         self.model.eval()
         mode = 'validation'
         final_map, final_top1, final_pra5 = [], [], []
-        for letter, dataloader in self.get_dataloader(mode).items():
-            letter_idx = args.letters.index(letter)
-            triplet_def = load_triplet_file(args.triplet_files[letter_idx], args.with_likely)
+        for idx, dataloader in enumerate(self.get_dataloader(mode)):
+            triplet_def = load_triplet_file(args.triplet_files[idx], args.with_likely)
 
-            m_ap, top1, pra5 = self.validate_dataloader(dataloader, triplet_def)
+            m_ap, top1, pra5, tms = self.validate_dataloader(dataloader, triplet_def)
             self.logger.info(
-                f'Letter {letter}:'
+                f'Letter {args.letters[idx]}:'
+                f'N TMs: {len(tms)}\t' 
                 f'mAP {m_ap:.4f}\t'
                 f'top1 {top1:.3f}\t'
                 f'pr@k10 {pra5:.3f}\t')

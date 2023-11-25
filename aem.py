@@ -345,6 +345,7 @@ class AEMTrainer(Trainer):
             if len(positive_pairs[tm]) > 1:
                 tms.append(tm)
 
+        self.logger.info(f'N categories: {len(tms)}')
         categories = sorted(tms)
         distance_df = distance_df.loc[categories, categories]
 

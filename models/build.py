@@ -35,7 +35,7 @@ def build_model(config, is_pretrain=False):
             pretrained=config.MODEL.SS.PRETRAINED,
             dim=config.MODEL.SS.EMBED_DIM,
             pred_dim=config.MODEL.SS.PRED_DIM,
-            dropout = config.MODEL.SS.DROPOUT
+            dropout=config.MODEL.SS.DROPOUT
         )
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     elif model_type == 'ss2':

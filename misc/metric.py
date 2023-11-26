@@ -32,6 +32,11 @@ def calc_map_prak(distances, labels, positive_pairs, negative_pairs, prak=(1, 5)
             else:
                 correct_count.append(0)
 
+        if sum(correct_count) == 0:
+            # If there is no positive pair, there should be a problem in GT
+            # Ignore for now
+            continue
+
         for i, k in enumerate(prak):
             val = sum(correct_count[:k]) / min(sum(correct_count), k)
             prak_res[i].append(val)

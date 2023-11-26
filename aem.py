@@ -154,7 +154,7 @@ class SimSiamLoss(torch.nn.Module):
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 
         loss = -(self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
-        return loss + 1.  # Since the loss has its range [-1, 1]
+        return loss
 
 
 class TripletLoss(torch.nn.Module):
@@ -374,7 +374,7 @@ class AEMTrainer(Trainer):
 
             m_ap, top1, pra5, tms = self.validate_dataloader(dataloader, triplet_def)
             self.logger.info(
-                f'Letter {args.letters[idx]}:'
+                f'Letter {args.letters[idx]}:\t'
                 f'N TMs: {len(tms)}\t' 
                 f'mAP {m_ap:.4f}\t'
                 f'top1 {top1:.3f}\t'

@@ -110,6 +110,37 @@ def load_triplet_file(filter_file, with_likely=False):
     return positive_pairs, negative_pairs
 
 
+class ClassificationLoss(torch.nn.Module):
+    def __init__(self, n_subsets=3):
+        super().__init__()
+        self.n_subsets = n_subsets
+        self.criterion = torch.nn.CrossEntropyLoss()
+
+    def forward(self, embeddings, targets):
+        ps, _ = embeddings
+        mini_batch = len(targets) // self.n_subsets
+
+        labels = []
+        for i in range(self.n_subsets):
+            labels.append(torch.tensor([i] * mini_batch, device=ps.device, dtype=torch.int64))
+
+        labels = torch.cat(labels, dim=0)
+        return self.criterion(ps, labels)
+
+
+class LossCombination(torch.nn.Module):
+    def __init__(self, criterions):
+        super().__init__()
+        self.criterions = criterions
+
+    def forward(self, embeddings, targets):
+        losses = []
+        for criterion in self.criterions:
+            losses.append(criterion(embeddings, targets))
+
+        return sum(losses) / len(losses)
+
+
 class SimSiamLoss(torch.nn.Module):
     def __init__(self, n_subsets=3, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -154,7 +185,7 @@ class SimSiamLoss(torch.nn.Module):
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 
         loss = -(self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
-        return loss
+        return loss + 1.
 
 
 class TripletLoss(torch.nn.Module):
@@ -279,7 +310,9 @@ class AEMTrainer(Trainer):
 
     def get_criterion(self):
         if self.is_simsiam():
-            return SimSiamLoss(n_subsets=len(args.letters))
+            ssl = SimSiamLoss(n_subsets=len(args.letters))
+            cls = ClassificationLoss(n_subsets=len(args.letters))
+            return LossCombination([ssl, cls])
         return TripletLoss(margin=0.15, n_subsets=len(args.letters))
 
     def is_simsiam(self):

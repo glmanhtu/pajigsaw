@@ -111,10 +111,11 @@ def load_triplet_file(filter_file, with_likely=False):
 
 
 class ClassificationLoss(torch.nn.Module):
-    def __init__(self, n_subsets=3):
+    def __init__(self, n_subsets=3, weight=1.):
         super().__init__()
         self.n_subsets = n_subsets
         self.criterion = torch.nn.CrossEntropyLoss()
+        self.weight = weight
 
     def forward(self, embeddings, targets):
         ps, _ = embeddings
@@ -125,7 +126,7 @@ class ClassificationLoss(torch.nn.Module):
             labels.append(torch.tensor([i] * mini_batch, device=ps.device, dtype=torch.int64))
 
         labels = torch.cat(labels, dim=0)
-        return self.criterion(ps, labels)
+        return self.criterion(ps, labels) * self.weight
 
 
 class LossCombination(torch.nn.Module):
@@ -138,14 +139,15 @@ class LossCombination(torch.nn.Module):
         for criterion in self.criterions:
             losses.append(criterion(embeddings, targets))
 
-        return sum(losses) / len(losses)
+        return sum(losses)
 
 
 class SimSiamLoss(torch.nn.Module):
-    def __init__(self, n_subsets=3, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, n_subsets=3, weight=1.):
+        super().__init__()
         self.n_subsets = n_subsets
         self.criterion = torch.nn.CosineSimilarity(dim=1)
+        self.weight = weight
 
     def forward(self, embeddings, targets):
         ps, zs = embeddings
@@ -185,7 +187,7 @@ class SimSiamLoss(torch.nn.Module):
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 
         loss = -(self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
-        return loss + 1.
+        return (loss + 1.) * self.weight
 
 
 class TripletLoss(torch.nn.Module):
@@ -310,8 +312,8 @@ class AEMTrainer(Trainer):
 
     def get_criterion(self):
         if self.is_simsiam():
-            ssl = SimSiamLoss(n_subsets=len(args.letters))
-            cls = ClassificationLoss(n_subsets=len(args.letters))
+            ssl = SimSiamLoss(n_subsets=len(args.letters), weight=0.7)
+            cls = ClassificationLoss(n_subsets=len(args.letters), weight=0.3)
             return LossCombination([ssl, cls])
         return TripletLoss(margin=0.15, n_subsets=len(args.letters))
 

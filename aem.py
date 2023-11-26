@@ -15,6 +15,7 @@ from data.datasets.aem_dataset import AEMLetterDataset, AEMDataLoader
 from data.transforms import PadCenterCrop, ACompose
 from misc import wi19_evaluate
 from misc.engine import Trainer
+from misc.metric import calc_map_prak
 from misc.utils import AverageMeter, compute_distance_matrix
 from misc.wi19_evaluate import compute_pr_a_k
 
@@ -348,25 +349,12 @@ class AEMTrainer(Trainer):
         categories = sorted(tms)
         distance_df = distance_df.loc[categories, categories]
 
-        positive_pairs, _ = triplet_def
-        correct_retrievals = distance_df.copy(deep=True) * 0
-        for row in distance_df.index:
-            for col in distance_df.columns:
-                if col in positive_pairs[row]:
-                    correct_retrievals[col][row] = 1
-                    correct_retrievals[row][col] = 1
-
-        correct_retrievals = correct_retrievals.to_numpy() > 0
+        positive_pairs, negative_pairs = triplet_def
         distance_matrix = distance_df.to_numpy()
-        precision_at, recall_at, sorted_retrievals = wi19_evaluate.get_precision_recall_matrices(
-            distance_matrix, classes=None, remove_self_column=True, correct_retrievals=correct_retrievals)
+        labels = distance_df.columns
+        m_ap, (top_1, pr_a_k5) = calc_map_prak(distance_matrix, labels, positive_pairs, negative_pairs)
 
-        non_singleton_idx = sorted_retrievals.sum(axis=1) > 0
-        mAP = wi19_evaluate.compute_map(precision_at[non_singleton_idx, :], sorted_retrievals[non_singleton_idx, :])
-        top_1 = sorted_retrievals[:, 0].sum() / len(sorted_retrievals)
-        pr_a_k5 = compute_pr_a_k(sorted_retrievals, 5)
-
-        mAP_meter.update(mAP)
+        mAP_meter.update(m_ap)
         top1_meter.update(top_1)
         pk5_meter.update(pr_a_k5)
 

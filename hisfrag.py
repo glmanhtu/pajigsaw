@@ -16,7 +16,7 @@ from data.datasets.hisfrag_dataset import HisFrag20Test
 from data.samplers import DistributedIndicatesSampler
 from misc import wi19_evaluate, utils
 from misc.engine import Trainer
-from misc.utils import AverageMeter
+from misc.utils import AverageMeter, get_combinations
 
 
 def parse_option():
@@ -123,17 +123,12 @@ class HisfragTrainer(Trainer):
             it = torch.tensor([i], device=samples.device)
             pos_pair_idx = torch.nonzero(pos_mask[i, i:]).view(-1)
             if pos_pair_idx.shape[0] > 0:
-                # Create a grid of all combinations
-                grid_number, grid_vector = torch.meshgrid(it, pos_pair_idx + i, indexing='ij')
-
-                # Stack the grids to get all combinations
-                combinations = torch.stack((grid_number, grid_vector), dim=-1).reshape(-1, 2)
+                combinations = get_combinations(it, pos_pair_idx + i)
                 pos_groups.append(combinations)
 
             neg_pair_idx = torch.nonzero(neg_mask[i, i:]).view(-1)
             if neg_pair_idx.shape[0] > 0:
-                grid_number, grid_vector = torch.meshgrid(it, neg_pair_idx + i, indexing='ij')
-                combinations = torch.stack((grid_number, grid_vector), dim=-1).reshape(-1, 2)
+                combinations = get_combinations(it, neg_pair_idx + i)
                 neg_groups.append(combinations)
 
         pos_groups = torch.cat(pos_groups, dim=0)

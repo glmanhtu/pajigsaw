@@ -16,7 +16,7 @@ from data.transforms import PadCenterCrop, ACompose
 from misc import wi19_evaluate
 from misc.engine import Trainer
 from misc.metric import calc_map_prak
-from misc.utils import AverageMeter, compute_distance_matrix
+from misc.utils import AverageMeter, compute_distance_matrix, get_combinations
 from misc.wi19_evaluate import compute_pr_a_k
 
 
@@ -175,11 +175,7 @@ class SimSiamLoss(torch.nn.Module):
             it = torch.tensor([i], device=ps.device)
             pos_pair_idx = torch.nonzero(pos_mask[i, i:]).view(-1)
             if pos_pair_idx.shape[0] > 0:
-                # Create a grid of all combinations
-                grid_number, grid_vector = torch.meshgrid(it, pos_pair_idx + i, indexing='ij')
-
-                # Stack the grids to get all combinations
-                combinations = torch.stack((grid_number, grid_vector), dim=-1).reshape(-1, 2)
+                combinations = get_combinations(it, pos_pair_idx + i)
                 groups.append(combinations)
 
         groups = torch.cat(groups, dim=0)

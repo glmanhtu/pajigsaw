@@ -128,24 +128,11 @@ class ClassificationLoss(torch.nn.Module):
         return self.criterion(ps, labels) * self.weight
 
 
-class MSEMarginLoss(torch.nn.Module):
-    def __init__(self, margin):
-        super().__init__()
-        self.margin = margin
-        self.criterion = torch.nn.MSELoss(reduction='none')
-
-    def forward(self, source, target):
-        loss = self.criterion(source, target).mean(dim=-1)
-        margin = (torch.sum(loss.detach()) / loss.shape[0]) / 2
-        loss = loss[loss > margin]
-        return loss.mean()
-
-
 class SimSiamLoss(torch.nn.Module):
     def __init__(self, n_subsets=3, weight=1.):
         super().__init__()
         self.n_subsets = n_subsets
-        self.criterion = MSEMarginLoss(margin=0.1)
+        self.criterion = torch.nn.MSELoss()
         self.weight = weight
 
     def forward(self, embeddings, targets):

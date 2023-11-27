@@ -168,7 +168,7 @@ class SimSiamLoss(torch.nn.Module):
         p1, p2 = ps[groups[:, 0]], ps[groups[:, 1]]
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 
-        loss = (self.criterion(p1, z2, z2).mean() + self.criterion(p2, z1, z1).mean()) * 0.5
+        loss = (self.criterion(z2, p1, z2).mean() + self.criterion(z1, p2, z1).mean()) * 0.5
         return loss * self.weight
 
 

@@ -136,7 +136,8 @@ class MSEMarginLoss(torch.nn.Module):
 
     def forward(self, source, target):
         loss = self.criterion(source, target).mean(dim=-1)
-        loss = loss[loss > self.margin]
+        margin = (torch.sum(loss.detach()) / loss.shape[0]) / 2
+        loss = loss[loss > margin]
         return loss.mean()
 
 

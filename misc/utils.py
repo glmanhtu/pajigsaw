@@ -360,7 +360,8 @@ def chunks(l, n):
 def get_repeated_indexes(input_size, output_size):
     n_times = math.ceil(output_size / input_size)
     indexes = [torch.arange(input_size) for _ in range(n_times)]
-    return torch.cat(indexes, dim=0)[:output_size]
+    res = torch.cat(indexes, dim=0)
+    return res[torch.randperm(res.shape[0])][:output_size]
 
 
 def compute_distance_matrix(data: Dict[str, Tensor], n_times_testing=50, reduction='mean'):

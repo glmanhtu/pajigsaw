@@ -294,8 +294,9 @@ class AEMTrainer(Trainer):
 
     def get_criterion(self):
         if self.is_simsiam():
-            ssl = SimSiamLoss(n_subsets=len(args.letters))
-            return ssl
+            ssl = SimSiamLoss(n_subsets=len(args.letters), weight=0.7)
+            cls = ClassificationLoss(n_subsets=len(args.letters), weight=0.3)
+            return LossCombination([ssl, cls])
         return TripletLoss(margin=0.15, n_subsets=len(args.letters))
 
     def is_simsiam(self):

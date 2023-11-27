@@ -132,7 +132,7 @@ class SimSiamLoss(torch.nn.Module):
     def __init__(self, n_subsets=3, weight=1.):
         super().__init__()
         self.n_subsets = n_subsets
-        self.criterion = torch.nn.CosineSimilarity(dim=1)
+        self.criterion = torch.nn.TripletMarginLoss(margin=0.1)
         self.weight = weight
 
     def forward(self, embeddings, targets):
@@ -168,8 +168,8 @@ class SimSiamLoss(torch.nn.Module):
         p1, p2 = ps[groups[:, 0]], ps[groups[:, 1]]
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 
-        loss = -(self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
-        return (loss + 1.) * self.weight
+        loss = (self.criterion(p1, z2, z2).mean() + self.criterion(p2, z1, z1).mean()) * 0.5
+        return loss * self.weight
 
 
 class TripletLoss(torch.nn.Module):

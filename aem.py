@@ -9,15 +9,13 @@ import torchvision
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
-from sklearn.preprocessing import normalize
 from sklearn.decomposition import PCA
 from data.datasets.aem_dataset import AEMLetterDataset, AEMDataLoader
 from data.transforms import PadCenterCrop, ACompose
-from misc import wi19_evaluate
 from misc.engine import Trainer
+from misc.losses import LossCombination
 from misc.metric import calc_map_prak
 from misc.utils import AverageMeter, compute_distance_matrix, get_combinations
-from misc.wi19_evaluate import compute_pr_a_k
 
 
 def parse_option():
@@ -127,19 +125,6 @@ class ClassificationLoss(torch.nn.Module):
 
         labels = torch.cat(labels, dim=0)
         return self.criterion(ps, labels) * self.weight
-
-
-class LossCombination(torch.nn.Module):
-    def __init__(self, criterions):
-        super().__init__()
-        self.criterions = criterions
-
-    def forward(self, embeddings, targets):
-        losses = []
-        for criterion in self.criterions:
-            losses.append(criterion(embeddings, targets))
-
-        return sum(losses)
 
 
 class SimSiamLoss(torch.nn.Module):
@@ -309,9 +294,8 @@ class AEMTrainer(Trainer):
 
     def get_criterion(self):
         if self.is_simsiam():
-            ssl = SimSiamLoss(n_subsets=len(args.letters), weight=0.7)
-            cls = ClassificationLoss(n_subsets=len(args.letters), weight=0.3)
-            return LossCombination([ssl, cls])
+            ssl = SimSiamLoss(n_subsets=len(args.letters))
+            return ssl
         return TripletLoss(margin=0.15, n_subsets=len(args.letters))
 
     def is_simsiam(self):

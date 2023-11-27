@@ -350,7 +350,8 @@ class AEMTrainer(Trainer):
             features.setdefault(tm, []).append(feature)
 
         features = {k: torch.stack(v).cuda() for k, v in features.items()}
-        distance_df = compute_distance_matrix(features, reduction=args.distance_reduction)
+        distance_df = compute_distance_matrix(features, reduction=args.distance_reduction,
+                                              distance_fn=torch.nn.MSELoss())
 
         tms = []
         dataset_tms = set(distance_df.columns)

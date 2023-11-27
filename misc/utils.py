@@ -372,10 +372,15 @@ def get_combinations(tensor1, tensor2):
     return torch.stack((grid_number, grid_vector), dim=-1).reshape(-1, 2)
 
 
-def compute_distance_matrix(data: Dict[str, Tensor], reduction='mean'):
+def cosine_distance(source, target):
+    similarity_fn = torch.nn.CosineSimilarity(dim=1)
+    similarity = similarity_fn(source, target)
+    return 1 - similarity
+
+
+def compute_distance_matrix(data: Dict[str, Tensor], reduction='mean', distance_fn=cosine_distance):
     distance_map = {}
     fragments = list(data.keys())
-    similarity_fn = torch.nn.CosineSimilarity(dim=1)
     for i in range(len(fragments)):
         for j in range(i, len(fragments)):
             source, target = fragments[i], fragments[j]
@@ -383,8 +388,7 @@ def compute_distance_matrix(data: Dict[str, Tensor], reduction='mean'):
             source_features = data[source][combinations[:, 0]]
             target_features = data[target][combinations[:, 1]]
 
-            similarity = similarity_fn(source_features, target_features)
-            distance = 1 - similarity
+            distance = distance_fn(source_features, target_features)
             if reduction == 'mean':
                 distance = distance.mean()
             elif reduction == 'max':

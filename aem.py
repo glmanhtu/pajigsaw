@@ -187,7 +187,7 @@ class SimSiamLoss(torch.nn.Module):
         idxs = torch.argsort(neg_loss, dim=-1, descending=True)[:top_n_neg]
         neg_loss = neg_loss[idxs].mean() * 0.5
 
-        loss = pos_loss - neg_loss
+        loss = 0.8 * pos_loss - 0.2 * neg_loss
 
         return loss * self.weight
 

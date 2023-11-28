@@ -195,7 +195,7 @@ class SimSiamLoss(torch.nn.Module):
 
         neg_loss = (dist_fn(p1, z2).mean(-1) + dist_fn(p2, z1).mean(-1)) * 0.5
         neg_loss = torch.cat([neg_loss, avg_loss_pos.view(1,)])
-        loss = pos_loss - F.normalize(neg_loss, dim=-1).mean()
+        loss = 2 * pos_loss - F.normalize(neg_loss, dim=-1).mean()
         return loss * self.weight
 
 

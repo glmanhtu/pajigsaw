@@ -184,7 +184,7 @@ class SimSiamLoss(torch.nn.Module):
         z1, z2 = zs[neg_groups[:, 0]], zs[neg_groups[:, 1]]
 
         neg_loss = self.criterion(p1, z2).mean(dim=-1) + self.criterion(p2, z1).mean(dim=-1)
-        idxs = torch.argsort(neg_loss, dim=-1)[:top_n_neg]
+        idxs = torch.argsort(neg_loss, dim=-1, descending=True)[:top_n_neg]
         neg_loss = neg_loss[idxs].mean() * 0.5
 
         loss = pos_loss - neg_loss

@@ -242,7 +242,7 @@ class AEMTrainer(Trainer):
         img_size = self.config.DATA.IMG_SIZE
         train_transforms = torchvision.transforms.Compose([
             ACompose([
-                A.LongestMaxSize(max_size=img_size),
+                A.LongestMaxSize(max_size=int(0.8 * img_size)),
                 A.ShiftScaleRotate(shift_limit=0, scale_limit=0.1, rotate_limit=15, p=0.5),
             ]),
             torchvision.transforms.RandomApply([
@@ -257,7 +257,7 @@ class AEMTrainer(Trainer):
 
         val_transforms = torchvision.transforms.Compose([
             ACompose([
-                A.LongestMaxSize(max_size=img_size),
+                A.LongestMaxSize(max_size=int(img_size * 0.8)),
             ]),
             PadCenterCrop(img_size, pad_if_needed=True, fill=255),
             torchvision.transforms.ToTensor(),

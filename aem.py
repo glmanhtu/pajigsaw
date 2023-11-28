@@ -192,9 +192,9 @@ class SimSiamLoss(torch.nn.Module):
         p1, p2 = ps[neg_groups[:, 0]], ps[neg_groups[:, 1]]
         z1, z2 = zs[neg_groups[:, 0]], zs[neg_groups[:, 1]]
 
-        neg_loss = (self.criterion(p1, z2) + self.criterion(p2, z1)) * 0.5
+        neg_loss = (dist_fn(p1, z2).mean(-1) + dist_fn(p2, z1).mean(-1)) * 0.5
 
-        loss = pos_loss - F.normalize(neg_loss, dim=-1)
+        loss = pos_loss - F.normalize(neg_loss, dim=-1).mean()
         return loss * self.weight
 
 

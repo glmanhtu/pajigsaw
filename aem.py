@@ -132,7 +132,7 @@ class SimSiamLoss(torch.nn.Module):
     def __init__(self, n_subsets=3, weight=1.):
         super().__init__()
         self.n_subsets = n_subsets
-        self.criterion = torch.nn.L1Loss()
+        self.criterion = torch.nn.MSELoss()
         self.weight = weight
 
     def forward(self, embeddings, targets):
@@ -244,7 +244,7 @@ class AEMTrainer(Trainer):
         img_size = self.config.DATA.IMG_SIZE
         train_transforms = torchvision.transforms.Compose([
             ACompose([
-                A.LongestMaxSize(max_size=int(0.9 * img_size)),
+                A.LongestMaxSize(max_size=img_size),
                 A.ShiftScaleRotate(shift_limit=0, scale_limit=0.1, rotate_limit=15, p=0.5),
             ]),
             torchvision.transforms.RandomApply([
@@ -259,7 +259,7 @@ class AEMTrainer(Trainer):
 
         val_transforms = torchvision.transforms.Compose([
             ACompose([
-                A.LongestMaxSize(max_size=int(img_size * 0.9)),
+                A.LongestMaxSize(max_size=img_size),
             ]),
             PadCenterCrop(img_size, pad_if_needed=True, fill=255),
             torchvision.transforms.ToTensor(),
@@ -353,7 +353,7 @@ class AEMTrainer(Trainer):
 
         features = {k: torch.stack(v).cuda() for k, v in features.items()}
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction,
-                                              distance_fn=torch.nn.L1Loss())
+                                              distance_fn=torch.nn.MSELoss())
 
         tms = []
         dataset_tms = set(distance_df.columns)

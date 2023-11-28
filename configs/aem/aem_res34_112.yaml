@@ -1,8 +1,8 @@
 MODEL:
   TYPE: resnet
-  NAME: aem_res18_112
+  NAME: aem_res34_112
   RES:
-    ARCH: resnet18
+    ARCH: resnet34
     PRETRAINED: IMAGENET1K_V1
 DATA:
   DATASET: aem

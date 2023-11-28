@@ -132,7 +132,7 @@ class SimSiamLoss(torch.nn.Module):
     def __init__(self, n_subsets=3, weight=1., top_neg_percentage=0.5):
         super().__init__()
         self.n_subsets = n_subsets
-        self.criterion = torch.nn.TripletMarginLoss(margin=0.15)
+        self.criterion = torch.nn.TripletMarginLoss(margin=1)
         self.weight = weight
         self.top_neg_percentage = top_neg_percentage
 

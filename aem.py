@@ -180,18 +180,18 @@ class SimSiamLoss(torch.nn.Module):
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 
         pos_loss = (self.criterion(p1, z2) + self.criterion(p2, z1)) * 0.5
-        avg_loss_pos = self.criterion(z1, z2)
+        # avg_loss_pos = self.criterion(z1, z2)
 
-        p1, p2 = ps[neg_groups[:, 0]], ps[neg_groups[:, 1]]
+        # p1, p2 = ps[neg_groups[:, 0]], ps[neg_groups[:, 1]]
         z1, z2 = zs[neg_groups[:, 0]], zs[neg_groups[:, 1]]
 
-        neg_loss = (dist_fn(p1, z2).mean(dim=-1) + dist_fn(p2, z1).mean(dim=-1)) * 0.5
-        top_neg = len(groups)
-        idxs = torch.argsort(neg_loss, dim=-1, descending=True)[:top_neg]
+        neg_loss = self.criterion(z1, z2)
+        # top_neg = len(groups)
+        # idxs = torch.argsort(neg_loss, dim=-1, descending=True)[:top_neg]
 
-        neg_loss = torch.cat([neg_loss[idxs], avg_loss_pos.view(1,)])
-        neg_loss = F.normalize(neg_loss, dim=-1, p=1)
-        loss = 2 * pos_loss - neg_loss.mean()
+        # neg_loss = torch.cat([neg_loss[idxs], avg_loss_pos.view(1,)])
+        # neg_loss = F.normalize(neg_loss, dim=-1, p=1)
+        loss = 2 * pos_loss - neg_loss
         return loss * self.weight
 
 

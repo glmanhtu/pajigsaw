@@ -19,7 +19,7 @@ class AEMDataLoader:
         max_dataset_length = max([len(x) for x in datasets]) * 10
         self.dataloaders = []
         for dataset in datasets:
-            sampler = samplers.MPerClassSampler(dataset.data_labels, m=3, length_before_new_iter=max_dataset_length)
+            sampler = samplers.MPerClassSampler(dataset.data_labels, m=5, length_before_new_iter=max_dataset_length)
             dataloader = DataLoader(dataset, sampler=sampler, pin_memory=pin_memory, batch_size=mini_batch_size,
                                     drop_last=True, num_workers=numb_workers)
             self.dataloaders.append(dataloader)

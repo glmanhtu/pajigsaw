@@ -185,7 +185,7 @@ class SimSiamLoss(torch.nn.Module):
 
         neg_loss = (self.criterion(p1, z2).mean(dim=-1) + self.criterion(p2, z1).mean(dim=-1)) * 0.5
         idxs = torch.argsort(neg_loss, dim=-1, descending=True)[:top_n_neg]
-        neg_loss = F.normalize(neg_loss[idxs]).mean()
+        neg_loss = F.normalize(neg_loss[idxs], dim=-1).mean()
         loss = 0.7 * pos_loss - 0.3 * neg_loss
 
         return loss * self.weight

@@ -242,22 +242,22 @@ class AEMTrainer(Trainer):
         img_size = self.config.DATA.IMG_SIZE
         train_transforms = torchvision.transforms.Compose([
             ACompose([
-                A.LongestMaxSize(max_size=int(0.8 * img_size)),
+                A.LongestMaxSize(max_size=int(0.9 * img_size)),
                 A.ShiftScaleRotate(shift_limit=0, scale_limit=0.1, rotate_limit=15, p=0.5),
             ]),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
                 torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
             ], p=0.5),
-            torchvision.transforms.RandomCrop(img_size, pad_if_needed=True, fill=255),
             torchvision.transforms.RandomGrayscale(p=0.3),
+            torchvision.transforms.RandomCrop(img_size, pad_if_needed=True, fill=255),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ])
 
         val_transforms = torchvision.transforms.Compose([
             ACompose([
-                A.LongestMaxSize(max_size=int(img_size * 0.8)),
+                A.LongestMaxSize(max_size=int(img_size * 0.9)),
             ]),
             PadCenterCrop(img_size, pad_if_needed=True, fill=255),
             torchvision.transforms.ToTensor(),

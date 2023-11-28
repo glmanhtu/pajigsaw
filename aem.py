@@ -133,7 +133,7 @@ class SimSiamLoss(torch.nn.Module):
         super().__init__()
         self.n_subsets = n_subsets
         self.criterion = torch.nn.L1Loss()
-        self.triplet_criterion = torch.nn.TripletMarginLoss(margin=.05, p=1)
+        self.triplet_criterion = torch.nn.TripletMarginLoss(margin=5, p=1)
         self.weight = weight
 
     def forward(self, embeddings, targets):

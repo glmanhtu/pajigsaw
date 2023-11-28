@@ -171,15 +171,7 @@ class SimSiamLoss(torch.nn.Module):
             neg_pair_idx = torch.nonzero(neg_mask[i, :]).view(-1)
             if pos_pair_idx.shape[0] > 0 and neg_pair_idx.shape[0] > 0:
                 combinations = get_combinations(it, neg_pair_idx)
-
-                p1, p2 = ps[combinations[:, 0]], ps[combinations[:, 1]]
-                z1, z2 = zs[combinations[:, 0]], zs[combinations[:, 1]]
-
-                neg_loss = (dist_fn(p1, z2).mean(dim=-1) + dist_fn(p2, z1).mean(dim=-1)) * 0.5
-                top_neg = len(groups[-1])
-                idxs = torch.argsort(neg_loss, dim=-1, descending=True)[:top_neg]
-
-                neg_groups.append(combinations[idxs])
+                neg_groups.append(combinations)
 
         groups = torch.cat(groups, dim=0)
         neg_groups = torch.cat(neg_groups, dim=0)
@@ -193,9 +185,13 @@ class SimSiamLoss(torch.nn.Module):
         p1, p2 = ps[neg_groups[:, 0]], ps[neg_groups[:, 1]]
         z1, z2 = zs[neg_groups[:, 0]], zs[neg_groups[:, 1]]
 
-        neg_loss = (dist_fn(p1, z2).mean(-1) + dist_fn(p2, z1).mean(-1)) * 0.5
-        neg_loss = torch.cat([neg_loss, avg_loss_pos.view(1,)])
-        loss = 2 * pos_loss - F.normalize(neg_loss, dim=-1).mean()
+        neg_loss = (dist_fn(p1, z2).mean(dim=-1) + dist_fn(p2, z1).mean(dim=-1)) * 0.5
+        top_neg = len(groups)
+        idxs = torch.argsort(neg_loss, dim=-1, descending=True)[:top_neg]
+
+        neg_loss = torch.cat([neg_loss[idxs], avg_loss_pos.view(1,)])
+        neg_loss = F.normalize(neg_loss, dim=-1, p=1)
+        loss = 2 * pos_loss - neg_loss.mean()
         return loss * self.weight
 
 

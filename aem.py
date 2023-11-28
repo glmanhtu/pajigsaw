@@ -129,11 +129,12 @@ class ClassificationLoss(torch.nn.Module):
 
 
 class SimSiamLoss(torch.nn.Module):
-    def __init__(self, n_subsets=3, weight=1.):
+    def __init__(self, n_subsets=3, weight=1., top_neg_percentage=0.25):
         super().__init__()
         self.n_subsets = n_subsets
-        self.criterion = torch.nn.MSELoss()
+        self.criterion = torch.nn.MSELoss(reduction='none')
         self.weight = weight
+        self.top_neg_percentage = top_neg_percentage
 
     def forward(self, embeddings, targets):
         ps, zs = embeddings
@@ -142,21 +143,24 @@ class SimSiamLoss(torch.nn.Module):
         zs = torch.split(zs, [mini_batch] * self.n_subsets, dim=0)
         targets = torch.split(targets, [mini_batch] * self.n_subsets, dim=0)
 
+        top_n_neg = int(self.top_neg_percentage * mini_batch)
         losses = []
         for p, z, target in zip(ps, zs, targets):
-            losses.append(self.forward_impl(p, z, target))
+            losses.append(self.forward_impl(p, z, target, top_n_neg))
 
         return sum(losses) / len(losses)
 
-    def forward_impl(self, ps, zs, targets):
+    def forward_impl(self, ps, zs, targets, top_n_neg):
         n = ps.size(0)
         eyes_ = torch.eye(n, dtype=torch.bool).cuda()
         pos_mask = targets.expand(
             targets.shape[0], n
         ).t() == targets.expand(n, targets.shape[0])
+        neg_mask = ~pos_mask
         pos_mask[:, :n] = pos_mask[:, :n] * ~eyes_
 
         groups = []
+        neg_groups = []
         for i in range(n):
             it = torch.tensor([i], device=ps.device)
             pos_pair_idx = torch.nonzero(pos_mask[i, i:]).view(-1)
@@ -164,11 +168,27 @@ class SimSiamLoss(torch.nn.Module):
                 combinations = get_combinations(it, pos_pair_idx + i)
                 groups.append(combinations)
 
+            neg_pair_idx = torch.nonzero(neg_mask[i, i:]).view(-1)
+            if neg_pair_idx.shape[0] > 0:
+                combinations = get_combinations(it, neg_pair_idx + i)
+                neg_groups.append(combinations)
+
         groups = torch.cat(groups, dim=0)
         p1, p2 = ps[groups[:, 0]], ps[groups[:, 1]]
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 
-        loss = (self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
+        pos_loss = (self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
+
+        neg_groups = torch.cat(neg_groups, dim=0)
+        p1, p2 = ps[neg_groups[:, 0]], ps[neg_groups[:, 1]]
+        z1, z2 = zs[neg_groups[:, 0]], zs[neg_groups[:, 1]]
+
+        neg_loss = self.criterion(p1, z2).mean(dim=-1) + self.criterion(p2, z1).mean(dim=-1)
+        idxs = torch.argsort(neg_loss, dim=-1)[:top_n_neg]
+        neg_loss = neg_loss[idxs].mean() * 0.5
+
+        loss = pos_loss - neg_loss
+
         return loss * self.weight
 
 

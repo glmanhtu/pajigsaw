@@ -129,12 +129,11 @@ class ClassificationLoss(torch.nn.Module):
 
 
 class SimSiamLoss(torch.nn.Module):
-    def __init__(self, n_subsets=3, weight=1., top_neg_percentage=0.5):
+    def __init__(self, n_subsets=3, weight=1.):
         super().__init__()
         self.n_subsets = n_subsets
-        self.criterion = torch.nn.TripletMarginLoss(margin=1)
+        self.criterion = torch.nn.TripletMarginLoss(margin=2.)
         self.weight = weight
-        self.top_neg_percentage = top_neg_percentage
 
     def forward(self, embeddings, targets):
         ps, zs = embeddings
@@ -186,10 +185,9 @@ class SimSiamLoss(torch.nn.Module):
         neg_groups = torch.cat(neg_groups, dim=0)
 
         loss = self.criterion(ps[groups[:, 0]], zs[groups[:, 1]], zs[neg_groups[:, 1]])
-        loss += self.criterion(zs[groups[:, 0]], zs[groups[:, 1]], ps[neg_groups[:, 1]])
         loss += self.criterion(zs[groups[:, 0]], ps[groups[:, 1]], zs[neg_groups[:, 1]])
 
-        return (loss / 3.) * self.weight
+        return (loss / 2.) * self.weight
 
 
 class TripletLoss(torch.nn.Module):

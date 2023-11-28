@@ -133,7 +133,7 @@ class SimSiamLoss(torch.nn.Module):
         super().__init__()
         self.n_subsets = n_subsets
         self.criterion = torch.nn.L1Loss()
-        self.triplet_criterion = torch.nn.TripletMarginLoss(margin=5, p=1)
+        self.triplet_criterion = torch.nn.TripletMarginLoss(margin=.15, p=1)
         self.weight = weight
 
     def forward(self, embeddings, targets):
@@ -191,11 +191,9 @@ class SimSiamLoss(torch.nn.Module):
 
         pos_loss = (self.criterion(p1, z2) + self.criterion(p2, z1)) * 0.5
 
-        triplet_loss = self.triplet_criterion(p1, z2, zs[neg_groups[:, 1]])
-        triplet_loss += self.triplet_criterion(z1, z2, ps[neg_groups[:, 1]])
-        triplet_loss = triplet_loss / 2.
+        triplet_loss = self.triplet_criterion(p1, p2, ps[neg_groups[:, 1]])
 
-        loss = (pos_loss + triplet_loss) / 2
+        loss = (2 * pos_loss + triplet_loss) / 3
         return loss * self.weight
 
 

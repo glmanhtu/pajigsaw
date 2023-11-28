@@ -132,7 +132,7 @@ class SimSiamLoss(torch.nn.Module):
     def __init__(self, n_subsets=3, weight=1.):
         super().__init__()
         self.n_subsets = n_subsets
-        self.criterion = torch.nn.MSELoss()
+        self.criterion = torch.nn.L1Loss()
         self.weight = weight
 
     def forward(self, embeddings, targets):
@@ -160,7 +160,7 @@ class SimSiamLoss(torch.nn.Module):
         groups = []
         neg_groups = []
         device = ps.device
-        dist_fn = torch.nn.MSELoss(reduction='none')
+        dist_fn = torch.nn.L1Loss(reduction='none')
         for i in range(n):
             it = torch.tensor([i], device=device)
             pos_pair_idx = torch.nonzero(pos_mask[i, i:]).view(-1)
@@ -188,12 +188,13 @@ class SimSiamLoss(torch.nn.Module):
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 
         pos_loss = (self.criterion(p1, z2) + self.criterion(p2, z1)) * 0.5
+        avg_loss_pos = self.criterion(z1, z2)
 
         p1, p2 = ps[neg_groups[:, 0]], ps[neg_groups[:, 1]]
         z1, z2 = zs[neg_groups[:, 0]], zs[neg_groups[:, 1]]
 
         neg_loss = (dist_fn(p1, z2).mean(-1) + dist_fn(p2, z1).mean(-1)) * 0.5
-
+        neg_loss = torch.cat([neg_loss, avg_loss_pos.view(1,)])
         loss = pos_loss - F.normalize(neg_loss, dim=-1).mean()
         return loss * self.weight
 
@@ -377,7 +378,7 @@ class AEMTrainer(Trainer):
 
         features = {k: torch.stack(v).cuda() for k, v in features.items()}
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction,
-                                              distance_fn=torch.nn.MSELoss())
+                                              distance_fn=torch.nn.L1Loss())
 
         tms = []
         dataset_tms = set(distance_df.columns)

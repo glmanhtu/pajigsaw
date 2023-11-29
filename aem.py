@@ -280,9 +280,9 @@ class AEMTrainer(Trainer):
         transforms = self.get_transforms()[mode]
         datasets = []
         for letter in args.letters:
-            dataset_path = args.train_data_path
-            if dataset_path == '':
-                dataset_path = self.config.DATA.DATA_PATH
+            dataset_path = self.config.DATA.DATA_PATH
+            if mode == 'train' and args.train_data_path != '':
+                dataset_path = args.train_data_path
             dataset = AEMLetterDataset(dataset_path, transforms, letter)
             datasets.append(dataset)
 

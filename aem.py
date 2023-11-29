@@ -137,11 +137,11 @@ class VarianceRegularizationLoss(torch.nn.Module):
         # Calculate the variance of the output feature
         variance = torch.var(ps)
 
-        # Apply L2 regularization to the variance
-        regularization_term = torch.norm(variance, p=2)
+        # The loss is the negative variance (to encourage large variance)
+        loss = -variance
 
-        # Multiply by the weight for tuning the strength of the regularization
-        loss = self.weight * regularization_term
+        # Apply the weight to the loss
+        loss = self.weight * loss
 
         return loss
 

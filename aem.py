@@ -324,7 +324,7 @@ class AEMTrainer(Trainer):
 
             # compute output
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
-                embs = self.model(images)
+                embs, _ = self.model(images)
 
             embeddings.append(embs)
             labels.append(targets)
@@ -348,7 +348,7 @@ class AEMTrainer(Trainer):
             except:
                 self.logger.info("Found nans in input. Skipping PCA!")
 
-        embeddings = F.normalize(embeddings, p=2, dim=1)
+        # embeddings = F.normalize(embeddings, p=2, dim=1)
         features = {}
         for feature, target in zip(embeddings, labels.numpy()):
             tm = data_loader.dataset.labels[target]

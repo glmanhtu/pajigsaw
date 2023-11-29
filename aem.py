@@ -135,10 +135,10 @@ class VarianceRegularizationLoss(torch.nn.Module):
     def forward(self, output_feature, targets):
         ps, zs = output_feature
         # Calculate the variance of the output feature
-        variance = torch.var(ps)
+        variance = torch.var(ps, dim=-1)
 
         # The loss is the negative variance (to encourage large variance)
-        loss = -variance
+        loss = -variance.mean()
 
         # Apply the weight to the loss
         loss = self.weight * loss

@@ -320,7 +320,7 @@ class AEMTrainer(Trainer):
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
                 embs = self.model(images)
                 if self.is_simsiam():
-                    embs, _ = embs
+                    _, embs = embs
 
             embeddings.append(embs)
             labels.append(targets)

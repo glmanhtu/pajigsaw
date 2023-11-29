@@ -31,6 +31,7 @@ def parse_option():
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
     parser.add_argument('--data-path', type=str, help='path to dataset')
+    parser.add_argument('--train-data-path', type=str, help='Optional different train set', default='')
     parser.add_argument('--resume', help='resume from checkpoint')
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
     parser.add_argument('--use-checkpoint', action='store_true',
@@ -279,7 +280,10 @@ class AEMTrainer(Trainer):
         transforms = self.get_transforms()[mode]
         datasets = []
         for letter in args.letters:
-            dataset = AEMLetterDataset(self.config.DATA.DATA_PATH, transforms, letter)
+            dataset_path = args.train_data_path
+            if dataset_path == '':
+                dataset_path = self.config.DATA.DATA_PATH
+            dataset = AEMLetterDataset(dataset_path, transforms, letter)
             datasets.append(dataset)
 
         data_loader = []

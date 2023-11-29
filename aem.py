@@ -331,6 +331,7 @@ class AEMTrainer(Trainer):
             end = time.time()
 
         embeddings = torch.cat(embeddings)
+        labels = torch.cat(labels)
 
         if args.use_pca:
             pca = PCA(self.config.PCA.DIM, whiten=True)
@@ -344,9 +345,7 @@ class AEMTrainer(Trainer):
             except:
                 self.logger.info("Found nans in input. Skipping PCA!")
 
-        # embeddings = F.normalize(embeddings, p=2, dim=1)
-        labels = torch.cat(labels)
-
+        embeddings = F.normalize(embeddings, p=2, dim=1)
         features = {}
         for feature, target in zip(embeddings, labels.numpy()):
             tm = data_loader.dataset.labels[target]

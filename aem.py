@@ -344,7 +344,7 @@ class AEMTrainer(Trainer):
             except:
                 self.logger.info("Found nans in input. Skipping PCA!")
 
-        embeddings = F.normalize(embeddings, p=2, dim=1)
+        # embeddings = F.normalize(embeddings, p=2, dim=1)
         labels = torch.cat(labels)
 
         features = {}

@@ -252,6 +252,8 @@ class AEMTrainer(Trainer):
                 torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
             ], p=0.5),
             torchvision.transforms.RandomGrayscale(p=0.3),
+            torchvision.transforms.RandomHorizontalFlip(),
+            torchvision.transforms.RandomVerticalFlip(),
             torchvision.transforms.RandomCrop(img_size, pad_if_needed=True, fill=255),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),

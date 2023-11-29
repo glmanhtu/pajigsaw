@@ -33,7 +33,6 @@ def parse_option():
     parser.add_argument('--data-path', type=str, help='path to dataset')
     parser.add_argument('--resume', help='resume from checkpoint')
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
-    parser.add_argument('--combine-loss-weight', type=float, default=0.7)
     parser.add_argument('--use-checkpoint', action='store_true',
                         help="whether to use gradient checkpointing to save memory")
     parser.add_argument('--distance-reduction', type=str, default='mean')
@@ -126,6 +125,24 @@ class ClassificationLoss(torch.nn.Module):
 
         labels = torch.cat(labels, dim=0)
         return self.criterion(ps, labels) * self.weight
+
+
+class VarianceRegularizationLoss(torch.nn.Module):
+    def __init__(self, weight=1.0):
+        super(VarianceRegularizationLoss, self).__init__()
+        self.weight = weight
+
+    def forward(self, output_feature):
+        # Calculate the variance of the output feature
+        variance = torch.var(output_feature)
+
+        # Apply L2 regularization to the variance
+        regularization_term = torch.norm(variance, p=2)
+
+        # Multiply by the weight for tuning the strength of the regularization
+        loss = self.weight * regularization_term
+
+        return loss
 
 
 class SimSiamLoss(torch.nn.Module):
@@ -299,9 +316,10 @@ class AEMTrainer(Trainer):
 
     def get_criterion(self):
         if self.is_simsiam():
-            ssl = SimSiamLoss(n_subsets=len(args.letters), weight=args.combine_loss_weight)
-            cls = ClassificationLoss(n_subsets=len(args.letters), weight=1 - args.combine_loss_weight)
-            return LossCombination([ssl, cls])
+            vrl = VarianceRegularizationLoss(weight=0.15)
+            ssl = SimSiamLoss(n_subsets=len(args.letters), weight=0.6)
+            cls = ClassificationLoss(n_subsets=len(args.letters), weight=0.25)
+            return LossCombination([ssl, vrl, cls])
         return TripletLoss(margin=0.15, n_subsets=len(args.letters))
 
     def is_simsiam(self):

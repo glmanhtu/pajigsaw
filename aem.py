@@ -127,25 +127,6 @@ class ClassificationLoss(torch.nn.Module):
         return self.criterion(ps, labels) * self.weight
 
 
-class VarianceRegularizationLoss(torch.nn.Module):
-    def __init__(self, weight=1.0):
-        super(VarianceRegularizationLoss, self).__init__()
-        self.weight = weight
-
-    def forward(self, output_feature, targets):
-        ps, zs = output_feature
-        # Calculate the variance of the output feature
-        variance = torch.var(ps, dim=-1)
-
-        # The loss is the negative variance (to encourage large variance)
-        loss = -variance.mean()
-
-        # Apply the weight to the loss
-        loss = self.weight * loss
-
-        return loss
-
-
 class SimSiamLoss(torch.nn.Module):
     def __init__(self, n_subsets=3, weight=1.):
         super().__init__()
@@ -263,15 +244,15 @@ class AEMTrainer(Trainer):
         train_transforms = torchvision.transforms.Compose([
             ACompose([
                 A.LongestMaxSize(max_size=img_size),
-                A.ShiftScaleRotate(shift_limit=0, scale_limit=0.1, rotate_limit=15, p=0.5),
+                A.ShiftScaleRotate(shift_limit=0, scale_limit=0.15, rotate_limit=20, p=0.5),
             ]),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
                 torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
             ], p=0.5),
             torchvision.transforms.RandomGrayscale(p=0.3),
-            torchvision.transforms.RandomHorizontalFlip(),
-            torchvision.transforms.RandomVerticalFlip(),
+            # torchvision.transforms.RandomHorizontalFlip(),
+            # torchvision.transforms.RandomVerticalFlip(),
             torchvision.transforms.RandomCrop(img_size, pad_if_needed=True, fill=255),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
@@ -317,10 +298,9 @@ class AEMTrainer(Trainer):
 
     def get_criterion(self):
         if self.is_simsiam():
-            vrl = VarianceRegularizationLoss(weight=0.15)
-            ssl = SimSiamLoss(n_subsets=len(args.letters), weight=0.6)
-            cls = ClassificationLoss(n_subsets=len(args.letters), weight=0.25)
-            return LossCombination([ssl, vrl, cls])
+            ssl = SimSiamLoss(n_subsets=len(args.letters), weight=0.7)
+            cls = ClassificationLoss(n_subsets=len(args.letters), weight=0.3)
+            return LossCombination([ssl, cls])
         return TripletLoss(margin=0.15, n_subsets=len(args.letters))
 
     def is_simsiam(self):

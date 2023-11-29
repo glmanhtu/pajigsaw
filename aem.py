@@ -133,8 +133,9 @@ class VarianceRegularizationLoss(torch.nn.Module):
         self.weight = weight
 
     def forward(self, output_feature, targets):
+        ps, zs = output_feature
         # Calculate the variance of the output feature
-        variance = torch.var(output_feature)
+        variance = torch.var(ps)
 
         # Apply L2 regularization to the variance
         regularization_term = torch.norm(variance, p=2)

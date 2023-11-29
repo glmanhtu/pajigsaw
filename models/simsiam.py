@@ -9,6 +9,13 @@ import torch.nn as nn
 from torchvision import models
 
 
+class EvalIdentitySequential(nn.Sequential):
+    def forward(self, input):
+        if not self.training:
+            return input
+        return super().forward(input)
+
+
 class SimSiam(nn.Module):
     """
     Build a SimSiam model.
@@ -35,7 +42,7 @@ class SimSiam(nn.Module):
 
         # build a 3-layer projector
         prev_dim = self.encoder.fc.weight.shape[1]
-        self.encoder.fc = nn.Sequential(nn.Linear(prev_dim, prev_dim, bias=False),
+        self.encoder.fc = EvalIdentitySequential(nn.Linear(prev_dim, prev_dim, bias=False),
                                         nn.BatchNorm1d(prev_dim),
                                         nn.ReLU(inplace=True), # first layer
                                         nn.Dropout(p=dropout),
@@ -75,5 +82,7 @@ class SimSiam(nn.Module):
 class SimSiamV2(SimSiam):
     def forward(self, x):
         z1 = self.encoder(x) # NxC
+        if not self.training:
+            return z1
         p1 = self.predictor(z1) # NxC
         return p1, z1.detach()

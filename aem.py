@@ -1,4 +1,5 @@
 import argparse
+import copy
 import json
 import time
 
@@ -245,7 +246,7 @@ class AEMTrainer(Trainer):
         train_transforms = torchvision.transforms.Compose([
             ACompose([
                 A.LongestMaxSize(max_size=img_size),
-                A.ShiftScaleRotate(shift_limit=0, scale_limit=0.15, rotate_limit=20, p=0.5),
+                A.ShiftScaleRotate(shift_limit=0, scale_limit=0.1, rotate_limit=15, p=0.5),
             ]),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
@@ -324,8 +325,6 @@ class AEMTrainer(Trainer):
             # compute output
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
                 embs = self.model(images)
-                if self.is_simsiam():
-                    embs, _ = embs
 
             embeddings.append(embs)
             labels.append(targets)
@@ -361,15 +360,14 @@ class AEMTrainer(Trainer):
 
         tms = []
         dataset_tms = set(distance_df.columns)
-        positive_pairs, _ = triplet_def
+        positive_pairs, _ = copy.deepcopy(triplet_def)
         for tm in list(positive_pairs.keys()):
             if tm not in dataset_tms:
                 del positive_pairs[tm]
             else:
                 positive_pairs[tm] = positive_pairs[tm].intersection(dataset_tms)
-        for tm in positive_pairs:
-            if len(positive_pairs[tm]) > 1:
-                tms.append(tm)
+                if len(positive_pairs[tm]) > 1:
+                    tms.append(tm)
 
         categories = sorted(tms)
         distance_df = distance_df.loc[categories, categories]

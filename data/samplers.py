@@ -8,7 +8,9 @@ import math
 from typing import Iterator, Optional
 from itertools import chain
 
+import numpy as np
 import torch
+from pytorch_metric_learning.utils import common_functions
 from torch.utils.data import Sampler, DistributedSampler, Dataset
 import torch.distributed as dist
 
@@ -253,3 +255,54 @@ class DistributedEvalSampler(Sampler):
             epoch (int): _epoch number.
         """
         self.epoch = epoch
+
+
+class MPerClassSampler(Sampler):
+    """
+    At every iteration, this will return m samples per class. For example,
+    if dataloader's batchsize is 100, and m = 5, then 20 classes with 5 samples
+    each will be returned
+    """
+
+    def __init__(self, labels, m, batch_size=None, length_before_new_iter=100000):
+        if isinstance(labels, torch.Tensor):
+            labels = labels.numpy()
+        self.m_per_class = int(m)
+        self.batch_size = int(batch_size) if batch_size is not None else batch_size
+        self.labels_to_indices = common_functions.get_labels_to_indices(labels)
+        self.labels = list(self.labels_to_indices.keys())
+        self.length_of_single_pass = self.m_per_class * len(self.labels)
+        self.list_size = length_before_new_iter
+        if self.batch_size is None:
+            if self.length_of_single_pass < self.list_size:
+                self.list_size -= (self.list_size) % (self.length_of_single_pass)
+        else:
+            assert self.list_size >= self.batch_size
+            assert (
+                self.length_of_single_pass >= self.batch_size
+            ), "m * (number of unique labels) must be >= batch_size"
+            assert (
+                self.batch_size % self.m_per_class
+            ) == 0, "m_per_class must divide batch_size without any remainder"
+            self.list_size -= self.list_size % self.batch_size
+
+    def __len__(self):
+        return self.list_size
+
+    def __iter__(self):
+        idx_list = np.array([], dtype=np.int64)
+        while len(idx_list) < self.list_size:
+            common_functions.NUMPY_RANDOM.shuffle(self.labels)
+            if self.batch_size is None:
+                curr_label_set = self.labels
+            else:
+                curr_label_set = self.labels[: self.batch_size // self.m_per_class]
+            for label in curr_label_set:
+                t = self.labels_to_indices[label]
+                n_items_remaining = self.list_size - len(idx_list)
+                if n_items_remaining == 0:
+                    break
+                size = min(self.m_per_class, len(t), n_items_remaining)
+                items = common_functions.NUMPY_RANDOM.choice(t, size)
+                idx_list = np.concatenate([idx_list, items], axis=0)
+        return iter(idx_list.tolist())

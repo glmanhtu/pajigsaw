@@ -120,6 +120,9 @@ class ClassificationLoss(torch.nn.Module):
         self.weight = weight
 
     def forward(self, embeddings, targets):
+        if self.n_subsets == 1:
+            return 0.
+
         ps, _ = embeddings
         mini_batch = len(targets) // self.n_subsets
 

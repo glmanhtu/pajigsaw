@@ -391,12 +391,13 @@ class AEMTrainer(Trainer):
         self.model.eval()
         mode = 'validation'
         final_map, final_top1, final_pra5 = [], [], []
-        for idx, dataloader in enumerate(self.get_dataloader(mode)):
+        dataloaders = self.get_dataloader(mode)
+        for idx, letter in enumerate(args.letters):
             triplet_def = load_triplet_file(args.triplet_files[idx], args.with_likely)
 
-            m_ap, top1, pra5, tms = self.validate_dataloader(dataloader, triplet_def)
+            m_ap, top1, pra5, tms = self.validate_dataloader(dataloaders[idx], triplet_def)
             self.logger.info(
-                f'Letter {args.letters[idx]}:\t'
+                f'Letter {letter}:\t'
                 f'N TMs: {len(tms)}\t' 
                 f'mAP {m_ap:.4f}\t'
                 f'top1 {top1:.3f}\t'

@@ -16,12 +16,12 @@ class AEMDataLoader:
         def set_epoch(self, _):
             return
 
-    def __init__(self, datasets, batch_size, numb_workers, pin_memory):
+    def __init__(self, datasets, batch_size, m, numb_workers, pin_memory):
         mini_batch_size = batch_size // len(datasets)
         max_dataset_length = max([len(x) for x in datasets]) * 10
         self.dataloaders = []
         for dataset in datasets:
-            sampler = MPerClassSampler(dataset.data_labels, m=5, length_before_new_iter=max_dataset_length)
+            sampler = MPerClassSampler(dataset.data_labels, m=m, length_before_new_iter=max_dataset_length)
             dataloader = DataLoader(dataset, sampler=sampler, pin_memory=pin_memory, batch_size=mini_batch_size,
                                     drop_last=True, num_workers=numb_workers)
             self.dataloaders.append(dataloader)

@@ -31,6 +31,7 @@ def parse_option():
 
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
+    parser.add_argument('--m-per-class', type=int, default=5, help='number of samples per category')
     parser.add_argument('--data-path', type=str, help='path to dataset')
     parser.add_argument('--train-data-path', type=str, help='Optional different train set', default='')
     parser.add_argument('--resume', help='resume from checkpoint')
@@ -287,6 +288,7 @@ class AEMTrainer(Trainer):
         data_loader = []
         if mode == 'train':
             data_loader = AEMDataLoader(datasets, batch_size=self.config.DATA.BATCH_SIZE,
+                                        m=args.m_per_class,
                                         numb_workers=self.config.DATA.NUM_WORKERS,
                                         pin_memory=self.config.DATA.PIN_MEMORY)
         else:

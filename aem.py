@@ -1,4 +1,5 @@
 import argparse
+import copy
 import json
 import time
 
@@ -31,6 +32,7 @@ def parse_option():
     # easy config modification
     parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
     parser.add_argument('--data-path', type=str, help='path to dataset')
+    parser.add_argument('--train-data-path', type=str, help='Optional different train set', default='')
     parser.add_argument('--resume', help='resume from checkpoint')
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
     parser.add_argument('--combine-loss-weight', type=float, default=0.7)
@@ -276,7 +278,10 @@ class AEMTrainer(Trainer):
         transforms = self.get_transforms()[mode]
         datasets = []
         for letter in args.letters:
-            dataset = AEMLetterDataset(self.config.DATA.DATA_PATH, transforms, letter)
+            dataset_path = self.config.DATA.DATA_PATH
+            if mode == 'train' and args.train_data_path != '':
+                dataset_path = args.train_data_path
+            dataset = AEMLetterDataset(dataset_path, transforms, letter)
             datasets.append(dataset)
 
         data_loader = []
@@ -328,6 +333,7 @@ class AEMTrainer(Trainer):
             end = time.time()
 
         embeddings = torch.cat(embeddings)
+        labels = torch.cat(labels)
 
         if args.use_pca:
             pca = PCA(self.config.PCA.DIM, whiten=True)
@@ -342,8 +348,6 @@ class AEMTrainer(Trainer):
                 self.logger.info("Found nans in input. Skipping PCA!")
 
         embeddings = F.normalize(embeddings, p=2, dim=1)
-        labels = torch.cat(labels)
-
         features = {}
         for feature, target in zip(embeddings, labels.numpy()):
             tm = data_loader.dataset.labels[target]
@@ -355,15 +359,14 @@ class AEMTrainer(Trainer):
 
         tms = []
         dataset_tms = set(distance_df.columns)
-        positive_pairs, _ = triplet_def
+        positive_pairs, _ = copy.deepcopy(triplet_def)
         for tm in list(positive_pairs.keys()):
             if tm not in dataset_tms:
                 del positive_pairs[tm]
             else:
                 positive_pairs[tm] = positive_pairs[tm].intersection(dataset_tms)
-        for tm in positive_pairs:
-            if len(positive_pairs[tm]) > 1:
-                tms.append(tm)
+                if len(positive_pairs[tm]) > 1:
+                    tms.append(tm)
 
         categories = sorted(tms)
         distance_df = distance_df.loc[categories, categories]

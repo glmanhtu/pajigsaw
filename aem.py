@@ -348,7 +348,7 @@ class AEMTrainer(Trainer):
             except:
                 self.logger.info("Found nans in input. Skipping PCA!")
 
-        # embeddings = F.normalize(embeddings, p=2, dim=1)
+        embeddings = F.normalize(embeddings, p=2, dim=1)
         features = {}
         for feature, target in zip(embeddings, labels.numpy()):
             tm = data_loader.dataset.labels[target]

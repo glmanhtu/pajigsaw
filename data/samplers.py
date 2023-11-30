@@ -303,6 +303,6 @@ class MPerClassSampler(Sampler):
                 if n_items_remaining == 0:
                     break
                 size = min(self.m_per_class, len(t), n_items_remaining)
-                items = common_functions.NUMPY_RANDOM.choice(t, size)
+                items = common_functions.NUMPY_RANDOM.choice(t, size, replace=False)
                 idx_list = np.concatenate([idx_list, items], axis=0)
         return iter(idx_list.tolist())

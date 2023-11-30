@@ -14,7 +14,7 @@ from sklearn.decomposition import PCA
 from data.datasets.aem_dataset import AEMLetterDataset, AEMDataLoader
 from data.transforms import PadCenterCrop, ACompose
 from misc.engine import Trainer
-from misc.losses import LossCombination
+from misc.losses import LossCombination, NegativeCosineSimilarityLoss
 from misc.metric import calc_map_prak
 from misc.utils import AverageMeter, compute_distance_matrix, get_combinations
 
@@ -134,15 +134,6 @@ class ClassificationLoss(torch.nn.Module):
         return self.criterion(ps, labels) * self.weight
 
 
-class NegativeCosineSimilarityLoss(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.criterion = torch.nn.CosineSimilarity(dim=1)
-
-    def forward(self, predict, actual):
-        return -self.criterion(predict, actual).mean()
-
-
 class SimSiamLoss(torch.nn.Module):
     def __init__(self, n_subsets=3, weight=1.):
         super().__init__()
@@ -183,7 +174,7 @@ class SimSiamLoss(torch.nn.Module):
         p1, p2 = ps[groups[:, 0]], ps[groups[:, 1]]
         z1, z2 = zs[groups[:, 0]], zs[groups[:, 1]]
 
-        loss = (self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
+        loss = (self.criterion(p1, z2) + self.criterion(p2, z1)) * 0.5
         return loss * self.weight
 
 
@@ -361,7 +352,7 @@ class AEMTrainer(Trainer):
             except:
                 self.logger.info("Found nans in input. Skipping PCA!")
 
-        embeddings = F.normalize(embeddings, p=2, dim=1)
+        # embeddings = F.normalize(embeddings, p=2, dim=1)
         features = {}
         for feature, target in zip(embeddings, labels.numpy()):
             tm = data_loader.dataset.labels[target]
@@ -373,22 +364,18 @@ class AEMTrainer(Trainer):
 
         tms = []
         dataset_tms = set(distance_df.columns)
-        positive_pairs, _ = copy.deepcopy(triplet_def)
+        positive_pairs, negative_pairs = copy.deepcopy(triplet_def)
         for tm in list(positive_pairs.keys()):
-            if tm not in dataset_tms:
-                del positive_pairs[tm]
-            else:
-                positive_pairs[tm] = positive_pairs[tm].intersection(dataset_tms)
-                if len(positive_pairs[tm]) > 1:
+            if tm in dataset_tms:
+                positive_tms = positive_pairs[tm].intersection(dataset_tms)
+                if len(positive_tms) > 1:
                     tms.append(tm)
 
         categories = sorted(tms)
         distance_df = distance_df.loc[categories, categories]
 
-        positive_pairs, negative_pairs = triplet_def
         distance_matrix = distance_df.to_numpy()
-        labels = distance_df.columns
-        m_ap, (top_1, pr_a_k5) = calc_map_prak(distance_matrix, labels, positive_pairs, negative_pairs)
+        m_ap, (top_1, pr_a_k5) = calc_map_prak(distance_matrix, distance_df.columns, positive_pairs, negative_pairs)
 
         mAP_meter.update(m_ap)
         top1_meter.update(top_1)

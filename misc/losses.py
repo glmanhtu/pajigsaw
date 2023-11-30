@@ -12,3 +12,12 @@ class LossCombination(torch.nn.Module):
             losses.append(criterion(embeddings, targets))
 
         return sum(losses)
+
+
+class NegativeCosineSimilarityLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.criterion = torch.nn.CosineSimilarity(dim=1)
+
+    def forward(self, predict, actual):
+        return -self.criterion(predict, actual).mean()

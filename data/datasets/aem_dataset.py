@@ -71,7 +71,7 @@ class AEMLetterDataset(Dataset):
 
         for tm in list(tms.keys()):
             if len(tms[tm]) < 2:
-                del tms[tm]
+                tms[tm] = []
 
         self.labels = sorted(tms.keys())
         self.__label_idxes = {k: i for i, k in enumerate(self.labels)}

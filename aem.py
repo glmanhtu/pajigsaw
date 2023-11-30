@@ -131,11 +131,20 @@ class ClassificationLoss(torch.nn.Module):
         return self.criterion(ps, labels) * self.weight
 
 
+class NegativeCosineSimilarityLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.criterion = torch.nn.CosineSimilarity(dim=1)
+
+    def forward(self, predict, actual):
+        return -self.criterion(predict, actual).mean()
+
+
 class SimSiamLoss(torch.nn.Module):
     def __init__(self, n_subsets=3, weight=1.):
         super().__init__()
         self.n_subsets = n_subsets
-        self.criterion = torch.nn.MSELoss()
+        self.criterion = NegativeCosineSimilarityLoss()
         self.weight = weight
 
     def forward(self, embeddings, targets):

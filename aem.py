@@ -123,15 +123,15 @@ class ClassificationLoss(torch.nn.Module):
         if self.n_subsets == 1:
             return 0.
 
-        ps, _ = embeddings
+        _, _, cls = embeddings
         mini_batch = len(targets) // self.n_subsets
 
         labels = []
         for i in range(self.n_subsets):
-            labels.append(torch.tensor([i] * mini_batch, device=ps.device, dtype=torch.int64))
+            labels.append(torch.tensor([i] * mini_batch, device=cls.device, dtype=torch.int64))
 
         labels = torch.cat(labels, dim=0)
-        return self.criterion(ps, labels) * self.weight
+        return self.criterion(cls, labels) * self.weight
 
 
 class SimSiamLoss(torch.nn.Module):
@@ -142,7 +142,7 @@ class SimSiamLoss(torch.nn.Module):
         self.weight = weight
 
     def forward(self, embeddings, targets):
-        ps, zs = embeddings
+        ps, zs, _ = embeddings
         mini_batch = len(targets) // self.n_subsets
         ps = torch.split(ps, [mini_batch] * self.n_subsets, dim=0)
         zs = torch.split(zs, [mini_batch] * self.n_subsets, dim=0)
@@ -311,7 +311,7 @@ class AEMTrainer(Trainer):
         return TripletLoss(margin=0.15, n_subsets=len(args.letters))
 
     def is_simsiam(self):
-        return self.config.MODEL.TYPE == 'ss2'
+        return 'ss' in self.config.MODEL.TYPE
 
     def validate_dataloader(self, data_loader, triplet_def):
         batch_time = AverageMeter()
@@ -328,7 +328,7 @@ class AEMTrainer(Trainer):
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
                 embs = self.model(images)
                 if self.is_simsiam():
-                    embs, _ = embs
+                    embs, _, _ = embs
 
             embeddings.append(embs)
             labels.append(targets)

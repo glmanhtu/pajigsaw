@@ -1,6 +1,7 @@
 import argparse
 import copy
 import json
+import os.path
 import time
 
 import albumentations as A
@@ -361,6 +362,8 @@ class AEMTrainer(Trainer):
         features = {k: torch.stack(v).cuda() for k, v in features.items()}
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction,
                                               distance_fn=NegativeCosineSimilarityLoss())
+        distance_file = os.path.join(self.config.OUTPUT, 'distance_matrix.csv')
+        distance_df.to_csv(distance_file)
 
         tms = []
         dataset_tms = set(distance_df.columns)

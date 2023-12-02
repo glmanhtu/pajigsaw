@@ -100,7 +100,7 @@ class AEMLetterDataset(Dataset):
         for tm_id in similarity_matrix.columns:
             tm_similarity = similarity_matrix[tm_id]
             positives = tm_similarity[tm_similarity < -0.7].keys().to_numpy()
-            negatives = tm_similarity[tm_similarity > 0.2].keys().to_numpy()
+            negatives = tm_similarity[tm_similarity > -0.1].keys().to_numpy()
             results[tm_id] = torch.from_numpy(positives).cuda(), torch.from_numpy(negatives).cuda()
         return results
 

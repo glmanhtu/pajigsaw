@@ -198,7 +198,8 @@ class TripletMiningLoss(torch.nn.Module):
         return sum(losses) / len(losses)
 
     def forward_impl(self, features, targets, distance_pairs):
-        groups = []
+        pos_groups = []
+        neg_groups = []
         for idx, target in enumerate(targets.cpu().numpy()):
             it = torch.tensor([idx], device=features.device)
             pos_mask = torch.isin(targets, distance_pairs[target][0])
@@ -206,14 +207,15 @@ class TripletMiningLoss(torch.nn.Module):
             pos_pair_idx = torch.nonzero(pos_mask).view(-1)
             neg_mask = torch.isin(targets, distance_pairs[target][1])
             neg_pair_idx = torch.nonzero(neg_mask).view(-1)
-            groups.append(torch.cartesian_prod(it, pos_pair_idx, neg_pair_idx))
+            pos_groups.append(get_combinations(it, pos_pair_idx))
+            neg_groups.append(get_combinations(it, neg_pair_idx))
 
-        groups = torch.cat(groups, dim=0)
-        anchor = features[groups[:, 0]]
-        positive = features[groups[:, 1]]
-        negative = features[groups[:, 2]]
+        pos_groups = torch.cat(pos_groups, dim=0)
+        neg_groups = torch.cat(neg_groups, dim=0)
+        pos_loss = self.criterion(features[pos_groups[:, 0]], features[pos_groups[:, 1]])
+        neg_loss = self.criterion(features[neg_groups[:, 0]], features[neg_groups[:, 1]])
 
-        return 0.7 * self.criterion(anchor, positive) - 0.3 * self.criterion(anchor, negative)
+        return 0.7 * pos_loss - 0.3 * neg_loss
 
 
 class TripletLoss(torch.nn.Module):

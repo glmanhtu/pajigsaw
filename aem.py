@@ -221,7 +221,7 @@ class TripletMiningLoss(torch.nn.Module):
                 pos_pair = pos_pair_[select_pos_pair_idx]
 
                 select_neg_pair_idx = torch.nonzero(
-                    neg_pair_ > max(0.6, pos_pair_[-1]) - self.margin
+                    neg_pair_ > pos_pair_[-1] - self.margin
                 ).view(-1)
                 neg_pair = neg_pair_[select_neg_pair_idx]
 

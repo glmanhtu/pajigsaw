@@ -184,7 +184,7 @@ class TripletMiningLoss(torch.nn.Module):
     def __init__(self, distance_map, margin=0.15, n_subsets=3):
         super().__init__()
         self.distance_map = distance_map
-        self.criterion = torch.nn.TripletMarginLoss(margin=margin)
+        self.margin = margin
         self.n_subsets = n_subsets
 
     def forward(self, emb, target):
@@ -198,22 +198,43 @@ class TripletMiningLoss(torch.nn.Module):
         return sum(losses) / len(losses)
 
     def forward_impl(self, features, targets, distance_pairs):
-        groups = []
+        # Compute similarity matrix
+        sim_mat = torch.matmul(features, features.t())
+        loss = list()
         for idx, target in enumerate(targets.cpu().numpy()):
-            it = torch.tensor([idx], device=features.device)
             pos_mask = torch.isin(targets, distance_pairs[target][0])
             pos_mask[idx] = False   # Excluding self
             pos_pair_idx = torch.nonzero(pos_mask).view(-1)
+
             neg_mask = torch.isin(targets, distance_pairs[target][1])
             neg_pair_idx = torch.nonzero(neg_mask).view(-1)
-            groups.append(torch.cartesian_prod(it, pos_pair_idx, neg_pair_idx))
+            if pos_pair_idx.shape[0] > 0:
+                pos_pair_ = sim_mat[idx, pos_pair_idx]
+                pos_pair_ = torch.sort(pos_pair_)[0]
 
-        groups = torch.cat(groups, dim=0)
-        anchor = features[groups[:, 0]]
-        positive = features[groups[:, 1]]
-        negative = features[groups[:, 2]]
+                neg_pair_ = sim_mat[idx, neg_pair_idx]
+                neg_pair_ = torch.sort(neg_pair_)[0]
 
-        return self.criterion(anchor, positive, negative)
+                select_pos_pair_idx = torch.nonzero(
+                    pos_pair_ < neg_pair_[-1] + self.margin
+                ).view(-1)
+                pos_pair = pos_pair_[select_pos_pair_idx]
+
+                select_neg_pair_idx = torch.nonzero(
+                    neg_pair_ > max(0.6, pos_pair_[-1]) - self.margin
+                ).view(-1)
+                neg_pair = neg_pair_[select_neg_pair_idx]
+
+                pos_loss = torch.sum(1 - pos_pair)
+                if len(neg_pair) >= 1:
+                    neg_loss = torch.sum(neg_pair)
+                else:
+                    neg_loss = 0
+                loss.append(pos_loss + neg_loss)
+            else:
+                loss.append(0)
+
+        return sum(loss) / len(loss)
 
 
 class TripletLoss(torch.nn.Module):
@@ -349,7 +370,7 @@ class AEMTrainer(Trainer):
 
     def get_criterion(self):
         if args.distance_file is not None:
-            return TripletMiningLoss(self.gt_registry, margin=1., n_subsets=len(args.letters))
+            return TripletMiningLoss(self.gt_registry, margin=0.2, n_subsets=len(args.letters))
         if self.is_simsiam():
             ssl = SimSiamLoss(n_subsets=len(args.letters), weight=args.combine_loss_weight)
             cls = ClassificationLoss(n_subsets=len(args.letters), weight=1 - args.combine_loss_weight)

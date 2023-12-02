@@ -349,7 +349,7 @@ class AEMTrainer(Trainer):
 
     def get_criterion(self):
         if args.distance_file is not None:
-            return TripletMiningLoss(self.gt_registry, margin=2., n_subsets=len(args.letters))
+            return TripletMiningLoss(self.gt_registry, margin=1.5, n_subsets=len(args.letters))
         if self.is_simsiam():
             ssl = SimSiamLoss(n_subsets=len(args.letters), weight=args.combine_loss_weight)
             cls = ClassificationLoss(n_subsets=len(args.letters), weight=1 - args.combine_loss_weight)
@@ -406,7 +406,7 @@ class AEMTrainer(Trainer):
 
         features = {k: torch.stack(v).cuda() for k, v in features.items()}
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction,
-                                              distance_fn=NegativeCosineSimilarityLoss())
+                                              distance_fn=torch.nn.MSELoss())
         distance_file = os.path.join(self.config.OUTPUT, 'distance_matrix.csv')
         distance_df.to_csv(distance_file)
 

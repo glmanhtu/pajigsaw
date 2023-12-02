@@ -348,12 +348,12 @@ class AEMTrainer(Trainer):
 
     def get_criterion(self):
         if args.distance_file is not None:
-            return TripletMiningLoss(self.gt_registry, margin=0.15, n_subsets=len(args.letters))
+            return TripletMiningLoss(self.gt_registry, margin=0.5, n_subsets=len(args.letters))
         if self.is_simsiam():
             ssl = SimSiamLoss(n_subsets=len(args.letters), weight=args.combine_loss_weight)
             cls = ClassificationLoss(n_subsets=len(args.letters), weight=1 - args.combine_loss_weight)
             return LossCombination([ssl, cls])
-        return TripletLoss(margin=0.5, n_subsets=len(args.letters))
+        return TripletLoss(margin=0.2, n_subsets=len(args.letters))
 
     def is_simsiam(self):
         return 'ss' in self.config.MODEL.TYPE

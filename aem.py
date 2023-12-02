@@ -202,6 +202,7 @@ class TripletMiningLoss(torch.nn.Module):
         for idx, target in enumerate(targets.cpu().numpy()):
             it = torch.tensor([idx], device=features.device)
             pos_mask = torch.isin(targets, distance_pairs[target][0])
+            pos_mask[idx] = False   # Excluding self
             pos_pair_idx = torch.nonzero(pos_mask).view(-1)
             neg_mask = torch.isin(targets, distance_pairs[target][1])
             neg_pair_idx = torch.nonzero(neg_mask).view(-1)

@@ -353,7 +353,7 @@ class AEMTrainer(Trainer):
             ssl = SimSiamLoss(n_subsets=len(args.letters), weight=args.combine_loss_weight)
             cls = ClassificationLoss(n_subsets=len(args.letters), weight=1 - args.combine_loss_weight)
             return LossCombination([ssl, cls])
-        return TripletLoss(margin=0.15, n_subsets=len(args.letters))
+        return TripletLoss(margin=0.5, n_subsets=len(args.letters))
 
     def is_simsiam(self):
         return 'ss' in self.config.MODEL.TYPE

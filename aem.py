@@ -34,6 +34,7 @@ def parse_option():
     parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
     parser.add_argument('--m-per-class', type=int, default=5, help='number of samples per category')
     parser.add_argument('--data-path', type=str, help='path to dataset')
+    parser.add_argument('--distance-file', type=str, help='path to distance file', default=None)
     parser.add_argument('--train-data-path', type=str, help='Optional different train set', default='')
     parser.add_argument('--resume', help='resume from checkpoint')
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
@@ -179,6 +180,41 @@ class SimSiamLoss(torch.nn.Module):
         return loss * self.weight
 
 
+class TripletMiningLoss(torch.nn.Module):
+    def __init__(self, distance_map, margin=0.15, n_subsets=3):
+        super().__init__()
+        self.distance_map = distance_map
+        self.criterion = torch.nn.TripletMarginLoss(margin=margin)
+        self.n_subsets = n_subsets
+
+    def forward(self, emb, target):
+        mini_batch = len(emb) // self.n_subsets
+        embeddings = torch.split(emb, [mini_batch] * self.n_subsets, dim=0)
+        targets = torch.split(target, [mini_batch] * self.n_subsets, dim=0)
+        losses = []
+        for sub_emb, sub_target, letter in zip(embeddings, targets, args.letters):
+            losses.append(self.forward_impl(sub_emb, sub_target, self.distance_map[letter]))
+
+        return sum(losses) / len(losses)
+
+    def forward_impl(self, features, targets, distance_pairs):
+        groups = []
+        for idx, target in enumerate(targets.cpu().numpy()):
+            it = torch.tensor([idx], device=features.device)
+            pos_mask = torch.isin(targets, distance_pairs[target][0])
+            pos_pair_idx = torch.nonzero(pos_mask).view(-1)
+            neg_mask = torch.isin(targets, distance_pairs[target][1])
+            neg_pair_idx = torch.nonzero(neg_mask).view(-1)
+            groups.append(torch.cartesian_prod(it, pos_pair_idx, neg_pair_idx))
+
+        groups = torch.cat(groups, dim=0)
+        anchor = features[groups[:, 0]]
+        positive = features[groups[:, 1]]
+        negative = features[groups[:, 2]]
+
+        return self.criterion(anchor, positive, negative)
+
+
 class TripletLoss(torch.nn.Module):
     def __init__(self, margin=0.1, n_subsets=3):
         super(TripletLoss, self).__init__()
@@ -245,6 +281,10 @@ class TripletLoss(torch.nn.Module):
 
 class AEMTrainer(Trainer):
 
+    def __init__(self, args):
+        super().__init__(args)
+        self.gt_registry = {}
+
     def get_transforms(self):
         img_size = self.config.DATA.IMG_SIZE
         train_transforms = torchvision.transforms.Compose([
@@ -288,6 +328,8 @@ class AEMTrainer(Trainer):
                 dataset_path = args.train_data_path
             dataset = AEMLetterDataset(dataset_path, transforms, letter)
             datasets.append(dataset)
+            if args.distance_file is not None and os.path.isfile(args.distance_file):
+                self.gt_registry[letter] = dataset.read_distance_matrix(args.distance_file)
 
         data_loader = []
         if mode == 'train':
@@ -305,6 +347,8 @@ class AEMTrainer(Trainer):
         return data_loader
 
     def get_criterion(self):
+        if args.distance_file is not None:
+            return TripletMiningLoss(self.gt_registry, margin=0.15, n_subsets=len(args.letters))
         if self.is_simsiam():
             ssl = SimSiamLoss(n_subsets=len(args.letters), weight=args.combine_loss_weight)
             cls = ClassificationLoss(n_subsets=len(args.letters), weight=1 - args.combine_loss_weight)

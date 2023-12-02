@@ -2,6 +2,8 @@ import glob
 import os
 
 import imagesize
+import numpy as np
+import pandas as pd
 import torch
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
@@ -87,6 +89,20 @@ class AEMLetterDataset(Dataset):
 
     def __len__(self):
         return len(self.data)
+
+    def read_distance_matrix(self, distance_file):
+        similarity_matrix = pd.read_csv(distance_file, index_col=0)
+        similarity_matrix.index = similarity_matrix.index.map(str)
+        similarity_matrix.index = similarity_matrix.index.map(self.__label_idxes)
+        similarity_matrix.columns = similarity_matrix.columns.map(str)
+        similarity_matrix.columns = similarity_matrix.columns.map(self.__label_idxes)
+        results = {}
+        for tm_id in similarity_matrix.columns:
+            tm_similarity = similarity_matrix[tm_id]
+            positives = tm_similarity[tm_similarity < -0.5].keys().to_numpy()
+            negatives = tm_similarity[tm_similarity > 0].keys().to_numpy()
+            results[tm_id] = torch.from_numpy(positives).cuda(), torch.from_numpy(negatives).cuda()
+        return results
 
     def __getitem__(self, idx):
         (tm, anchor) = self.data[idx]

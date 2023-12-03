@@ -255,7 +255,8 @@ class AEMTrainer(Trainer):
             torchvision.transforms.RandomApply([
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
                 torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3),
-            ], p=0.7),
+            ], p=0.5),
+            torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1)),
             torchvision.transforms.RandomCrop(img_size, pad_if_needed=True, fill=255),
             torchvision.transforms.RandomGrayscale(p=0.3),
             torchvision.transforms.ToTensor(),

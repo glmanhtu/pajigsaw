@@ -251,6 +251,7 @@ class AEMTrainer(Trainer):
             ACompose([
                 A.LongestMaxSize(max_size=img_size),
                 A.ShiftScaleRotate(shift_limit=0, scale_limit=0.1, rotate_limit=15, p=0.5),
+                A.CoarseDropout(max_height=4, max_width=4, fill_value=255, p=0.5)
             ]),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),

@@ -4,6 +4,7 @@ import os
 import time
 
 import albumentations as A
+import cv2
 import numpy as np
 import pandas as pd
 import torch
@@ -14,6 +15,7 @@ from torch.utils.data import DataLoader
 from data.build import build_dataset
 from data.datasets.hisfrag_dataset import HisFrag20Test
 from data.samplers import DistributedIndicatesSampler
+from data.transforms import ACompose
 from misc import wi19_evaluate, utils
 from misc.engine import Trainer
 from misc.utils import AverageMeter, get_combinations
@@ -61,21 +63,19 @@ class HisfragTrainer(Trainer):
     def get_transforms(self):
         patch_size = self.config.DATA.IMG_SIZE
 
-        a_transform = A.Compose(
-            [
-                A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.5),
-            ]
-        )
-
         train_transform = torchvision.transforms.Compose([
+            torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1), fill=0),
+            ACompose([
+                A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.5, value=(0, 0, 0),
+                                   border_mode=cv2.BORDER_CONSTANT),
+            ]),
             torchvision.transforms.RandomCrop(patch_size, pad_if_needed=True),
-            lambda x: np.array(x),
-            lambda x: a_transform(image=x)['image'],
-            torchvision.transforms.ToPILImage(),
+            torchvision.transforms.RandomApply([
+                torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3),
+            ], p=.5),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
-                torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-            ], p=0.5),
+            ], p=.5),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])

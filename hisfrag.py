@@ -81,6 +81,12 @@ class HisfragTrainer(Trainer):
         ])
 
         val_transforms = torchvision.transforms.Compose([
+            torchvision.transforms.CenterCrop(patch_size),
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ])
+
+        test_transforms = torchvision.transforms.Compose([
             ACompose([
                 A.LongestMaxSize(max_size=patch_size),
             ]),
@@ -91,8 +97,8 @@ class HisfragTrainer(Trainer):
 
         return {
             'train': train_transform,
-            'validation': val_transforms,
-            'test': val_transforms
+            'val': val_transforms,
+            'test': test_transforms
         }
 
     def get_dataloader(self, mode):
@@ -155,10 +161,9 @@ class HisfragTrainer(Trainer):
         x, x1 = samples
         return self.model(x1, x)
 
-
     def validate_dataloader(self, split: HisFrag20Test.Split, remove_cache_file=False):
         self.model.eval()
-        transform = self.get_transforms()['validation']
+        transform = self.get_transforms()[split.value]
         dataset = HisFrag20Test(self.config.DATA.DATA_PATH, split, transform=transform,
                                 val_n_items_per_writer=self.config.DATA.EVAL_N_ITEMS_PER_CATEGORY)
         indicates = torch.arange(len(dataset)).type(torch.int).cuda()

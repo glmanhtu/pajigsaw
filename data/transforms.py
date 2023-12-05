@@ -127,7 +127,8 @@ class RandomResize:
 
     def __call__(self, img):
         ratio = random.uniform(self.ratio[0], self.ratio[1])
-        cropper = torchvision.transforms.Resize(int(ratio * self.img_size))
+        w, h = int(img.width * ratio), (img.height * ratio)
+        cropper = torchvision.transforms.Resize((h, w))
         return cropper(img)
 
 

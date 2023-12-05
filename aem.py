@@ -5,6 +5,7 @@ import os.path
 import time
 
 import albumentations as A
+import cv2
 import numpy as np
 import torch
 import torchvision
@@ -254,6 +255,9 @@ class AEMTrainer(Trainer):
             torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1), fill=255),
             ACompose([
                 A.LongestMaxSize(max_size=img_size),
+                A.ShiftScaleRotate(shift_limit=0, scale_limit=0.1, rotate_limit=15, p=0.5, value=(255, 255, 255),
+                                   border_mode=cv2.BORDER_CONSTANT),
+
             ]),
             RandomResize(img_size, ratio=(0.85, 1.0)),
             torchvision.transforms.RandomApply([

@@ -176,6 +176,9 @@ class GeshaemTrainer(Trainer):
         distance_df = compute_distance_matrix(features, reduction=args.distance_reduction,
                                               distance_fn=NegativeCosineSimilarityLoss())
 
+        index_to_fragment = {i: x for i, x in enumerate(data_loader.dataset.fragments)}
+        distance_df.rename(columns=index_to_fragment, index=index_to_fragment, inplace=True)
+
         positive_pairs = data_loader.dataset.fragment_to_group
         distance_matrix = distance_df.to_numpy()
         self.logger.info(f"Number of groups: {len(positive_pairs)}")
@@ -203,9 +206,6 @@ class GeshaemTrainer(Trainer):
 
         val_loss = 1 - mAP_meter.avg
         similarity_df = (2 - distance_df) / 2.
-
-        index_to_fragment = {i: x for i, x in enumerate(data_loader.dataset.fragments)}
-        similarity_df.rename(columns=index_to_fragment, index=index_to_fragment, inplace=True)
 
         return val_loss, similarity_df.round(3)
 

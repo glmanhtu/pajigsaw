@@ -1,8 +1,8 @@
 MODEL:
   TYPE: ss
-  NAME: geshaem_res18_384
+  NAME: geshaem_ss_384
   SS:
-    ARCH: resnet18
+    ARCH: resnet34
     PRETRAINED:
     EMBED_DIM: 2048
     PRED_DIM: 512

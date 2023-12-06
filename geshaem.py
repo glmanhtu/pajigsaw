@@ -105,6 +105,7 @@ class GeshaemTrainer(Trainer):
             torchvision.transforms.RandomApply([
                 torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.3),
             ]),
+            torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ])
 

@@ -67,6 +67,8 @@ def extract_relations(dataset_path):
 
     for dir_name in sorted(os.listdir(dataset_path)):
         name_components = dir_name.split("_")
+        if len(name_components) > 1:
+            name_components += [dir_name]
         add_items_to_group(name_components, groups)
 
     return groups

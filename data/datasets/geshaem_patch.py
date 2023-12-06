@@ -102,7 +102,7 @@ class GeshaemPatch(VisionDataset):
         target_transform: Optional[Callable] = None,
         image_size=512,
         fragment_type='R',  # Recto or Verso
-        min_size_limit=224
+        min_size_limit=300
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split

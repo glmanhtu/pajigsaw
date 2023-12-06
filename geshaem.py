@@ -95,22 +95,21 @@ class GeshaemTrainer(Trainer):
                 A.ShiftScaleRotate(shift_limit=0, scale_limit=0.1, rotate_limit=15, p=0.5, value=(255, 255, 255),
                                    border_mode=cv2.BORDER_CONSTANT)
             ]),
+            torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1), fill=255),
             torchvision.transforms.RandomHorizontalFlip(),
             torchvision.transforms.RandomVerticalFlip(),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
             ], p=0.5),
+            CustomRandomCrop(img_size, white_percentage_limit=0.8),
             torchvision.transforms.RandomApply([
-                torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3),
+                torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.3),
             ]),
-            torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1)),
-            CustomRandomCrop(img_size, white_percentage_limit=0.7),
-            torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ])
 
         val_transforms = torchvision.transforms.Compose([
-            CustomRandomCrop(img_size, white_percentage_limit=0.7),
+            CustomRandomCrop(img_size, white_percentage_limit=0.8),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ])

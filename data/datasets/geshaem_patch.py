@@ -150,8 +150,10 @@ class GeshaemPatch(VisionDataset):
             if fragment_ids[0] not in self.fragment_to_group:
                 continue
 
-            # image_type = os.path.basename(img_path).rsplit("_", 1)[1].split('-')[0]
-            # image_type = list(image_type)[-1]
+            image_type = os.path.basename(img_path).rsplit("_", 1)[1].split('-')[0]
+            image_type = list(image_type)[-1]
+            if image_type.upper() != fragment_type:
+                continue
 
             images.append(img_path)
             fragment_name = os.path.basename(os.path.dirname(img_path))

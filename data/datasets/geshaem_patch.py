@@ -1,15 +1,11 @@
 import glob
 import logging
 import os
-import random
 from enum import Enum
 from typing import Callable, Optional, Union
-import albumentations as A
 
 import imagesize
-import numpy as np
 import torch
-import torchvision
 from PIL import Image
 from torchvision.datasets import VisionDataset
 
@@ -105,6 +101,7 @@ class GeshaemPatch(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         image_size=512,
+        fragment_type='R',  # Recto or Verso
         min_size_limit=224
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
@@ -124,23 +121,21 @@ class GeshaemPatch(VisionDataset):
                 # which group this element belongs to, so we skip it
                 continue
             for fragment in group:
-                self.fragment_to_group[fragment] = idx
+                for fragment2 in group:
+                    self.fragment_to_group.setdefault(fragment, set([])).add(fragment2)
 
-        self.dataset = self.load_dataset()
-        fragments = set([])
-        for items in self.dataset:
-            fragment_name = os.path.basename(os.path.dirname(items[0]))
-            fragments.add(fragment_name)
+        self.dataset, fragments = self.load_dataset(fragment_type)
 
         self.fragments = sorted(fragments)
         self.fragment_idx = {x: i for i, x in enumerate(self.fragments)}
+        self.data_labels = []
+        for item in self.dataset:
+            fragment_name = os.path.basename(os.path.dirname(item))
+            self.data_labels.append(self.fragment_idx[fragment_name])
 
-    def get_group_id(self, idx):
-        fragment = self.fragments[idx].split("_")[0]
-        return self.fragment_to_group[fragment]
-
-    def load_dataset(self):
-        images = {}
+    def load_dataset(self, fragment_type):
+        images = []
+        fragments = set([])
         for img_path in sorted(glob.glob(os.path.join(self.root_dir, '**', '*.jpg'), recursive=True)):
             width, height = imagesize.get(img_path)
             if width < self.min_size_limit or height < self.min_size_limit:
@@ -152,88 +147,34 @@ class GeshaemPatch(VisionDataset):
                 continue
             if fragment_ids[0] not in self.fragment_to_group:
                 continue
-            images.setdefault(image_name, {})
-            image_type = os.path.basename(img_path).rsplit("_", 1)[1].split('-')[0]
-            # image_type is including Recto (R) and Verso (V)
-            images[image_name].setdefault(list(image_type)[-1], []).append(img_path)
 
-        results = []
-        for img_name in list(images.keys()):
-            for img_type in list(images[img_name].keys()):
-                max_size_img = max(imagesize.get(images[img_name][img_type][0]))
-                if len(images[img_name][img_type]) > 1:
-                    # If there is more than one type of image (COLV | COLR | IRR | IRV)
-                    results.append(images[img_name][img_type])
-                elif max_size_img > self.image_size * 1.5:
-                    # If we can split the image into at least 2 patches
-                    results.append(images[img_name][img_type])
-                else:
-                    # Otherwise, exclude the image
-                    del images[img_name][img_type]
-            if len(images[img_name].keys()) == 0:
-                del images[img_name]
+            # image_type = os.path.basename(img_path).rsplit("_", 1)[1].split('-')[0]
+            # image_type = list(image_type)[-1]
 
-        return results
+            images.append(img_path)
+            fragment_name = os.path.basename(os.path.dirname(img_path))
+            fragments.add(fragment_name)
+
+        return images, fragments
 
     @property
     def split(self) -> "GeshaemPatch.Split":
         return self._split
 
     def __getitem__(self, index: int):
-        image_group = self.dataset[index]
-        first_img_path = random.choice(image_group)
-        fragment_name = os.path.basename(os.path.dirname(first_img_path))
+        img_path = self.dataset[index]
+        fragment_name = os.path.basename(os.path.dirname(img_path))
         fragment_id = self.fragment_idx[fragment_name]
-        with Image.open(first_img_path) as f:
-            first_img = f.convert('RGB')
 
-        img_transforms = torchvision.transforms.Compose([])
-
-        if self.split.is_train():
-            train_transform = A.Compose(
-                [
-                    A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.5),
-                ]
-            )
-            img_transforms = torchvision.transforms.Compose([
-                torchvision.transforms.RandomHorizontalFlip(),
-                torchvision.transforms.RandomVerticalFlip(),
-                lambda x: np.array(x),
-                lambda x: train_transform(image=x)['image'],
-                torchvision.transforms.ToPILImage(),
-                torchvision.transforms.RandomApply([
-                    torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
-                ], p=0.5)
-            ])
-
-        img_split_fn_candidates = []
-        cropper = torchvision.transforms.RandomCrop(self.image_size, pad_if_needed=True, fill=255)
-        if max(first_img.width, first_img.height) > self.image_size:
-            def single_split_fn():
-                return single_image_split(img_transforms(first_img), cropper)
-            img_split_fn_candidates.append(single_split_fn)
-
-        if len(image_group) > 1:
-            def two_split_fn():
-                second_img_path = first_img_path
-                while second_img_path == first_img_path:
-                    second_img_path = random.choice(image_group)
-                with Image.open(second_img_path) as f:
-                    second_img = f.convert('RGB')
-                return two_images_split(img_transforms(first_img), img_transforms(second_img), cropper)
-            img_split_fn_candidates.append(two_split_fn)
-
-        split_fn = random.choice(img_split_fn_candidates)
-        first_img, second_img = split_fn()
+        with Image.open(img_path) as f:
+            image = f.convert('RGB')
 
         if self.transform is not None:
-            first_img, second_img = self.transform(first_img, second_img)
+            image = self.transform(image)
 
-        assert isinstance(first_img, torch.Tensor)
-        assert isinstance(second_img, torch.Tensor)
+        assert isinstance(image, torch.Tensor)
 
-        stacked_img = torch.stack([first_img, second_img], dim=0)
-        return stacked_img, fragment_id
+        return image, fragment_id
 
     def __len__(self) -> int:
         return len(self.dataset)

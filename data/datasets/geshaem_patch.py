@@ -144,8 +144,8 @@ class GeshaemPatch(VisionDataset):
                 continue
             image_name = os.path.basename(os.path.dirname(img_path))
             fragment_ids = image_name.split("_")
-            if len(fragment_ids) > 1 and self.split.is_train():
-                # We exclude the assembled fragments in training to prevent data leaking
+            if len(fragment_ids) > 1:
+                # We exclude the assembled fragments to prevent data leaking
                 continue
             if fragment_ids[0] not in self.fragment_to_group:
                 continue

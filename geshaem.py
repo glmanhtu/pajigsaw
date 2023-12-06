@@ -101,7 +101,7 @@ class GeshaemTrainer(Trainer):
             torchvision.transforms.RandomApply([
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
             ], p=0.5),
-            CustomRandomCrop(img_size, white_percentage_limit=0.8),
+            CustomRandomCrop(img_size, white_percentage_limit=0.85),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.3),
             ]),

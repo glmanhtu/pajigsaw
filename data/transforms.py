@@ -141,12 +141,14 @@ class CustomRandomCrop:
 
     def crop(self, img):
         current_retry = 0
+        curr_w_p = 0
         while current_retry < self.max_retry:
             out = self.cropper(img)
-            if compute_white_percentage(out) <= self.white_percentage_limit:
+            curr_w_p = compute_white_percentage(out)
+            if curr_w_p <= self.white_percentage_limit:
                 return out
             current_retry += 1
-        raise UnableToCrop('Unable to crop ', im_path=self.im_path)
+        raise UnableToCrop(f'Unable to crop, curr wp: {curr_w_p}', im_path=self.im_path)
 
     def __call__(self, img):
         return self.crop(img)

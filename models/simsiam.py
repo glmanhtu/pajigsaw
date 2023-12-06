@@ -89,7 +89,12 @@ class SimSiamV2CE(nn.Module):
 
         # create the encoder
         # num_classes is the output fc dimension, zero-initialize last BNs
-        self.encoder = base_encoder(num_classes=dim, zero_init_residual=True, weights=pretrained)
+        if pretrained is None:
+            self.encoder = base_encoder(num_classes=dim, zero_init_residual=True, weights=pretrained)
+        else:
+            self.encoder = base_encoder(weights=pretrained)
+            num_ftrs = self.encoder.fc.in_features  # Getting last layer's output features
+            self.encoder.fc = nn.Linear(num_ftrs, dim)
 
         # Modify the average pooling layer to use a smaller kernel size
         self.encoder.avgpool = nn.AdaptiveAvgPool2d((1, 1))

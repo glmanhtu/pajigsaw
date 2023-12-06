@@ -181,7 +181,7 @@ class GeshaemTrainer(Trainer):
 
         positive_pairs = data_loader.dataset.fragment_to_group
         distance_matrix = distance_df.to_numpy()
-        self.logger.info(f"Number of groups: {len(distance_matrix.columns)}")
+        self.logger.info(f"Number of groups: {len(distance_df.columns)}")
         m_ap, (top1, pr_a_k5, pr_a_k10) = calc_map_prak(distance_matrix, distance_df.columns, positive_pairs,
                                                         prak=(1, 5, 10))
         mAP_meter.update(m_ap)

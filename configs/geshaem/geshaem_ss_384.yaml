@@ -1,5 +1,5 @@
 MODEL:
-  TYPE: ss
+  TYPE: ss2
   NAME: geshaem_ss_384
   SS:
     ARCH: resnet34

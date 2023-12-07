@@ -1,0 +1,9 @@
+MODEL:
+  TYPE: resnet
+  NAME: geshaem_resnet_384
+  RES:
+    ARCH: resnet18
+    PRETRAINED: IMAGENET1K_V1
+DATA:
+  DATASET: geshaem
+  IMG_SIZE: 384

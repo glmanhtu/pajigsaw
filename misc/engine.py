@@ -205,8 +205,8 @@ class Trainer:
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
                 outputs = self.train_step(samples)
 
-            loss = criterion(outputs, targets)
-            loss = loss / self.config.TRAIN.ACCUMULATION_STEPS
+                loss = criterion(outputs, targets)
+                loss = loss / self.config.TRAIN.ACCUMULATION_STEPS
 
             # this attribute is added by timm on one optimizer (adahessian)
             is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order

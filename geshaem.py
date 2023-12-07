@@ -10,7 +10,7 @@ import torchvision
 from torch.utils.data import DataLoader
 
 from data.build import build_dataset
-from data.samplers import MPerClassSampler
+from data.samplers import MPerClassSampler, DistributedEvalSampler
 from data.transforms import ACompose, CustomRandomCrop
 from misc.engine import Trainer
 from misc.losses import NegativeCosineSimilarityLoss
@@ -134,7 +134,8 @@ class GeshaemTrainer(Trainer):
                                      drop_last=True, num_workers=self.config.DATA.NUM_WORKERS)
 
         else:
-            data_loader = DataLoader(dataset, shuffle=False, pin_memory=True, batch_size=self.config.DATA.BATCH_SIZE,
+            sampler = DistributedEvalSampler(dataset, num_replicas=1, rank=0, repeat=repeat)
+            data_loader = DataLoader(dataset, sampler=sampler, pin_memory=True, batch_size=self.config.DATA.BATCH_SIZE,
                                      drop_last=False, num_workers=self.config.DATA.NUM_WORKERS)
 
         self.data_loader_registers[mode] = data_loader

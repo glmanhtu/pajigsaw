@@ -87,8 +87,7 @@ class HisfragTrainer(Trainer):
         ])
 
         test_transforms = torchvision.transforms.Compose([
-            torchvision.transforms.CenterCrop(int(patch_size * 2)),
-            torchvision.transforms.Resize(patch_size),
+            torchvision.transforms.CenterCrop(patch_size),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])

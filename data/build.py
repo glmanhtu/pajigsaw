@@ -5,19 +5,9 @@
 # Written by Ze Liu
 # --------------------------------------------------------
 
-import torch
-import torch.distributed as dist
-from timm.data import Mixup
-from torch.utils.data import DataLoader
-
 from .datasets.div2k_patch import DIV2KPatch
-from .datasets.geshaem_patch import GeshaemPatch
 from .datasets.hisfrag_dataset import HisFrag20
-from .datasets.imnet import ImNet
-from .datasets.imnet_patch import ImNetPatch
 from .datasets.pajigsaw_dataset import Pajigsaw
-from .samplers import DistributedEvalSampler, DistributedRepeatSampler
-from .transforms import TwoImgSyncEval
 
 try:
     from torchvision.transforms import InterpolationMode
@@ -93,14 +83,7 @@ def build_dataset(mode, config, transforms):
     patch_size = config.DATA.IMG_SIZE
     repeat = 1
     transform = transforms[mode]
-    if config.DATA.DATASET == 'imnet':
-        split = ImNet.Split.from_string(mode)
-        dataset = ImNet(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
-    elif config.DATA.DATASET == 'imnet_patch':
-        split = ImNetPatch.Split.from_string(mode)
-        dataset = ImNetPatch(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size,
-                             erosion_ratio=config.DATA.EROSION_RATIO)
-    elif config.DATA.DATASET == 'hisfrag20':
+    if config.DATA.DATASET == 'hisfrag20':
         split = HisFrag20.Split.from_string(mode)
         repeat = 3
         dataset = HisFrag20(config.DATA.DATA_PATH, split, transform=transform)
@@ -114,10 +97,6 @@ def build_dataset(mode, config, transforms):
         split = Pajigsaw.Split.from_string(mode)
         dataset = Pajigsaw(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
 
-    elif config.DATA.DATASET == 'geshaem':
-        split = GeshaemPatch.Split.from_string(mode)
-        repeat = 10 if split.is_train() else 100
-        dataset = GeshaemPatch(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
     else:
         raise NotImplementedError(f"We haven't supported {config.DATA.DATASET}")
 

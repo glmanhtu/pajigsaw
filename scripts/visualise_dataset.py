@@ -7,9 +7,8 @@ import torch
 import torchvision.transforms
 from datasets import load_dataset
 
-from data.datasets.geshaem_patch import GeshaemPatch
-from data.datasets.imnet import ImNet
-from data.transforms import TwoImgSyncEval, UnNormalize
+from data.datasets.hisfrag_dataset import HisFrag20, HisFrag20Test
+from data.datasets.pajigsaw_dataset import PajigsawPieces, Pajigsaw
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s :: %(levelname)s :: %(message)s')
 
@@ -18,18 +17,15 @@ parser.add_argument('--data-path', required=True, type=str, help='path to datase
 args = parser.parse_args()
 
 
-class TestDS(ImNet):
-    def get_dataset(self, split, cache_dir):
-        return load_dataset("beans", split=split, cache_dir=args.data_path)
+img_size = 512
+transform = torchvision.transforms.Compose([
+    torchvision.transforms.CenterCrop(int(img_size * 2)),
+    torchvision.transforms.Resize(img_size),
+    torchvision.transforms.ToTensor()
+])
 
-    def extract_item(self, item):
-        return item['image'], str(item['labels'])
-
-
-transform = TwoImgSyncEval(384)
-train_dataset = GeshaemPatch(args.data_path, split=GeshaemPatch.Split.TRAIN, transform=transform, image_size=384)
+train_dataset = Pajigsaw(args.data_path, Pajigsaw.Split.TRAIN, transform=transform)
 un_normaliser = torchvision.transforms.Compose([
-    UnNormalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     torchvision.transforms.ToPILImage(),
     lambda x: np.asarray(x)
 ])
@@ -53,7 +49,7 @@ for pair, label in train_dataset:
     cv2.imshow('image', cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 
     # waitKey() waits for a key press to close the window and 0 specifies indefinite loop
-    cv2.waitKey(2000)
+    cv2.waitKey(500)
 
     # cv2.destroyAllWindows() simply destroys all the windows we created.
 cv2.destroyAllWindows()

@@ -121,7 +121,8 @@ class Pajigsaw(VisionDataset):
             second_img = f.convert('RGB')
 
         if self.transform is not None:
-            first_img, second_img = self.transform(first_img, second_img)
+            first_img = self.transform(first_img)
+            second_img = self.transform(second_img)
 
         assert isinstance(first_img, torch.Tensor)
         assert isinstance(second_img, torch.Tensor)

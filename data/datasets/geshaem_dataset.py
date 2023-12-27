@@ -135,5 +135,5 @@ class GeshaemPatch(VisionDataset):
         return stacked_img, self.pairs[index]
 
     def __len__(self) -> int:
-        return len(self.dataset)
+        return len(self.pairs)
 

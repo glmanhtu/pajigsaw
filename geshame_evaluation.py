@@ -96,7 +96,7 @@ def eval_standard(config, model, logger, world_size, rank):
     labels = []
     fragment_idxs = []
     for i in range(size):
-        im_name = os.path.splitext(os.path.basename(dataset.dataset[i]))[0]
+        im_name = os.path.basename(os.path.dirname(os.path.dirname(dataset.dataset[i])))
         labels.append(im_name)
         fragment_idxs.append(dataset.get_fragment_idx(im_name))
     return distance_matrix.numpy(), labels, np.array(fragment_idxs)

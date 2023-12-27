@@ -68,6 +68,7 @@ class GeshaemPatch(VisionDataset):
 
         groups = extract_relations(root)
         self.fragment_to_group = {}
+        self.fragment_to_group_id = {}
         for idx, group in enumerate(groups):
             if len(group) < 2 and split.is_val():
                 # We only evaluate the fragments that we know they are belongs to a certain groups
@@ -75,6 +76,7 @@ class GeshaemPatch(VisionDataset):
                 # which group this element belongs to, so we skip it
                 continue
             for fragment in group:
+                self.fragment_to_group_id[fragment] = idx
                 for fragment2 in group:
                     self.fragment_to_group.setdefault(fragment, set([])).add(fragment2)
 
@@ -89,7 +91,7 @@ class GeshaemPatch(VisionDataset):
 
     def get_fragment_idx(self, image_name: str) -> int:
         fragment_id = image_name.split("_")[0]
-        return self.fragment_idx[fragment_id]
+        return self.fragment_to_group_id[fragment_id]
 
     def load_dataset(self, include_verso):
         images = []

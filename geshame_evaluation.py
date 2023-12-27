@@ -130,6 +130,7 @@ if __name__ == '__main__':
     distance_matrix, img_names, fragment_idxs = eval_standard(trainer.config, trainer.model, trainer.logger,
                                                               trainer.world_size, trainer.rank)
     logger.info('Starting to calculate performance...')
+    logger.info(f'Distance matrix shape: {distance_matrix.shape}')
     m_ap2, top1, pr_a_k10, pr_a_k100 = wi19_evaluate.get_metrics(distance_matrix, fragment_idxs)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

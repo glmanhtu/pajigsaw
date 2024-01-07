@@ -404,7 +404,7 @@ class HisfragTrainer(Trainer):
         distance_matrix, labels = self.validate_dataloader(MichiganTest.Split.VAL, remove_cache_file=True)
         m_ap, top1, pr_k10, pr_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
         self.logger.info(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_k10:.3f}\t' f'Pr@k100 {pr_k100:.3f}')
-        self.test()
+        self.geshaem_test()
         return 1 - m_ap
 
 

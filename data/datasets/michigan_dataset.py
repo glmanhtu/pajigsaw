@@ -41,9 +41,9 @@ class MichiganDataset(Dataset):
     def __init__(self, dataset_path: str, split: "MichiganDataset.Split", transforms, im_size,
                  min_size=112, samples=None):
         self.dataset_path = dataset_path
-        files = glob.glob(os.path.join(dataset_path, '**', '*.png'), recursive=True)
-        files.extend(glob.glob(os.path.join(dataset_path, '**', '*.jpg'), recursive=True))
         if samples is None:
+            files = glob.glob(os.path.join(dataset_path, '**', '*.png'), recursive=True)
+            files.extend(glob.glob(os.path.join(dataset_path, '**', '*.jpg'), recursive=True))
             image_map = {}
             for file in files:
                 file_name_components = file.split(os.sep)

@@ -93,7 +93,7 @@ class HisfragTrainer(Trainer):
 
         return {
             'train': train_transform,
-            'val': val_transforms,
+            'validation': val_transforms,
         }
 
     def get_dataloader(self, mode):
@@ -160,7 +160,7 @@ class HisfragTrainer(Trainer):
     def geshaem_test(self):
         self.model.eval()
         patch_size = self.config.DATA.IMG_SIZE
-        transform = self.get_transforms()['val']
+        transform = self.get_transforms()['validation']
         dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.VAL, transform=transform, im_size=patch_size)
         sampler = DistributedEvalSampler(dataset, num_replicas=self.world_size, rank=self.rank)
         dataloader = torch.utils.data.DataLoader(
@@ -256,7 +256,7 @@ class HisfragTrainer(Trainer):
         self.logger.info(f'Geshaem test: mAP {m_ap:.3f}\t' f'Top 1 {top_1:.3f}\t' f'Pr@k5 {prk5:.3f}\t'
                          f'Pr@k10 {prk10:.3f}')
 
-    def validate_dataloader(self, split: HisFrag20Test.Split, remove_cache_file=False):
+    def validate_dataloader(self, split: MichiganTest.Split, remove_cache_file=False):
         self.model.eval()
         transform = self.get_transforms()[split.value]
         img_size = self.config.DATA.IMG_SIZE
@@ -401,7 +401,7 @@ class HisfragTrainer(Trainer):
     @torch.no_grad()
     def validate(self):
         self.model.eval()
-        distance_matrix, labels = self.validate_dataloader(HisFrag20Test.Split.VAL, remove_cache_file=True)
+        distance_matrix, labels = self.validate_dataloader(MichiganTest.Split.VAL, remove_cache_file=True)
         m_ap, top1, pr_k10, pr_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
         self.logger.info(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_k10:.3f}\t' f'Pr@k100 {pr_k100:.3f}')
         self.test()

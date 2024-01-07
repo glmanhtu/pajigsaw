@@ -111,7 +111,7 @@ class MichiganTest(MichiganDataset):
     def __init__(self, dataset_path: str, split: "MichiganDataset.Split", transforms, im_size, lower_bound=0,
                  samples = None,
                  val_n_items_per_writer=2):
-        super().__init__(dataset_path, split, transforms, im_size, samples)
+        super().__init__(dataset_path, split, transforms, im_size, samples=samples)
         self.lower_bound = lower_bound
 
     def __getitem__(self, index: int):

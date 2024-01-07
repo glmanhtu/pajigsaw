@@ -123,3 +123,6 @@ class MichiganTest(MichiganDataset):
             image = self.transforms(img.convert('RGB'))
 
         return image, index
+
+    def __len__(self) -> int:
+        return len(self.data) - self.lower_bound

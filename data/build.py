@@ -7,6 +7,7 @@
 
 from .datasets.div2k_patch import DIV2KPatch
 from .datasets.hisfrag_dataset import HisFrag20
+from .datasets.michigan_dataset import MichiganDataset
 from .datasets.pajigsaw_dataset import Pajigsaw
 
 try:
@@ -96,6 +97,11 @@ def build_dataset(mode, config, transforms):
     elif config.DATA.DATASET == 'pajigsaw':
         split = Pajigsaw.Split.from_string(mode)
         dataset = Pajigsaw(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
+
+    elif config.DATA.DATASET == 'michigan':
+        split = MichiganDataset.Split.from_string(mode)
+        repeat = 5 if split.is_train() else 1
+        dataset = MichiganDataset(config.DATA.DATA_PATH, split, transforms=transform, im_size=patch_size)
 
     else:
         raise NotImplementedError(f"We haven't supported {config.DATA.DATASET}")

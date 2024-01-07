@@ -160,6 +160,9 @@ class Trainer:
         config = self.config
         start_time = time.time()
         for epoch in range(self.config.TRAIN.START_EPOCH, self.config.TRAIN.EPOCHS):
+            loss = self.validate()
+            self.logger.info(f"Init loss: {loss}")
+
             self.train_one_epoch(epoch, data_loader, optimizer, lr_scheduler, loss_scaler, criterion)
 
             if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):

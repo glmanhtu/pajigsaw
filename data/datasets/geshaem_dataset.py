@@ -1,5 +1,7 @@
 import glob
+import math
 import os
+import re
 from enum import Enum
 from typing import Callable, Optional, Union
 
@@ -15,6 +17,7 @@ _Target = int
 class _Split(Enum):
     TRAIN = "train"
     VAL = "validation"
+    TEST = "test"
 
     def is_train(self):
         return self.value == 'train'
@@ -22,11 +25,22 @@ class _Split(Enum):
     def is_val(self):
         return self.value == 'validation'
 
+    def is_test(self):
+        return self.value == 'test'
+
     @staticmethod
     def from_string(name):
         for key in _Split:
             if key.value == name:
                 return key
+
+
+def parse_name(name: str):
+    groups = re.search(r'^([\w\']+)_([rv])_(\w+)(\s.+)?$', name)
+    if groups:
+        fragment, rv, col = groups.group(1), groups.group(2), groups.group(3)
+        return fragment, rv, col
+    raise ValueError(f"Fragment name {name} not recognized")
 
 
 def extract_relations(dataset_path):
@@ -39,8 +53,10 @@ def extract_relations(dataset_path):
 
     groups = []
 
-    for dir_name in sorted(os.listdir(dataset_path)):
-        name_components = dir_name.split("_")
+    for img_path in glob.glob(os.path.join(dataset_path, '**', '*.jpg'), recursive=True):
+        image_name = os.path.basename(os.path.dirname(os.path.dirname(img_path)))
+        fragment, rv, col = parse_name(image_name)
+        name_components = fragment.split("_")
         add_items_to_group(name_components, groups)
 
     return groups
@@ -54,21 +70,22 @@ class GeshaemPatch(VisionDataset):
         self,
         root: str,
         split: "GeshaemPatch.Split",
+        im_size,
         transforms: Optional[Callable] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         include_verso=False,
-        min_size_limit=300
+        min_size_limit=112
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
         self.root_dir = root
 
-        self.min_size_limit = min_size_limit
-
-        groups = extract_relations(root)
         self.fragment_to_group = {}
         self.fragment_to_group_id = {}
+
+        fragments, groups = self.load_dataset(include_verso, min_size_limit)
+
         for idx, group in enumerate(groups):
             if len(group) < 2 and split.is_val():
                 # We only evaluate the fragments that we know they are belongs to a certain groups
@@ -80,40 +97,61 @@ class GeshaemPatch(VisionDataset):
                 for fragment2 in group:
                     self.fragment_to_group.setdefault(fragment, set([])).add(fragment2)
 
-        self.dataset, fragments = self.load_dataset(include_verso)
-
-        self.fragments = sorted(fragments)
+        self.fragments = sorted(fragments.keys())
         self.fragment_idx = {x: i for i, x in enumerate(self.fragments)}
 
-        indicates = torch.arange(len(fragments)).type(torch.int)
+        self.data = []
+        self.data_labels = []
+        for idx, fragment in enumerate(self.fragments):
+            data, labels = [], []
+            for img_path in sorted(fragments[fragment]):
+                image_name = os.path.basename(os.path.dirname(os.path.dirname(img_path)))
+                fragment, rv, col = parse_name(image_name)
+                fragment_ids = fragment.split("_")
+                if fragment_ids[0] not in self.fragment_to_group:
+                    continue
+
+                width, height = imagesize.get(img_path)
+                ratio = max(round((width * height) / (im_size * im_size)), 1) if split.is_train() else 1
+                for _ in range(int(ratio)):
+                    labels.append(idx)
+                    data.append(img_path)
+
+            self.data.extend(data)
+            self.data_labels.extend(labels)
+
+        indicates = torch.arange(len(self.data)).type(torch.int)
         pairs = torch.combinations(indicates, r=2, with_replacement=True)
         self.pairs = pairs
 
-    def get_fragment_idx(self, image_name: str) -> int:
-        fragment_id = image_name.split("_")[0]
-        return self.fragment_to_group_id[fragment_id]
+    def get_group_id(self, fragment_id: int) -> int:
+        fragment = self.fragments[fragment_id]
+        return self.fragment_to_group_id[fragment]
 
-    def load_dataset(self, include_verso):
-        images = []
-        fragments = set([])
+    def load_dataset(self, include_verso, min_size_limit):
+        fragments = {}
+        groups = []
         for img_path in sorted(glob.glob(os.path.join(self.root_dir, '**', '*.jpg'), recursive=True)):
+            if img_path.split(os.sep)[-2] != 'papyrus':
+                continue
             image_name = os.path.basename(os.path.dirname(os.path.dirname(img_path)))
-            fragment_ids = image_name.split("_")
+            fragment, rv, col = parse_name(image_name)
+            if rv.upper() == 'V' and not include_verso:
+                continue
+
+            fragment_ids = fragment.split("_")
+            add_items_to_group(fragment_ids, groups)
             if len(fragment_ids) > 1:
                 # We exclude the assembled fragments to prevent data leaking
                 continue
-            if fragment_ids[0] not in self.fragment_to_group:
+
+            width, height = imagesize.get(img_path)
+            if width * height < min_size_limit * min_size_limit:
                 continue
 
-            image_type = os.path.basename(os.path.dirname(img_path)).rsplit("_", 1)[1].split('-')[0]
-            image_type = list(image_type)[-1]
-            if image_type.upper() == 'V' and not include_verso:
-                continue
+            fragments.setdefault(fragment, []).append(img_path)
 
-            images.append(img_path)
-            fragments.add(image_name)
-
-        return images, fragments
+        return fragments, groups
 
     @property
     def split(self) -> "GeshaemPatch.Split":
@@ -121,12 +159,12 @@ class GeshaemPatch(VisionDataset):
 
     def __getitem__(self, index: int):
         x1_id, x2_id = tuple(self.pairs[index])
-        img_path = self.dataset[x1_id.item()]
+        img_path = self.data[x1_id.item()]
 
         with Image.open(img_path) as f:
             image = f.convert('RGB')
 
-        img2_path = self.dataset[x2_id.item()]
+        img2_path = self.data[x2_id.item()]
         with Image.open(img2_path) as f:
             image2 = f.convert('RGB')
 

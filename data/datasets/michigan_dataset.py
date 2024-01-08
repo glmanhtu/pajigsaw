@@ -117,7 +117,7 @@ class MichiganTest(MichiganDataset):
     def __getitem__(self, index: int):
         index = index + self.lower_bound
 
-        (img_name, fragment) = self.data[index]
+        fragment = self.data[index]
 
         with Image.open(fragment) as img:
             image = self.transforms(img.convert('RGB'))

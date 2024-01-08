@@ -348,7 +348,7 @@ class HisfragTrainer(Trainer):
         torch.cuda.empty_cache()
 
         self.logger.info("Gathering data on all ranks...")
-        self.logger.warn("Warning, this works only when all the ranks use the same file system! " 
+        self.logger.warning("Warning, this works only when all the ranks use the same file system! " 
                          "Otherwise, this will hang forever...!")
 
         if split.is_val():
@@ -397,14 +397,14 @@ class HisfragTrainer(Trainer):
         self.logger.info("Distance matrix is generated!")
         return distance_matrix.numpy(), dataset.data_labels
 
-
     @torch.no_grad()
     def validate(self):
         self.model.eval()
+        self.geshaem_test()
         distance_matrix, labels = self.validate_dataloader(MichiganTest.Split.VAL, remove_cache_file=True)
         m_ap, top1, pr_k10, pr_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
-        self.logger.info(f'mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_k10:.3f}\t' f'Pr@k100 {pr_k100:.3f}')
-        self.geshaem_test()
+        self.logger.info(f'Michigan eval: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_k10:.3f}\t' 
+                         f'Pr@k100 {pr_k100:.3f}')
         return 1 - m_ap
 
 

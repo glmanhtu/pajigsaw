@@ -84,7 +84,7 @@ class GeshaemPatch(VisionDataset):
         self.fragment_to_group = {}
         self.fragment_to_group_id = {}
 
-        fragments, groups = self.load_dataset(include_verso, min_size_limit)
+        fragments, groups = self.load_dataset(include_verso, min_size_limit, split.is_train())
 
         for idx, group in enumerate(groups):
             if len(group) < 2 and split.is_val():
@@ -128,7 +128,7 @@ class GeshaemPatch(VisionDataset):
         fragment = self.fragments[fragment_id]
         return self.fragment_to_group_id[fragment]
 
-    def load_dataset(self, include_verso, min_size_limit):
+    def load_dataset(self, include_verso, min_size_limit, is_train):
         fragments = {}
         groups = []
         for img_path in sorted(glob.glob(os.path.join(self.root_dir, '**', '*.jpg'), recursive=True)):
@@ -140,9 +140,9 @@ class GeshaemPatch(VisionDataset):
                 continue
 
             fragment_ids = fragment.split("_")
-            add_items_to_group(fragment_ids, groups)
-            if len(fragment_ids) > 1:
-                # We exclude the assembled fragments to prevent data leaking
+            add_items_to_group(fragment_ids + [fragment], groups)
+            if is_train and len(fragment_ids) > 1:
+                # We exclude the assembled fragments in training to prevent data leaking
                 continue
 
             width, height = imagesize.get(img_path)

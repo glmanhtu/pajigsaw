@@ -14,7 +14,7 @@ from pytorch_metric_learning import samplers
 from torch.utils.data import DataLoader
 
 from data.build import build_dataset
-from data.datasets.geshaem_dataset import GeshaemPatch
+from data.datasets.geshaem_dataset import GeshaemPatch, MergeDataset
 from data.datasets.hisfrag_dataset import HisFrag20Test
 from data.datasets.michigan_dataset import MichiganTest
 from data.samplers import DistributedIndicatesSampler, DistributedEvalSampler
@@ -102,7 +102,11 @@ class HisfragTrainer(Trainer):
 
         transforms = self.get_transforms()
         dataset, repeat = build_dataset(mode=mode, config=self.config, transforms=transforms)
+        if mode == 'train':
+            geshaem_dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.TRAIN, transform=transforms[mode],
+                                           im_size=self.config.DATA.IMG_SIZE, base_idx=len(dataset) + 1)
 
+            dataset = MergeDataset([dataset, geshaem_dataset], transform=transforms[mode])
         max_dataset_length = len(dataset) * repeat
         sampler = samplers.MPerClassSampler(dataset.data_labels, m=3, length_before_new_iter=max_dataset_length)
         sampler.set_epoch = lambda x: x

@@ -80,7 +80,7 @@ class MichiganDataset(Dataset):
 
                     ratio = max(round((width * height) / (im_size * im_size)), 1) if split.is_train() else 1
                     for _ in range(int(ratio)):
-                        data.append((img, fragment))
+                        data.append(fragment)
                         labels.append(self.__label_idxes[img])
 
                 if split.is_val() and len(data) < 2:
@@ -96,7 +96,7 @@ class MichiganDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        (img_name, fragment) = self.data[idx]
+        fragment = self.data[idx]
 
         with Image.open(fragment) as img:
             image = self.transforms(img.convert('RGB'))

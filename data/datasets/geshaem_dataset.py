@@ -9,6 +9,7 @@ import imagesize
 import torch
 from PIL import Image
 from ml_engine.data.grouping import add_items_to_group
+from torch.utils.data import Dataset
 from torchvision.datasets import VisionDataset
 
 _Target = int
@@ -62,6 +63,30 @@ def extract_relations(dataset_path):
     return groups
 
 
+class MergeDataset(Dataset):
+    def __init__(self, datasets, transform):
+        self.data = []
+        self.data_labels = []
+
+        for dataset in datasets:
+            self.data.extend(dataset.data)
+            self.data_labels.extend(dataset.data_labels)
+
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        fragment = self.data[idx]
+
+        with Image.open(fragment) as img:
+            image = self.transform(img.convert('RGB'))
+
+        label = self.data_labels[idx]
+        return image, label
+
+
 class GeshaemPatch(VisionDataset):
     Target = Union[_Target]
     Split = Union[_Split]
@@ -75,7 +100,8 @@ class GeshaemPatch(VisionDataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         include_verso=False,
-        min_size_limit=112
+        min_size_limit=112,
+        base_idx=0
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
@@ -114,7 +140,7 @@ class GeshaemPatch(VisionDataset):
                 width, height = imagesize.get(img_path)
                 ratio = max(round((width * height) / (im_size * im_size)), 1) if split.is_train() else 1
                 for _ in range(int(ratio)):
-                    labels.append(idx)
+                    labels.append(idx + base_idx)
                     data.append(img_path)
 
             self.data.extend(data)

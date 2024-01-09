@@ -76,10 +76,13 @@ class HisfragTrainer(Trainer):
                                    border_mode=cv2.BORDER_CONSTANT),
             ]),
             torchvision.transforms.RandomCrop(512, pad_if_needed=True, fill=(255, 255, 255)),
+            torchvision.transforms.RandomHorizontalFlip(),
+            torchvision.transforms.RandomVerticalFlip(),
             ACompose([
                 A.CoarseDropout(max_holes=16, min_holes=1, min_height=16, max_height=128, min_width=16, max_width=128,
                                 fill_value=255, always_apply=True),
             ]),
+            torchvision.transforms.Resize(patch_size),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.3, saturation=0.3, hue=0.1),
             ], p=.5),
@@ -87,7 +90,6 @@ class HisfragTrainer(Trainer):
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
             ], p=.5),
             torchvision.transforms.RandomGrayscale(p=0.2),
-            torchvision.transforms.Resize(patch_size),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])

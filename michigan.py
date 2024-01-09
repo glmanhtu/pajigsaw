@@ -203,24 +203,30 @@ class HisfragTrainer(Trainer):
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
         stds = []
+        mean_distance_map, min_distance_map = {}, {}
         for source in distance_map:
             for dest in distance_map[source]:
+                avg_dis = sum(distance_map[source][dest]) / len(distance_map[source][dest])
                 if len(distance_map[source][dest]) > 1:
                     stds.append(statistics.stdev(distance_map[source][dest]))
-                distance_map[source][dest] = sum(distance_map[source][dest]) / len(distance_map[source][dest])
-
-        distance_df = pd.DataFrame.from_dict(distance_map, orient='index')
-
-        self.logger.info(f'N samples: {len(distance_df)}, N categories: {len(distance_df.columns)}')
-
-        positive_pairs = dataset.fragment_to_group
-
-        distance_mat = distance_df.to_numpy()
-        m_ap, (top_1, prk5, prk10) = calc_map_prak(distance_mat, distance_df.columns, positive_pairs, prak=(1, 5, 10))
+                mean_distance_map.setdefault(source, {})[dest] = avg_dis
+                min_distance_map.setdefault(source, {})[dest] = min(distance_map[source][dest])
 
         avg_std = sum(stds) / len(stds)
-        self.logger.info(f'Geshaem test: mAP {m_ap:.3f}\t' f'Top 1 {top_1:.3f}\t' f'Pr@k5 {prk5:.3f}\t'
-                         f'Pr@k10 {prk10:.3f}\t Std {avg_std:.3f}')
+        std_std = statistics.stdev(stds)
+        self.logger.info(f'N categories: {len(distance_map)}\t Avg_Std {avg_std:.3f}\t Std_Std {std_std:.3f}')
+
+        pos_pairs = dataset.fragment_to_group
+        dist_df = pd.DataFrame.from_dict(mean_distance_map, orient='index')
+        m_ap, (top_1, prk5, prk10) = calc_map_prak(dist_df.to_numpy(), dist_df.columns, pos_pairs, prak=(1, 5, 10))
+
+        self.logger.info(f'Geshaem test MEAN: mAP {m_ap:.3f}\t' f'Top 1 {top_1:.3f}\t' f'Pr@k5 {prk5:.3f}\t'
+                         f'Pr@k10 {prk10:.3f}\t')
+
+        dist_df = pd.DataFrame.from_dict(min_distance_map, orient='index')
+        m_ap, (top_1, prk5, prk10) = calc_map_prak(dist_df.to_numpy(), dist_df.columns, pos_pairs, prak=(1, 5, 10))
+        self.logger.info(f'Geshaem test MIN: mAP {m_ap:.3f}\t' f'Top 1 {top_1:.3f}\t' f'Pr@k5 {prk5:.3f}\t'
+                         f'Pr@k10 {prk10:.3f}\t')
 
     def validate_dataloader(self, split: MichiganTest.Split, remove_cache_file=False):
         self.model.eval()

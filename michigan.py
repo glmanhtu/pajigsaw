@@ -185,12 +185,12 @@ class HisfragTrainer(Trainer):
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
                 output = self.model(images)
 
-            for pair, score in zip(pairs.numpy(), output.cpu().numpy()):
+            for pair, score in zip(pairs.numpy(), output.float().cpu().numpy()):
                 i, j = tuple(pair)
                 frag_i_idx, frag_j_idx = dataset.data_labels[i], dataset.data_labels[j]
                 frag_i, frag_j = index_to_fragment[frag_i_idx], index_to_fragment[frag_j_idx]
-                distance_map.setdefault(frag_i, {}).setdefault(frag_j, []).append(1 - score)
-                distance_map.setdefault(frag_j, {}).setdefault(frag_i, []).append(1 - score)
+                distance_map.setdefault(frag_i, {}).setdefault(frag_j, []).append(1 - score[0])
+                distance_map.setdefault(frag_j, {}).setdefault(frag_i, []).append(1 - score[0])
 
             batch_time.update(time.time() - end)
             end = time.time()

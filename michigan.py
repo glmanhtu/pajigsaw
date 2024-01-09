@@ -205,7 +205,8 @@ class HisfragTrainer(Trainer):
         stds = []
         for source in distance_map:
             for dest in distance_map[source]:
-                stds.append(statistics.stdev(distance_map[source][dest]))
+                if len(distance_map[source][dest]) > 1:
+                    stds.append(statistics.stdev(distance_map[source][dest]))
                 distance_map[source][dest] = sum(distance_map[source][dest]) / len(distance_map[source][dest])
 
         distance_df = pd.DataFrame.from_dict(distance_map, orient='index')

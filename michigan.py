@@ -185,7 +185,9 @@ class HisfragTrainer(Trainer):
                 output = self.model(images)
 
             for pair, score in zip(pairs.numpy(), output.cpu().numpy()):
-                i, j = index_to_fragment[pair[0]], index_to_fragment[pair[1]]
+                i, j = tuple(pair)
+                i, j = dataset.data_labels[i], dataset.data_labels[j]
+                i, j = index_to_fragment[i], index_to_fragment[j]
                 distance_map.setdefault(i, {}).setdefault(j, []).append(1 - score)
                 distance_map.setdefault(j, {}).setdefault(i, []).append(1 - score)
 

@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import os
+import statistics
 import time
 
 import albumentations as A
@@ -186,10 +187,10 @@ class HisfragTrainer(Trainer):
 
             for pair, score in zip(pairs.numpy(), output.cpu().numpy()):
                 i, j = tuple(pair)
-                i, j = dataset.data_labels[i], dataset.data_labels[j]
-                i, j = index_to_fragment[i], index_to_fragment[j]
-                distance_map.setdefault(i, {}).setdefault(j, []).append(1 - score)
-                distance_map.setdefault(j, {}).setdefault(i, []).append(1 - score)
+                frag_i_idx, frag_j_idx = dataset.data_labels[i], dataset.data_labels[j]
+                frag_i, frag_j = index_to_fragment[frag_i_idx], index_to_fragment[frag_j_idx]
+                distance_map.setdefault(frag_i, {}).setdefault(frag_j, []).append(1 - score)
+                distance_map.setdefault(frag_j, {}).setdefault(frag_i, []).append(1 - score)
 
             batch_time.update(time.time() - end)
             end = time.time()
@@ -201,9 +202,10 @@ class HisfragTrainer(Trainer):
                     f'X2 eta {datetime.timedelta(seconds=int(etas))}\t'
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
-
+        stds = []
         for source in distance_map:
             for dest in distance_map[source]:
+                stds.append(statistics.stdev(distance_map[source][dest]))
                 distance_map[source][dest] = sum(distance_map[source][dest]) / len(distance_map[source][dest])
 
         distance_df = pd.DataFrame.from_dict(distance_map, orient='index')
@@ -215,8 +217,9 @@ class HisfragTrainer(Trainer):
         distance_mat = distance_df.to_numpy()
         m_ap, (top_1, prk5, prk10) = calc_map_prak(distance_mat, distance_df.columns, positive_pairs, prak=(1, 5, 10))
 
+        avg_std = sum(stds) / len(stds)
         self.logger.info(f'Geshaem test: mAP {m_ap:.3f}\t' f'Top 1 {top_1:.3f}\t' f'Pr@k5 {prk5:.3f}\t'
-                         f'Pr@k10 {prk10:.3f}')
+                         f'Pr@k10 {prk10:.3f}\t Std {avg_std:.3f}')
 
     def validate_dataloader(self, split: MichiganTest.Split, remove_cache_file=False):
         self.model.eval()

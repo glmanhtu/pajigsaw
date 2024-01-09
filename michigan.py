@@ -166,9 +166,8 @@ class HisfragTrainer(Trainer):
         patch_size = self.config.DATA.IMG_SIZE
         transform = self.get_transforms()['validation']
         dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.VAL, transform=transform, im_size=patch_size)
-        sampler = DistributedEvalSampler(dataset, num_replicas=self.world_size, rank=self.rank)
         dataloader = torch.utils.data.DataLoader(
-            dataset, sampler=sampler,
+            dataset,
             batch_size=self.config.DATA.TEST_BATCH_SIZE,
             shuffle=False,
             num_workers=self.config.DATA.NUM_WORKERS,
@@ -176,17 +175,19 @@ class HisfragTrainer(Trainer):
             drop_last=False
         )
 
-        predicts = torch.zeros((0, 3), dtype=torch.float32).cuda()
-
         batch_time = AverageMeter()
         end = time.time()
-        for idx, (images, pair) in enumerate(dataloader):
+        distance_map = {}
+        for idx, (images, pairs) in enumerate(dataloader):
             images = images.cuda(non_blocking=True)
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
                 output = self.model(images)
 
-            sub_pair_predicts = torch.column_stack([pair.cuda().float(), output.float()])
-            predicts = torch.cat([predicts, sub_pair_predicts])
+            for pair, score in zip(pairs.numpy(), output.cpu().numpy()):
+                i, j = tuple(pair)
+                distance_map.setdefault(i, {}).setdefault(j, []).append(1 - score)
+                distance_map.setdefault(j, {}).setdefault(i, []).append(1 - score)
+
             batch_time.update(time.time() - end)
             end = time.time()
             if idx % self.config.PRINT_FREQ == 0:
@@ -198,55 +199,7 @@ class HisfragTrainer(Trainer):
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
 
-        if self.world_size > 1:
-            max_n_items = int(len(dataset.pairs) * 1.2 / self.world_size)
-            # create an empty list we will use to hold the gathered values
-            predicts_list = [torch.zeros((max_n_items, 3), dtype=torch.float32, device=predicts.device)
-                             for _ in range(self.world_size)]
-            # Tensors from different processes have to have the same N items, therefore we pad it with -1
-            predicts = F.pad(predicts, pad=(0, 0, 0, max_n_items - predicts.shape[0]), mode="constant", value=-1)
-
-            # sending all tensors to the others
-            torch.distributed.barrier()
-            torch.distributed.all_gather(predicts_list, predicts, async_op=False)
-
-            # Remove all padded items
-            predicts_list = [x[x[:, 0] != -1] for x in predicts_list]
-            predicts = torch.cat(predicts_list, dim=0)
-
-        predicts = predicts.cpu()
-
-        assert len(predicts) == len(dataset.pairs), f'Incorrect size {predicts.shape} vs {dataset.pairs.shape}'
-        size = len(dataset.data)
-
-        # Initialize a similarity matrix with zeros
-        similarity_matrix = torch.zeros((size, size), dtype=torch.float16)
-
-        # Extract index pairs and scores
-        indices = predicts[:, :2].long()
-        scores = predicts[:, 2].type(torch.float16)
-
-        # Use indexing and broadcasting to fill the similarity matrix
-        similarity_matrix[indices[:, 0], indices[:, 1]] = scores
-        similarity_matrix[indices[:, 1], indices[:, 0]] = scores
-
-        # max_score = torch.amax(similarity_matrix, dim=1)
-        distance_matrix = 1 - similarity_matrix
-
-        distance_matrix = distance_matrix.cpu().numpy()
-        labels = dataset.data_labels
-        distance_map = {}
-        for i, i_val in enumerate(labels):
-            for j, j_val in enumerate(labels):
-                distance_map.setdefault(i_val, {}).setdefault(j_val, []).append(distance_matrix[i][j])
-                distance_map.setdefault(j_val, {}).setdefault(i_val, []).append(distance_matrix[i][j])
-
-        for source in distance_map.keys():
-            for dest in distance_map[source].keys():
-                distance_map[source][dest] = sum(distance_map[source][dest]) / len(distance_map[source][dest])
-
-        matrix = pd.DataFrame.from_dict(distance_map, orient='index').sort_index()
-        distance_df = matrix.reindex(sorted(matrix.columns), axis=1)
+        distance_df = pd.DataFrame.from_dict(distance_map, orient='index')
 
         self.logger.info(f'N samples: {len(distance_df)}, N categories: {len(distance_df.columns)}')
         index_to_fragment = {i: x for i, x in enumerate(dataset.fragments)}

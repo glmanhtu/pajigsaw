@@ -74,10 +74,12 @@ class HisfragTrainer(Trainer):
             ACompose([
                 A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.5, value=(255, 255, 255),
                                    border_mode=cv2.BORDER_CONSTANT),
+            ]),
+            torchvision.transforms.RandomCrop(patch_size, pad_if_needed=True, fill=(255, 255, 255)),
+            ACompose([
                 A.CoarseDropout(max_holes=16, min_holes=1, min_height=16, max_height=128, min_width=16, max_width=128,
                                 fill_value=255, always_apply=True),
             ]),
-            torchvision.transforms.RandomCrop(patch_size, pad_if_needed=True, fill=(255, 255, 255)),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3),
             ], p=.5),

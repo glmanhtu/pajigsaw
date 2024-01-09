@@ -178,13 +178,14 @@ class HisfragTrainer(Trainer):
         batch_time = AverageMeter()
         end = time.time()
         distance_map = {}
+        index_to_fragment = {i: x for i, x in enumerate(dataset.fragments)}
         for idx, (images, pairs) in enumerate(dataloader):
             images = images.cuda(non_blocking=True)
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
                 output = self.model(images)
 
             for pair, score in zip(pairs.numpy(), output.cpu().numpy()):
-                i, j = tuple(pair)
+                i, j = index_to_fragment[pair[0]], index_to_fragment[pair[1]]
                 distance_map.setdefault(i, {}).setdefault(j, []).append(1 - score)
                 distance_map.setdefault(j, {}).setdefault(i, []).append(1 - score)
 
@@ -199,11 +200,13 @@ class HisfragTrainer(Trainer):
                     f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                     f'mem {memory_used:.0f}MB')
 
+        for source in distance_map:
+            for dest in distance_map[source]:
+                distance_map[source][dest] = sum(distance_map[source][dest]) / len(distance_map[source][dest])
+
         distance_df = pd.DataFrame.from_dict(distance_map, orient='index')
 
         self.logger.info(f'N samples: {len(distance_df)}, N categories: {len(distance_df.columns)}')
-        index_to_fragment = {i: x for i, x in enumerate(dataset.fragments)}
-        distance_df.rename(columns=index_to_fragment, index=index_to_fragment, inplace=True)
 
         positive_pairs = dataset.fragment_to_group
 

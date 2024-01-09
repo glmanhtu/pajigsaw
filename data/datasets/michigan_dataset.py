@@ -38,7 +38,7 @@ class _Split(Enum):
 class MichiganDataset(Dataset):
     Split = Union[_Split]
 
-    def __init__(self, dataset_path: str, split: "MichiganDataset.Split", transforms, im_size,
+    def __init__(self, dataset_path: str, split: "MichiganDataset.Split", transforms,
                  min_size=112, samples=None):
         self.dataset_path = dataset_path
         if samples is None:
@@ -108,10 +108,10 @@ class MichiganDataset(Dataset):
 class MichiganTest(MichiganDataset):
     Split = Union[_Split]
 
-    def __init__(self, dataset_path: str, split: "MichiganDataset.Split", transforms, im_size, lower_bound=0,
+    def __init__(self, dataset_path: str, split: "MichiganDataset.Split", transforms, lower_bound=0,
                  samples = None,
                  val_n_items_per_writer=2):
-        super().__init__(dataset_path, split, transforms, im_size, samples=samples)
+        super().__init__(dataset_path, split, transforms, samples=samples)
         self.lower_bound = lower_bound
 
     def __getitem__(self, index: int):

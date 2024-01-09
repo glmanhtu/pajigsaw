@@ -72,26 +72,29 @@ class HisfragTrainer(Trainer):
         train_transform = torchvision.transforms.Compose([
             torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1), fill=(255, 255, 255)),
             ACompose([
-                A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.5, value=(255, 255, 255),
+                A.ShiftScaleRotate(shift_limit=0., scale_limit=0.1, rotate_limit=10, p=0.5, value=(255, 255, 255),
                                    border_mode=cv2.BORDER_CONSTANT),
             ]),
-            torchvision.transforms.RandomCrop(patch_size, pad_if_needed=True, fill=(255, 255, 255)),
+            torchvision.transforms.RandomCrop(512, pad_if_needed=True, fill=(255, 255, 255)),
             ACompose([
                 A.CoarseDropout(max_holes=16, min_holes=1, min_height=16, max_height=128, min_width=16, max_width=128,
                                 fill_value=255, always_apply=True),
             ]),
             torchvision.transforms.RandomApply([
-                torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3),
+                torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.3, saturation=0.3, hue=0.1),
             ], p=.5),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
             ], p=.5),
+            torchvision.transforms.RandomGrayscale(p=0.2),
+            torchvision.transforms.Resize(patch_size),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
 
         val_transforms = torchvision.transforms.Compose([
-            PadCenterCrop((patch_size, patch_size), pad_if_needed=True, fill=(255, 255, 255)),
+            PadCenterCrop((512, 512), pad_if_needed=True, fill=(255, 255, 255)),
+            torchvision.transforms.Resize(patch_size),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
@@ -109,7 +112,7 @@ class HisfragTrainer(Trainer):
         dataset, repeat = build_dataset(mode=mode, config=self.config, transforms=transforms)
         if mode == 'train':
             geshaem_dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.TRAIN, transform=transforms[mode],
-                                           im_size=self.config.DATA.IMG_SIZE, base_idx=len(dataset) + 1)
+                                           base_idx=len(dataset) + 1)
 
             dataset = MergeDataset([dataset, geshaem_dataset], transform=transforms[mode])
         max_dataset_length = len(dataset) * repeat
@@ -168,9 +171,8 @@ class HisfragTrainer(Trainer):
     @torch.no_grad()
     def geshaem_test(self):
         self.model.eval()
-        patch_size = self.config.DATA.IMG_SIZE
         transform = self.get_transforms()['validation']
-        dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.VAL, transform=transform, im_size=patch_size)
+        dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.VAL, transform=transform)
         dataloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=self.config.DATA.TEST_BATCH_SIZE,
@@ -235,8 +237,7 @@ class HisfragTrainer(Trainer):
     def validate_dataloader(self, split: MichiganTest.Split, remove_cache_file=False):
         self.model.eval()
         transform = self.get_transforms()[split.value]
-        img_size = self.config.DATA.IMG_SIZE
-        dataset = MichiganTest(self.config.DATA.DATA_PATH, split, transforms=transform, im_size=img_size,
+        dataset = MichiganTest(self.config.DATA.DATA_PATH, split, transforms=transform,
                                val_n_items_per_writer=self.config.DATA.EVAL_N_ITEMS_PER_CATEGORY)
         indicates = torch.arange(len(dataset)).type(torch.int).cuda()
         pairs = torch.combinations(indicates, r=2, with_replacement=True)
@@ -273,7 +274,7 @@ class HisfragTrainer(Trainer):
                 pair_masks = torch.greater_equal(pairs[:, 0], x1_lower_bound)
                 pair_masks = torch.logical_and(pair_masks, torch.less_equal(pairs[:, 0], x1_upper_bound))
 
-                x2_dataset = MichiganTest(self.config.DATA.DATA_PATH, split, transforms=transform, im_size=img_size,
+                x2_dataset = MichiganTest(self.config.DATA.DATA_PATH, split, transforms=transform,
                                           samples=dataset.data, lower_bound=x1_lower_bound.item())
                 self.logger.info(f'X2 dataset size: {len(x2_dataset)}, lower_bound: {x1_lower_bound}')
                 x2_dataloader = DataLoader(

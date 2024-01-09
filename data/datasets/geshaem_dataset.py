@@ -95,7 +95,6 @@ class GeshaemPatch(VisionDataset):
         self,
         root: str,
         split: "GeshaemPatch.Split",
-        im_size,
         transforms: Optional[Callable] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
@@ -106,7 +105,7 @@ class GeshaemPatch(VisionDataset):
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
         self.root_dir = root
-
+        im_size = 512
         self.fragment_to_group = {}
         self.fragment_to_group_id = {}
 

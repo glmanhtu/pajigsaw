@@ -78,10 +78,10 @@ class MichiganDataset(Dataset):
                     if width * height < min_size * min_size:
                         continue
 
-                    ratio = max(round((width * height) / (im_size * im_size)), 1) if split.is_train() else 1
-                    for _ in range(int(ratio)):
-                        data.append(fragment)
-                        labels.append(self.__label_idxes[img])
+                    # ratio = max(round((width * height) / (im_size * im_size)), 1) if split.is_train() else 1
+                    # for _ in range(int(ratio)):
+                    data.append(fragment)
+                    labels.append(self.__label_idxes[img])
 
                 if split.is_val() and len(data) < 2:
                     continue

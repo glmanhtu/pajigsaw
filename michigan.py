@@ -263,7 +263,7 @@ class HisfragTrainer(Trainer):
         )
         predicts = torch.zeros((0, 3), dtype=torch.float32).cuda()
         is_finished = False
-        tmp_data_path = os.path.join(self.config.OUTPUT, f'michigan_{split.value}_result_rank{self.rank}.pt')
+        tmp_data_path = os.path.join(self.config.OUTPUT, f'{split.value}_result_rank{self.rank}.pt')
         if os.path.exists(tmp_data_path):
             if remove_cache_file:
                 os.unlink(tmp_data_path)

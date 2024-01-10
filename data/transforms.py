@@ -58,6 +58,27 @@ class PadCenterCrop(object):
         return F.center_crop(img, self.size)
 
 
+class RandomSizedCrop:
+
+    def __init__(self, min_width, min_height, pad_if_needed=False, fill=0, padding_mode='constant'):
+        self.min_width = min_width
+        self.min_height = min_height
+        self.pad_if_needed = pad_if_needed
+        self.fill = fill
+        self.padding_mode = padding_mode
+
+    def __call__(self, image):
+        width, height = image.size
+        if self.min_width < image.width:
+            width = random.randint(self.min_width, image.width)
+        if self.min_height < image.height:
+            height = random.randint(self.min_height, image.height)
+
+        cropper = transforms.RandomCrop((height, width), pad_if_needed=self.pad_if_needed, fill=self.fill,
+                                        padding_mode=self.padding_mode)
+        return cropper(image)
+
+
 class UnNormalize(object):
     def __init__(self, mean, std):
         self.mean = mean

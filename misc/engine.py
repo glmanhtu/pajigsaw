@@ -25,7 +25,7 @@ class Trainer:
     def __init__(self, args):
         self.config = get_config(args)
         self.local_rank, self.rank, self.world_size = configure_ddp()
-        seed = self.config.SEED + dist.get_rank()
+        seed = self.config.SEED + self.rank
         utils.set_seed(seed)
         cudnn.benchmark = True
 

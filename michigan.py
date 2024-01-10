@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torchvision
+from ml_engine.data.samplers import MPerClassSampler
 from pytorch_metric_learning import samplers
 from torch.utils.data import DataLoader
 
@@ -19,7 +20,7 @@ from data.datasets.geshaem_dataset import GeshaemPatch, MergeDataset
 from data.datasets.hisfrag_dataset import HisFrag20Test
 from data.datasets.michigan_dataset import MichiganTest
 from data.samplers import DistributedIndicatesSampler, DistributedEvalSampler
-from data.transforms import ACompose, PadCenterCrop
+from data.transforms import ACompose, PadCenterCrop, RandomSizedCrop
 from misc import wi19_evaluate, utils
 from misc.engine import Trainer
 from misc.metric import calc_map_prak
@@ -70,10 +71,8 @@ class HisfragTrainer(Trainer):
         patch_size = self.config.DATA.IMG_SIZE
 
         train_transform = torchvision.transforms.Compose([
-            torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1), fill=(255, 255, 255)),
-            ACompose([
-                A.ShiftScaleRotate(shift_limit=0., scale_limit=0.1, rotate_limit=10, p=0.5, value=(255, 255, 255),
-                                   border_mode=cv2.BORDER_CONSTANT),
+            torchvision.transforms.RandomApply([
+                RandomSizedCrop(min_width=224, min_height=224, pad_if_needed=True, fill=(255, 255, 255)),
             ]),
             torchvision.transforms.RandomCrop(512, pad_if_needed=True, fill=(255, 255, 255)),
             torchvision.transforms.RandomHorizontalFlip(),
@@ -118,7 +117,7 @@ class HisfragTrainer(Trainer):
 
             dataset = MergeDataset([dataset, geshaem_dataset], transform=transforms[mode])
         max_dataset_length = len(dataset) * repeat
-        sampler = samplers.MPerClassSampler(dataset.data_labels, m=3, length_before_new_iter=max_dataset_length)
+        sampler = MPerClassSampler(dataset.data_labels, m=3, length_before_new_iter=max_dataset_length)
         sampler.set_epoch = lambda x: x
         dataloader = DataLoader(dataset, sampler=sampler, pin_memory=True, batch_size=self.config.DATA.BATCH_SIZE,
                                 drop_last=True, num_workers=self.config.DATA.NUM_WORKERS)
@@ -195,14 +194,13 @@ class HisfragTrainer(Trainer):
         for idx, (images, pairs) in enumerate(dataloader):
             images = images.cuda(non_blocking=True)
             with torch.cuda.amp.autocast(enabled=self.config.AMP_ENABLE):
-                output = self.model(images)
+                output = self.model(images).view(-1)
 
             for pair, score in zip(pairs.numpy(), output.float().cpu().numpy()):
-                i, j = tuple(pair)
-                frag_i_idx, frag_j_idx = dataset.data_labels[i], dataset.data_labels[j]
+                frag_i_idx, frag_j_idx = tuple(pair)
                 frag_i, frag_j = index_to_fragment[frag_i_idx], index_to_fragment[frag_j_idx]
-                distance_map.setdefault(frag_i, {}).setdefault(frag_j, []).append(1 - score[0])
-                distance_map.setdefault(frag_j, {}).setdefault(frag_i, []).append(1 - score[0])
+                distance_map.setdefault(frag_i, {}).setdefault(frag_j, []).append(1 - score)
+                distance_map.setdefault(frag_j, {}).setdefault(frag_i, []).append(1 - score)
 
             batch_time.update(time.time() - end)
             end = time.time()
@@ -265,7 +263,7 @@ class HisfragTrainer(Trainer):
         )
         predicts = torch.zeros((0, 3), dtype=torch.float32).cuda()
         is_finished = False
-        tmp_data_path = os.path.join(self.config.OUTPUT, f'{split.value}_result_rank{self.rank}.pt')
+        tmp_data_path = os.path.join(self.config.OUTPUT, f'michigan_{split.value}_result_rank{self.rank}.pt')
         if os.path.exists(tmp_data_path):
             if remove_cache_file:
                 os.unlink(tmp_data_path)

@@ -185,11 +185,13 @@ class GeshaemPatch(VisionDataset):
     def __getitem__(self, index: int):
         x1_id, x2_id = tuple(self.pairs[index])
         img_path = self.data[x1_id.item()]
+        img_label = self.data_labels[x1_id.item()]
 
         with Image.open(img_path) as f:
             image = f.convert('RGB')
 
         img2_path = self.data[x2_id.item()]
+        img2_label = self.data_labels[x2_id.item()]
         with Image.open(img2_path) as f:
             image2 = f.convert('RGB')
 
@@ -197,7 +199,8 @@ class GeshaemPatch(VisionDataset):
             image = self.transform(image)
             image2 = self.transform(image2)
         stacked_img = torch.stack([image, image2], dim=0)
-        return stacked_img, self.pairs[index]
+        label = torch.tensor([img_label, img2_label])
+        return stacked_img, label
 
     def __len__(self) -> int:
         return len(self.pairs)

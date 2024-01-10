@@ -317,7 +317,7 @@ def set_seed(seed):
 
 
 def configure_ddp():
-    local_rank, rank, world_size = -1, -1, -1
+    local_rank, rank, world_size = 0, 0, 1
 
     if 'RANK' in os.environ:
         rank = int(os.environ["RANK"])
@@ -332,7 +332,12 @@ def configure_ddp():
         rank = int(os.environ['SLURM_PROCID'])
         local_rank = rank % torch.cuda.device_count()
 
-    print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
+    if 'MASTER_ADDR' not in os.environ:
+        os.environ['MASTER_ADDR'] = 'localhost'
+
+    if 'MASTER_PORT' not in os.environ:
+        os.environ['MASTER_PORT'] = str(random.randint(10000, 65000))
+
     torch.cuda.set_device(local_rank)
     torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
     torch.distributed.barrier()

@@ -5,6 +5,7 @@
 # Written by Ze Liu
 # --------------------------------------------------------
 import torch
+from timm.models import VisionTransformer
 
 from .resnet import ResNet32MixConv, ResNet, ResNetWrapper
 from .simsiam import SimSiam, SimSiamV2, SimSiamV2CE
@@ -28,6 +29,18 @@ def build_model(config, is_pretrain=False):
             qkv_bias=config.MODEL.PJS.QKV_BIAS,
             keep_attn=config.MODEL.PJS.KEEP_ATTN,
             arch_version=config.MODEL.PJS.ARCH_VERSION
+        )
+    elif model_type == 'vit':
+        model = VisionTransformer(
+            img_size=config.DATA.IMG_SIZE,
+            patch_size=config.MODEL.VIT.PATCH_SIZE,
+            in_chans=config.MODEL.VIT.IN_CHANS,
+            num_classes=config.MODEL.NUM_CLASSES,
+            embed_dim=config.MODEL.VIT.EMBED_DIM,
+            depth=config.MODEL.VIT.DEPTH,
+            num_heads=config.MODEL.VIT.NUM_HEADS,
+            mlp_ratio=config.MODEL.VIT.MLP_RATIO,
+            qkv_bias=config.MODEL.VIT.QKV_BIAS,
         )
     elif model_type == 'ss':
         model = SimSiam(

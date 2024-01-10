@@ -1,14 +1,13 @@
 import argparse
 import logging
 
+import albumentations as A
 import cv2
 import numpy as np
-import torch
 import torchvision.transforms
-from datasets import load_dataset
 
-from data.datasets.hisfrag_dataset import HisFrag20, HisFrag20Test
-from data.datasets.pajigsaw_dataset import PajigsawPieces, Pajigsaw
+from data.datasets.michigan_dataset import MichiganDataset
+from data.transforms import RandomSizedCrop, ACompose
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s :: %(levelname)s :: %(message)s')
 
@@ -17,22 +16,38 @@ parser.add_argument('--data-path', required=True, type=str, help='path to datase
 args = parser.parse_args()
 
 
-img_size = 512
+patch_size = 512
 transform = torchvision.transforms.Compose([
-    torchvision.transforms.CenterCrop(int(img_size * 2)),
-    torchvision.transforms.Resize(img_size),
-    torchvision.transforms.ToTensor()
+    # ACompose([
+    #     A.ShiftScaleRotate(shift_limit=0., scale_limit=0.1, rotate_limit=10, p=0.5, value=(255, 255, 255),
+    #                        border_mode=cv2.BORDER_CONSTANT),
+    # ]),
+    torchvision.transforms.RandomApply([
+        RandomSizedCrop(min_width=224, min_height=224, pad_if_needed=True, fill=(255, 255, 255)),
+    ]),
+    torchvision.transforms.RandomCrop(512, pad_if_needed=True, fill=(255, 255, 255)),
+    torchvision.transforms.RandomHorizontalFlip(),
+    torchvision.transforms.RandomVerticalFlip(),
+    ACompose([
+        A.CoarseDropout(max_holes=16, min_holes=1, min_height=16, max_height=128, min_width=16, max_width=128,
+                        fill_value=255, always_apply=True),
+    ]),
+    torchvision.transforms.Resize(patch_size),
+    torchvision.transforms.RandomApply([
+        torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.3, saturation=0.3, hue=0.1),
+    ], p=.5),
+    torchvision.transforms.RandomApply([
+        torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
+    ], p=.5),
+    torchvision.transforms.RandomGrayscale(p=0.2),
 ])
 
-train_dataset = Pajigsaw(args.data_path, Pajigsaw.Split.TRAIN, transform=transform)
+train_dataset = MichiganDataset(args.data_path, MichiganDataset.Split.TRAIN, transforms=transform)
 un_normaliser = torchvision.transforms.Compose([
-    torchvision.transforms.ToPILImage(),
     lambda x: np.asarray(x)
 ])
-for pair, label in train_dataset:
-    first_img, second_img = torch.unbind(pair, dim=0)
-    first_img, second_img = un_normaliser(first_img), un_normaliser(second_img)
-    image = np.concatenate([first_img, second_img], axis=1)
+for img, label in train_dataset:
+    first_img = un_normaliser(img)
     # if label[0] == 1:
     #     image = np.concatenate([first_img, second_img], axis=1)
     # elif label[2] == 1:
@@ -46,7 +61,7 @@ for pair, label in train_dataset:
     #     image = np.concatenate([first_img, np.zeros_like(first_img), second_img], axis=0)
 
     # image = cv2.bitwise_not(image)
-    cv2.imshow('image', cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+    cv2.imshow('image', cv2.cvtColor(first_img, cv2.COLOR_RGB2BGR))
 
     # waitKey() waits for a key press to close the window and 0 specifies indefinite loop
     cv2.waitKey(500)

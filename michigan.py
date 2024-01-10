@@ -174,7 +174,11 @@ class HisfragTrainer(Trainer):
     def geshaem_test(self):
         self.model.eval()
         transform = self.get_transforms()['validation']
-        dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.VAL, transform=transform)
+        if 'geshaem_test' in self.data_loader_registers:
+            dataset = self.data_loader_registers['geshame_test']
+        else:
+            dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.VAL, transform=transform)
+            self.data_loader_registers['geshame_test'] = dataset
         dataloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=self.config.DATA.TEST_BATCH_SIZE,
@@ -239,8 +243,13 @@ class HisfragTrainer(Trainer):
     def validate_dataloader(self, split: MichiganTest.Split, remove_cache_file=False):
         self.model.eval()
         transform = self.get_transforms()[split.value]
-        dataset = MichiganTest(self.config.DATA.DATA_PATH, split, transforms=transform,
-                               val_n_items_per_writer=self.config.DATA.EVAL_N_ITEMS_PER_CATEGORY)
+        if 'michigan_test' in self.data_loader_registers:
+            dataset = self.data_loader_registers['michigan_test']
+        else:
+            dataset = MichiganTest(self.config.DATA.DATA_PATH, split, transforms=transform,
+                                   val_n_items_per_writer=self.config.DATA.EVAL_N_ITEMS_PER_CATEGORY)
+            self.data_loader_registers['michigan_test'] = dataset
+
         indicates = torch.arange(len(dataset)).type(torch.int).cuda()
         pairs = torch.combinations(indicates, r=2, with_replacement=True)
         del indicates

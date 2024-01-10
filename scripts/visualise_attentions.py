@@ -13,11 +13,12 @@ import cv2
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
+import torchvision.transforms
 from PIL import Image
 from matplotlib import pyplot as plt
 
 from config import get_config
-from data.transforms import TwoImgSyncEval
+from data.transforms import TwoImgSyncEval, UnNormalize
 from models import build_model
 from misc.utils import load_pretrained
 
@@ -344,13 +345,22 @@ def main(config):
         raise Exception(f'Pretrained model is not exists {config.MODEL.PRETRAINED}')
 
     model = model.eval()
-    transform = TwoImgSyncEval(config.DATA.IMG_SIZE)
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.CenterCrop(config.DATA.IMG_SIZE),
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+    un_normaliser = torchvision.transforms.Compose([
+        UnNormalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        torchvision.transforms.ToPILImage(),
+    ])
     assert len(args.images) == 2
     imgs = []
     for img_path in args.images:
         with Image.open(img_path) as f:
             imgs.append(f.convert('RGB'))
-    first, second = transform(imgs[0], imgs[1])
+    first = transform(imgs[0])
+    second = transform(imgs[1])
     images = torch.stack([first, second], dim=0).cuda()
 
     gen = Generator(model)
@@ -377,20 +387,21 @@ def main(config):
     attn_x1_img = np.zeros([w_featmap, h_featmap, 3], dtype=np.float32)
     attn_x2_img = np.zeros([w_featmap, h_featmap, 3], dtype=np.float32)
 
-    for x2_feat_point in range(attentions.shape[1]):
-        attention_x1 = attentions[x2_feat_point, :].reshape(w_featmap, h_featmap)
-        if not torch.all(torch.le(attention_x1, args.threshold)):
-            colour = colours[x2_feat_point]
-            row = int(x2_feat_point / w_featmap)
-            col = x2_feat_point - row * w_featmap
-            attn_x2_img[row][col] = colour
-            attn_x1_candidates = torch.gt(attention_x1, args.threshold)
-            attn_x1_img[attn_x1_candidates.cpu().numpy()] = colour
+    x2_feat_img = np.arange(attentions.shape[1]).reshape(w_featmap, h_featmap)
+    for h in range(len(x2_feat_img)):
+        for w in range(len(x2_feat_img[h])):
+            x2_feat_point = h * len(x2_feat_img) + w
+            attention_x1 = attentions[x2_feat_point, :].reshape(w_featmap, h_featmap)
+            if not torch.all(torch.le(attention_x1, args.threshold)):
+                colour = colours[x2_feat_point]
+                attn_x2_img[h][w] = colour
+                attn_x1_candidates = torch.gt(attention_x1, args.threshold)
+                attn_x1_img[attn_x1_candidates.cpu().numpy()] = colour
 
     fig, axs = plt.subplots(1, 2)
-    axs[0].imshow(show_cam_on_image(np.array(imgs[0]), attn_x1_img, config.DATA.IMG_SIZE))
+    axs[0].imshow(show_cam_on_image(np.array(un_normaliser(first)), attn_x1_img, config.DATA.IMG_SIZE))
     axs[0].axis('off')
-    axs[1].imshow(show_cam_on_image(np.array(imgs[1]), attn_x2_img, config.DATA.IMG_SIZE))
+    axs[1].imshow(show_cam_on_image(np.array(un_normaliser(second)), attn_x2_img, config.DATA.IMG_SIZE))
     axs[1].axis('off')
 
     plt.show()

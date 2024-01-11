@@ -130,7 +130,7 @@ class GeshaemPatch(VisionDataset):
         for idx, fragment in enumerate(self.fragments):
             data, labels = [], []
             for img_path in sorted(fragments[fragment]):
-                image_name = os.path.basename(os.path.dirname(os.path.dirname(img_path)))
+                image_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(img_path))))
                 fragment, rv, col = parse_name(image_name)
                 fragment_ids = fragment.split("_")
                 if fragment_ids[0] not in self.fragment_to_group:
@@ -157,9 +157,9 @@ class GeshaemPatch(VisionDataset):
         fragments = {}
         groups = []
         for img_path in sorted(glob.glob(os.path.join(self.root_dir, '**', '*.jpg'), recursive=True)):
-            if img_path.split(os.sep)[-2] != 'papyrus':
+            if img_path.split(os.sep)[-3] != 'papyrus':
                 continue
-            image_name = os.path.basename(os.path.dirname(os.path.dirname(img_path)))
+            image_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(img_path))))
             fragment, rv, col = parse_name(image_name)
             if rv.upper() == 'V' and not include_verso:
                 continue

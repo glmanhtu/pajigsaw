@@ -105,7 +105,7 @@ def build_dataset(mode, config, transforms):
 
     elif config.DATA.DATASET == 'michigan':
         split = MichiganDataset.Split.from_string(mode)
-        repeat = 2 if split.is_train() else 1
+        repeat = 3 if split.is_train() else 1
         dataset = MichiganDataset(config.DATA.DATA_PATH, split, transforms=transform)
 
     else:

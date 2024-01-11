@@ -198,6 +198,7 @@ class Trainer:
 
         start = time.time()
         end = time.time()
+        optimizer.zero_grad()
         for idx, (samples, targets) in enumerate(data_loader):
             samples = samples.cuda(non_blocking=True)
             targets = targets.cuda(non_blocking=True)
@@ -220,13 +221,14 @@ class Trainer:
                 if grad_norm is not None:  # loss_scaler return None if not update
                     norm_meter.update(grad_norm)
                 scaler_meter.update(loss_scale_value)
+            else:
+                loss.backward()
 
             if (idx + 1) % self.config.TRAIN.ACCUMULATION_STEPS == 0:
-                optimizer.zero_grad()
-                if self.config.AMP_ENABLE:
-                    lr_scheduler.step_update((epoch * num_steps + idx) // self.config.TRAIN.ACCUMULATION_STEPS)
-                else:
+                lr_scheduler.step_update((epoch * num_steps + idx) // self.config.TRAIN.ACCUMULATION_STEPS)
+                if not self.config.AMP_ENABLE:
                     optimizer.step()
+                optimizer.zero_grad()
 
             torch.cuda.synchronize()
 

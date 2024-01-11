@@ -118,6 +118,7 @@ class HisfragTrainer(Trainer):
 
             dataset = MergeDataset([dataset, geshaem_dataset], transform=transforms[mode])
         max_dataset_length = len(dataset) * repeat
+        self.logger.info(f'[{mode}] Dataset length: {max_dataset_length}')
         sampler = MPerClassSampler(dataset.data_labels, m=3, length_before_new_iter=max_dataset_length)
         sampler.set_epoch = lambda x: x
         dataloader = DataLoader(dataset, sampler=sampler, pin_memory=True, batch_size=self.config.DATA.BATCH_SIZE,

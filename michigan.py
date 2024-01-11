@@ -386,8 +386,7 @@ class HisfragTrainer(Trainer):
     @torch.no_grad()
     def validate(self):
         self.model.eval()
-        # return self.geshaem_test()
-        return 1
+        return self.geshaem_test()
         # distance_matrix, labels = self.validate_dataloader(MichiganTest.Split.VAL, remove_cache_file=True)
         # m_ap, top1, pr_k10, pr_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
         # self.logger.info(f'Michigan eval: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_k10:.3f}\t'

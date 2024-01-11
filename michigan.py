@@ -168,14 +168,14 @@ class HisfragTrainer(Trainer):
         return self.model(x1, x)
 
     @torch.no_grad()
-    def geshaem_test(self):
+    def geshaem_test(self, key='geshaem_test'):
         self.model.eval()
         transform = self.get_transforms()['validation']
-        if 'geshaem_test' in self.data_loader_registers:
-            dataset = self.data_loader_registers['geshame_test']
+        if key in self.data_loader_registers:
+            dataset = self.data_loader_registers[key]
         else:
             dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.VAL, transform=transform)
-            self.data_loader_registers['geshame_test'] = dataset
+            self.data_loader_registers[key] = dataset
         dataloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=self.config.DATA.TEST_BATCH_SIZE,
@@ -386,7 +386,8 @@ class HisfragTrainer(Trainer):
     @torch.no_grad()
     def validate(self):
         self.model.eval()
-        return self.geshaem_test()
+        # return self.geshaem_test()
+        return 1
         # distance_matrix, labels = self.validate_dataloader(MichiganTest.Split.VAL, remove_cache_file=True)
         # m_ap, top1, pr_k10, pr_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
         # self.logger.info(f'Michigan eval: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_k10:.3f}\t'

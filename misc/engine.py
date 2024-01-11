@@ -210,24 +210,27 @@ class Trainer:
                 loss = criterion(outputs, targets)
                 loss = loss / self.config.TRAIN.ACCUMULATION_STEPS
 
-            # this attribute is added by timm on one optimizer (adahessian)
-            is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
-            grad_norm = loss_scaler(loss, optimizer, clip_grad=self.config.TRAIN.CLIP_GRAD,
-                                    parameters=self.model.parameters(), create_graph=is_second_order,
-                                    update_grad=(idx + 1) % self.config.TRAIN.ACCUMULATION_STEPS == 0)
+            if self.config.AMP_ENABLE:
+                # this attribute is added by timm on one optimizer (adahessian)
+                is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
+                grad_norm = loss_scaler(loss, optimizer, clip_grad=self.config.TRAIN.CLIP_GRAD,
+                                        parameters=self.model.parameters(), create_graph=is_second_order,
+                                        update_grad=(idx + 1) % self.config.TRAIN.ACCUMULATION_STEPS == 0)
+                loss_scale_value = loss_scaler.state_dict()["scale"]
+                if grad_norm is not None:  # loss_scaler return None if not update
+                    norm_meter.update(grad_norm)
+                scaler_meter.update(loss_scale_value)
 
             if (idx + 1) % self.config.TRAIN.ACCUMULATION_STEPS == 0:
                 optimizer.zero_grad()
-                lr_scheduler.step_update((epoch * num_steps + idx) // self.config.TRAIN.ACCUMULATION_STEPS)
-            loss_scale_value = loss_scaler.state_dict()["scale"]
+                if self.config.AMP_ENABLE:
+                    lr_scheduler.step_update((epoch * num_steps + idx) // self.config.TRAIN.ACCUMULATION_STEPS)
+                else:
+                    optimizer.step()
 
             torch.cuda.synchronize()
 
             loss_meter.update(loss.item() * self.config.TRAIN.ACCUMULATION_STEPS, targets.size(0))
-            if grad_norm is not None:  # loss_scaler return None if not update
-                norm_meter.update(grad_norm)
-
-            scaler_meter.update(loss_scale_value)
             batch_time.update(time.time() - end)
             end = time.time()
 

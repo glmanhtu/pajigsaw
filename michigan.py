@@ -236,7 +236,7 @@ class HisfragTrainer(Trainer):
         self.logger.info(f'Geshaem test MIN: mAP {min_m_ap:.3f}\t' f'Top 1 {top_1:.3f}\t' f'Pr@k5 {prk5:.3f}\t'
                          f'Pr@k10 {prk10:.3f}\t')
 
-        return 1 - min(mean_m_ap, min_m_ap)
+        return 1 - max(mean_m_ap, min_m_ap)
 
     def validate_dataloader(self, split: MichiganTest.Split, remove_cache_file=False):
         self.model.eval()

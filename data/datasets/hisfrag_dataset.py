@@ -32,11 +32,23 @@ class _Split(Enum):
         }
         return split_lengths[self]
 
+    @property
+    def sub_dir(self):
+        dirs = {
+            _Split.TRAIN: "train",
+            _Split.VAL: "train",
+            _Split.TEST: "test"
+        }
+        return dirs[self]
+
     def is_train(self):
         return self.value == 'train'
 
     def is_val(self):
         return self.value == 'val'
+
+    def is_test(self):
+        return self.value == 'test'
 
     @staticmethod
     def from_string(name):
@@ -81,11 +93,15 @@ class HisFrag20(VisionDataset):
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         self._split = split
-        self.root_dir = os.path.join(root, split.value)
-        if not split.is_train():
-            raise Exception("This class can only be used for training mode!")
+        self.root_dir = os.path.join(root, split.sub_dir)
 
-        writers, writer_map = get_writers(self.root_dir, (0., split.length))
+        proportion = 0., split.length
+        if split.is_val():
+            proportion = 1. - split.length, 1.
+        elif split.is_test():
+            proportion = 0., 1.
+        writers, writer_map = get_writers(self.root_dir, proportion)
+
         self.writer_to_idx = {x: i for i, x in enumerate(writers)}
         samples, labels = [], []
         for writer in sorted(writer_map.keys()):
@@ -141,10 +157,7 @@ class HisFrag20Test(VisionDataset):
             raise Exception('This class can only be used in Validation or Testing mode!')
 
         if samples is None:
-            sub_dir = _Split.TRAIN.value  # Train and Val use the same training set
-            if split is _Split.TEST:
-                sub_dir = split.value
-            root_dir = os.path.join(root, sub_dir)
+            root_dir = os.path.join(root, split.sub_dir)
             proportion = 0., 1.     # Testing mode uses all samples
             if split.is_val():
                 proportion = 1. - split.length, 1.

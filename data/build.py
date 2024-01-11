@@ -5,7 +5,7 @@
 # Written by Ze Liu
 # --------------------------------------------------------
 
-from .datasets.div2k_patch import DIV2KPatch
+from .datasets.div2k_patch import DIV2KPatch, Div2kPatchTriplet
 from .datasets.hisfrag_dataset import HisFrag20
 from .datasets.michigan_dataset import MichiganDataset
 from .datasets.pajigsaw_dataset import Pajigsaw
@@ -93,6 +93,11 @@ def build_dataset(mode, config, transforms):
         repeat = 5 if split.is_train() else 10
         dataset = DIV2KPatch(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
                              image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
+    elif config.DATA.DATASET == 'div2k_triplet':
+        split = DIV2KPatch.Split.from_string(mode)
+        repeat = 5 if split.is_train() else 10
+        dataset = Div2kPatchTriplet(config.DATA.DATA_PATH, split, transform=transform, with_negative=True,
+                                    image_size=patch_size, erosion_ratio=config.DATA.EROSION_RATIO)
 
     elif config.DATA.DATASET == 'pajigsaw':
         split = Pajigsaw.Split.from_string(mode)

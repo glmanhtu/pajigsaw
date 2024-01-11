@@ -7,5 +7,5 @@ MODEL:
     EMBED_DIM: 384
     PATCH_SIZE: 8
 DATA:
-  DATASET: div2k
+  DATASET: div2k_triplet
   IMG_SIZE: 64

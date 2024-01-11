@@ -165,4 +165,27 @@ class DIV2KPatch(VisionDataset):
         return len(self.dataset)
 
 
+class Div2kPatchTriplet(DIV2KPatch):
+    def __getitem__(self, index: int):
+        image = self.read_image(index)
+        cropper = self.cropper_class((self.image_size * 2, self.image_size * 3))
+        patch = cropper(image)
+
+        # Crop the image into a grid of 3 x 2 patches
+        crops = transforms.crop(patch, 3, 2)
+        erosion_ratio = self.erosion_ratio
+        if self._split.is_train():
+            erosion_ratio = random.uniform(self.erosion_ratio, self.erosion_ratio * 2)
+        piece_size_erosion = math.ceil(self.image_size * (1 - erosion_ratio))
+        cropper = torchvision.transforms.CenterCrop(piece_size_erosion)
+
+        images, labels = [], []
+        for i, crop in enumerate(crops):
+            image = self.transform(cropper(crop))
+            images.append(image)
+            labels.append(i)
+
+        stacked_img = torch.stack(images, dim=0)
+        return stacked_img, torch.tensor(labels)
+
 

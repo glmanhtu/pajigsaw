@@ -60,8 +60,8 @@ class MichiganDataset(Dataset):
                 if key not in image_map[img]:
                     key = 'summary'
                 images[img] = image_map[img][key]
-                if val_n_items_per_writer and split.is_val():
-                    images[img] = image_map[img][:val_n_items_per_writer]
+                if val_n_items_per_writer is not None and split.is_val():
+                    images[img] = images[img][:val_n_items_per_writer]
 
             self.labels = sorted(images.keys())
             self.__label_idxes = {k: i for i, k in enumerate(self.labels)}
@@ -107,7 +107,7 @@ class MichiganTest(MichiganDataset):
     def __init__(self, dataset_path: str, split: "MichiganDataset.Split", transforms, lower_bound=0,
                  samples = None,
                  val_n_items_per_writer=2):
-        super().__init__(dataset_path, split, transforms, samples=samples)
+        super().__init__(dataset_path, split, transforms, samples=samples, val_n_items_per_writer=val_n_items_per_writer)
         self.lower_bound = lower_bound
 
     def __getitem__(self, index: int):

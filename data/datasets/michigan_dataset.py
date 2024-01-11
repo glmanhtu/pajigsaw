@@ -13,12 +13,14 @@ from torchvision.datasets import VisionDataset
 class _Split(Enum):
     TRAIN = "train"
     VAL = "validation"
+    ALL = "all"
 
     @property
     def length(self) -> float:
         split_lengths = {
             _Split.TRAIN: 0.85,  # percentage of the dataset
-            _Split.VAL: 0.15
+            _Split.VAL: 0.15,
+            _Split.ALL: 1.
         }
         return split_lengths[self]
 
@@ -68,8 +70,12 @@ class MichiganDataset(Dataset):
 
             if split == MichiganDataset.Split.TRAIN:
                 self.labels = self.labels[: int(len(self.labels) * split.length)]
-            else:
+            elif split == MichiganDataset.Split.VAL:
                 self.labels = self.labels[-int(len(self.labels) * split.length):]
+            elif split == MichiganDataset.Split.ALL:
+                self.labels = self.labels
+            else:
+                raise NotImplementedError(f'Split {split} is not implemented')
 
             self.data = []
             self.data_labels = []

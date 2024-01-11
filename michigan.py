@@ -5,23 +5,17 @@ import statistics
 import time
 
 import albumentations as A
-import torch.nn.functional as F
 import cv2
-import numpy as np
 import pandas as pd
 import torch
 import torchvision
 from ml_engine.data.samplers import MPerClassSampler
-from pytorch_metric_learning import samplers
 from torch.utils.data import DataLoader
 
-from data.build import build_dataset
 from data.datasets.geshaem_dataset import GeshaemPatch, MergeDataset
-from data.datasets.hisfrag_dataset import HisFrag20Test
-from data.datasets.michigan_dataset import MichiganTest
-from data.samplers import DistributedIndicatesSampler, DistributedEvalSampler
-from data.transforms import ACompose, PadCenterCrop, RandomSizedCrop
-from misc import wi19_evaluate, utils
+from data.datasets.michigan_dataset import MichiganTest, MichiganDataset
+from data.samplers import DistributedIndicatesSampler
+from data.transforms import ACompose, PadCenterCrop
 from misc.engine import Trainer
 from misc.metric import calc_map_prak
 from misc.utils import AverageMeter, get_combinations
@@ -110,14 +104,16 @@ class HisfragTrainer(Trainer):
         if mode in self.data_loader_registers:
             return self.data_loader_registers[mode]
 
-        transforms = self.get_transforms()
-        dataset, repeat = build_dataset(mode=mode, config=self.config, transforms=transforms)
+        if mode != 'train':
+            raise Exception('Only Train mode should be executed')
+        transform = self.get_transforms()[mode]
+        dataset = MichiganDataset(self.config.DATA.DATA_PATH, MichiganDataset.Split.ALL, transforms=transform)
         if mode == 'train':
-            geshaem_dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.TRAIN, transform=transforms[mode],
+            geshaem_dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.TRAIN, transform=transform,
                                            base_idx=len(dataset) + 1)
 
-            dataset = MergeDataset([dataset, geshaem_dataset], transform=transforms[mode])
-        max_dataset_length = len(dataset) * repeat
+            dataset = MergeDataset([dataset, geshaem_dataset], transform=transform)
+        max_dataset_length = len(dataset) * 3
         self.logger.info(f'[{mode}] Dataset length: {max_dataset_length}')
         sampler = MPerClassSampler(dataset.data_labels, m=3, length_before_new_iter=max_dataset_length)
         sampler.set_epoch = lambda x: x
@@ -230,15 +226,17 @@ class HisfragTrainer(Trainer):
 
         pos_pairs = dataset.fragment_to_group
         dist_df = pd.DataFrame.from_dict(mean_distance_map, orient='index')
-        m_ap, (top_1, prk5, prk10) = calc_map_prak(dist_df.to_numpy(), dist_df.columns, pos_pairs, prak=(1, 5, 10))
+        mean_m_ap, (top_1, prk5, prk10) = calc_map_prak(dist_df.to_numpy(), dist_df.columns, pos_pairs, prak=(1, 5, 10))
 
-        self.logger.info(f'Geshaem test MEAN: mAP {m_ap:.3f}\t' f'Top 1 {top_1:.3f}\t' f'Pr@k5 {prk5:.3f}\t'
+        self.logger.info(f'Geshaem test MEAN: mAP {mean_m_ap:.3f}\t' f'Top 1 {top_1:.3f}\t' f'Pr@k5 {prk5:.3f}\t'
                          f'Pr@k10 {prk10:.3f}\t')
 
         dist_df = pd.DataFrame.from_dict(min_distance_map, orient='index')
-        m_ap, (top_1, prk5, prk10) = calc_map_prak(dist_df.to_numpy(), dist_df.columns, pos_pairs, prak=(1, 5, 10))
-        self.logger.info(f'Geshaem test MIN: mAP {m_ap:.3f}\t' f'Top 1 {top_1:.3f}\t' f'Pr@k5 {prk5:.3f}\t'
+        min_m_ap, (top_1, prk5, prk10) = calc_map_prak(dist_df.to_numpy(), dist_df.columns, pos_pairs, prak=(1, 5, 10))
+        self.logger.info(f'Geshaem test MIN: mAP {min_m_ap:.3f}\t' f'Top 1 {top_1:.3f}\t' f'Pr@k5 {prk5:.3f}\t'
                          f'Pr@k10 {prk10:.3f}\t')
+
+        return 1 - min(mean_m_ap, min_m_ap)
 
     def validate_dataloader(self, split: MichiganTest.Split, remove_cache_file=False):
         self.model.eval()
@@ -388,12 +386,12 @@ class HisfragTrainer(Trainer):
     @torch.no_grad()
     def validate(self):
         self.model.eval()
-        self.geshaem_test()
-        distance_matrix, labels = self.validate_dataloader(MichiganTest.Split.VAL, remove_cache_file=True)
-        m_ap, top1, pr_k10, pr_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
-        self.logger.info(f'Michigan eval: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_k10:.3f}\t' 
-                         f'Pr@k100 {pr_k100:.3f}')
-        return 1 - m_ap
+        return self.geshaem_test()
+        # distance_matrix, labels = self.validate_dataloader(MichiganTest.Split.VAL, remove_cache_file=True)
+        # m_ap, top1, pr_k10, pr_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
+        # self.logger.info(f'Michigan eval: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_k10:.3f}\t'
+        #                  f'Pr@k100 {pr_k100:.3f}')
+        # return 1 - m_ap
 
 
 if __name__ == '__main__':

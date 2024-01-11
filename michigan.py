@@ -71,17 +71,16 @@ class HisfragTrainer(Trainer):
         patch_size = self.config.DATA.IMG_SIZE
 
         train_transform = torchvision.transforms.Compose([
-            torchvision.transforms.RandomApply([
-                RandomSizedCrop(min_width=224, min_height=224, pad_if_needed=True, fill=(255, 255, 255)),
-            ]),
-            torchvision.transforms.RandomCrop(512, pad_if_needed=True, fill=(255, 255, 255)),
-            torchvision.transforms.RandomHorizontalFlip(),
-            torchvision.transforms.RandomVerticalFlip(),
+            torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1), fill=(255, 255, 255)),
             ACompose([
-                A.CoarseDropout(max_holes=16, min_holes=1, min_height=16, max_height=128, min_width=16, max_width=128,
+                A.ShiftScaleRotate(shift_limit=0., scale_limit=0.1, rotate_limit=10, p=0.5, value=(255, 255, 255),
+                                   border_mode=cv2.BORDER_CONSTANT),
+            ]),
+            torchvision.transforms.RandomCrop(patch_size, pad_if_needed=True, fill=(255, 255, 255)),
+            ACompose([
+                A.CoarseDropout(max_holes=8, min_holes=1, min_height=16, max_height=64, min_width=16, max_width=64,
                                 fill_value=255, always_apply=True),
             ]),
-            torchvision.transforms.Resize(patch_size),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.3, saturation=0.3, hue=0.1),
             ], p=.5),
@@ -89,13 +88,15 @@ class HisfragTrainer(Trainer):
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
             ], p=.5),
             torchvision.transforms.RandomGrayscale(p=0.2),
+            ACompose([
+                A.CLAHE()
+            ]),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
 
         val_transforms = torchvision.transforms.Compose([
-            PadCenterCrop((512, 512), pad_if_needed=True, fill=(255, 255, 255)),
-            torchvision.transforms.Resize(patch_size),
+            PadCenterCrop((patch_size, patch_size), pad_if_needed=True, fill=(255, 255, 255)),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])

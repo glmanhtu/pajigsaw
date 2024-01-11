@@ -47,7 +47,7 @@ class MichiganDataset(Dataset):
             image_map = {}
             for file in files:
                 file_name_components = file.split(os.sep)
-                im_name, rv, sum_det, _, im_type, _ = file_name_components[-6:]
+                im_name, rv, sum_det, _, im_type, _, _ = file_name_components[-7:]
                 if rv != 'front':
                     continue
                 if im_type != 'papyrus':

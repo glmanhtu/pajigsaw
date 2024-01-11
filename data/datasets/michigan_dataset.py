@@ -39,7 +39,7 @@ class MichiganDataset(Dataset):
     Split = Union[_Split]
 
     def __init__(self, dataset_path: str, split: "MichiganDataset.Split", transforms,
-                 min_size=112, samples=None):
+                 min_size=112, samples=None, val_n_items_per_writer=None):
         self.dataset_path = dataset_path
         if samples is None:
             files = glob.glob(os.path.join(dataset_path, '**', '*.png'), recursive=True)
@@ -60,6 +60,8 @@ class MichiganDataset(Dataset):
                 if key not in image_map[img]:
                     key = 'summary'
                 images[img] = image_map[img][key]
+                if val_n_items_per_writer and split.is_val():
+                    images[img] = image_map[img][:val_n_items_per_writer]
 
             self.labels = sorted(images.keys())
             self.__label_idxes = {k: i for i, k in enumerate(self.labels)}
@@ -74,12 +76,6 @@ class MichiganDataset(Dataset):
             for img in self.labels:
                 data, labels = [], []
                 for fragment in sorted(images[img]):
-                    width, height = imagesize.get(fragment)
-                    if width * height < min_size * min_size:
-                        continue
-
-                    # ratio = max(round((width * height) / (im_size * im_size)), 1) if split.is_train() else 1
-                    # for _ in range(int(ratio)):
                     data.append(fragment)
                     labels.append(self.__label_idxes[img])
 

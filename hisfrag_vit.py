@@ -153,7 +153,8 @@ class HisfragTrainer(Trainer):
         self.logger.info(f'N samples: {len(embeddings)}, N categories: {len(torch.unique(labels))}')
 
         criterion = NegativeLoss(BatchDotProduct(reduction='none'))
-        distance_matrix = compute_distance_matrix_from_embeddings(embeddings, criterion)
+        distance_matrix = compute_distance_matrix_from_embeddings(embeddings, criterion,
+                                                                  batch_size=self.config.TEST_BATCH_SIZE)
         return wi19_evaluate.get_metrics(distance_matrix.numpy(), labels.numpy())
 
     @torch.no_grad()

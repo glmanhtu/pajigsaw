@@ -164,9 +164,9 @@ class DefaultTrainer(Trainer):
         model = self.model
         config = self.config
         model.eval()
-        capability = torch.cuda.get_device_capability()
-        if capability[0] >= 7:
-            model = torch.compile(model)
+        # capability = torch.cuda.get_device_capability()
+        # if capability[0] >= 7:
+        #     model = torch.compile(model)
 
         for subset in ['Cho', 'McGill', 'BGU']:
             images = glob.glob(os.path.join(config.DATA.DATA_PATH, subset, '*.jpg'))

@@ -96,19 +96,19 @@ class PiecesDatasetTriplet(VisionDataset):
         images = []
 
         # Matching on the right of the first img
-        first_tensor, second_tensor = self.transform(first_img, second_img)
+        first_tensor, second_tensor = self.transform(first_img, second_img.rotate(180))
         images.append(torch.stack([first_tensor, second_tensor], dim=0))
 
         # Matching on the bottom of the first img
-        first_tensor, second_tensor = self.transform(first_img.rotate(270), second_img.rotate(270))
+        first_tensor, second_tensor = self.transform(first_img.rotate(90), second_img.rotate(270))
         images.append(torch.stack([first_tensor, second_tensor], dim=0))
 
         # Matching on the left of the first img
-        first_tensor, second_tensor = self.transform(first_img.rotate(180), second_img.rotate(180))
+        first_tensor, second_tensor = self.transform(first_img.rotate(180), second_img)
         images.append(torch.stack([first_tensor, second_tensor], dim=0))
 
         # Matching on the top of the first img
-        first_tensor, second_tensor = self.transform(first_img.rotate(90), second_img.rotate(90))
+        first_tensor, second_tensor = self.transform(first_img.rotate(270), second_img.rotate(90))
         images.append(torch.stack([first_tensor, second_tensor], dim=0))
 
         stacked_img = torch.cat(images, dim=0)

@@ -62,30 +62,7 @@ class TripletLoss(torch.nn.Module):
             distance_function=distance_fn, margin=margin)
 
     def forward(self, features, target):
-        crops = torch.split_with_sizes(features, [1] * features.shape[1], dim=1)
-        anchor, positive, negative = [], [], []
-
-        anchor.append(crops[0])
-        positive.append(crops[1])
-        negative.append(crops[2])
-
-        anchor.append(crops[1])
-        positive.append(crops[2])
-        negative.append(crops[0])
-
-        anchor.append(crops[1])
-        positive.append(crops[2])
-        negative.append(crops[5])
-
-        anchor.append(crops[3])
-        positive.append(crops[4])
-        negative.append(crops[0])
-
-        anchor = torch.cat(anchor, dim=0).squeeze()
-        positive = torch.cat(positive, dim=0).squeeze()
-        negative = torch.cat(negative, dim=0).squeeze()
-
-        return self.loss_fn(anchor, positive, negative)
+        return self.loss_fn(features[:, 0, :], features[:, 1, :], features[:, 2, :])
 
 
 class DefaultTrainer(Trainer):
@@ -104,9 +81,9 @@ class DefaultTrainer(Trainer):
         }
 
     def train_step(self, samples):
-        B, S, C, H, W = samples.shape
-        output = self.model(samples.view((B * S, C, H, W)))
-        return output.view((B, S, -1))
+        B, X, S, C, H, W = samples.shape
+        output = self.model(samples.view((B * S * X, C, H, W)))
+        return output.view((B * X, S, -1))
 
     def get_criterion(self):
         return TripletLoss(margin=0.2)

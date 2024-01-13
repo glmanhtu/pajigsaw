@@ -179,13 +179,35 @@ class Div2kPatchTriplet(DIV2KPatch):
         piece_size_erosion = math.ceil(self.image_size * (1 - erosion_ratio))
         cropper = torchvision.transforms.CenterCrop(piece_size_erosion)
 
-        images, labels = [], []
-        for i, crop in enumerate(crops):
-            image = self.transform(cropper(crop))
-            images.append(image)
-            labels.append(i)
+        results = []
 
-        stacked_img = torch.stack(images, dim=0)
-        return stacked_img, torch.tensor(labels)
+        # Matching on the right of the first img
+        anchor = self.transform(cropper(crops[0]))
+        positive = self.transform(cropper(crops[1]).rotate(180))
+        negative = self.transform(cropper(crops[1]))
+
+        results.append(torch.stack([anchor, positive, negative], dim=0))
+
+        # Matching on the left of the first img
+        anchor = self.transform(cropper(crops[5]).rotate(180))
+        positive = self.transform(cropper(crops[4]))
+        negative = self.transform(cropper(crops[1]))
+
+        results.append(torch.stack([anchor, positive, negative], dim=0))
+
+        # Matching on the bottom of the first img
+        anchor = self.transform(cropper(crops[1]).rotate(90))
+        positive = self.transform(cropper(crops[4]).rotate(270))
+        negative = self.transform(cropper(crops[3]))
+
+        results.append(torch.stack([anchor, positive, negative], dim=0))
+
+        # Matching on the top of the first img
+        anchor = self.transform(cropper(crops[3]).rotate(270))
+        positive = self.transform(cropper(crops[1]).rotate(90))
+        negative = self.transform(cropper(crops[2]))
+
+        results.append(torch.stack([anchor, positive, negative], dim=0))
+        return torch.stack(results), index
 
 

@@ -61,7 +61,7 @@ def parse_option():
 class HisfragTrainer(Trainer):
 
     def get_criterion(self):
-        return BatchWiseTripletLoss(margin=0.25)
+        return BatchWiseTripletLoss(margin=0.5)
 
     def get_transforms(self):
         patch_size = self.config.DATA.IMG_SIZE
@@ -108,9 +108,14 @@ class HisfragTrainer(Trainer):
         transforms = self.get_transforms()
         dataset, repeat = build_dataset(mode=mode, config=self.config, transforms=transforms)
         drop_last = True
-        if mode != 'train':
+        if mode == 'train':
+            max_dataset_length = len(dataset) * repeat
+            sampler = samplers.MPerClassSampler(dataset.data_labels, m=3, length_before_new_iter=max_dataset_length)
+        else:
+            sampler = SequentialSampler(dataset)
             drop_last = False
-        dataloader = DataLoader(dataset, shuffle=drop_last, pin_memory=True, batch_size=self.config.DATA.BATCH_SIZE,
+        sampler.set_epoch = lambda x: x
+        dataloader = DataLoader(dataset, sampler=sampler, pin_memory=True, batch_size=self.config.DATA.BATCH_SIZE,
                                 drop_last=drop_last, num_workers=self.config.DATA.NUM_WORKERS)
 
         self.data_loader_registers[mode] = dataloader

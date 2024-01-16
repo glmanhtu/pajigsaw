@@ -232,8 +232,6 @@ if __name__ == '__main__':
         trainer.validate()
     elif args.mode == 'throughput':
         trainer.throughput()
-    elif args.mode == 'test':
-        trainer.testing()
     else:
         trainer.train()
     trainer.testing()

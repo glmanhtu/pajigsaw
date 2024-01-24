@@ -107,7 +107,7 @@ class HisfragTrainer(Trainer):
             raise Exception('Only Train mode should be executed')
 
         dataset, repeat = build_dataset(mode=mode, config=self.config, transforms=self.get_transforms())
-        max_dataset_length = len(dataset) * 3
+        max_dataset_length = len(dataset) * 20
         self.logger.info(f'[{mode}] Dataset length: {max_dataset_length}')
         sampler = MPerClassSampler(dataset.data_labels, m=3, length_before_new_iter=max_dataset_length)
         sampler.set_epoch = lambda x: x

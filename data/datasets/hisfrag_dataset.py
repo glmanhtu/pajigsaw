@@ -28,7 +28,8 @@ class _Split(Enum):
     def length(self) -> float:
         split_lengths = {
             _Split.TRAIN: 0.93,  # percentage of the dataset
-            _Split.VAL: 0.07
+            _Split.VAL: 0.07,
+            _Split.TEST: 1.
         }
         return split_lengths[self]
 
@@ -98,8 +99,6 @@ class HisFrag20(VisionDataset):
         proportion = 0., split.length
         if split.is_val():
             proportion = 1. - split.length, 1.
-        elif split.is_test():
-            proportion = 0., 1.
         writers, writer_map = get_writers(self.root_dir, proportion)
 
         self.writer_to_idx = {x: i for i, x in enumerate(writers)}

@@ -236,4 +236,3 @@ if __name__ == '__main__':
         trainer.testing()
     else:
         trainer.train()
-    trainer.testing()

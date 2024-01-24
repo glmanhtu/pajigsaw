@@ -6,6 +6,7 @@ from typing import Union, Optional, Callable
 
 import imagesize
 from PIL import Image
+from ml_engine.data.grouping import add_items_to_group
 from torch.utils.data import Dataset
 from torchvision.datasets import VisionDataset
 
@@ -41,23 +42,38 @@ class MichiganDataset(Dataset):
     Split = Union[_Split]
 
     def __init__(self, dataset_path: str, split: "MichiganDataset.Split", transforms,
-                 min_size=112, samples=None, val_n_items_per_writer=None):
+                 samples=None, val_n_items_per_writer=None):
         self.dataset_path = dataset_path
+        self.samples = samples
         if samples is None:
             files = glob.glob(os.path.join(dataset_path, '**', '*.png'), recursive=True)
             files.extend(glob.glob(os.path.join(dataset_path, '**', '*.jpg'), recursive=True))
+
             image_map = {}
+            groups = []
             for file in files:
                 file_name_components = file.split(os.sep)
-                im_name, rv, sum_det, _, im_type, _, _ = file_name_components[-7:]
+                im_name, rv, sum_det, sub_name, im_type, _, _ = file_name_components[-7:]
+                add_items_to_group([im_name, sub_name], groups)
                 if rv != 'front':
                     continue
                 if im_type != 'papyrus':
                     continue
                 image_map.setdefault(im_name, {}).setdefault(sum_det, []).append(file)
 
+            self.fragment_to_group = {}
+            self.fragment_to_group_id = {}
+            self.groups = groups
+
+            for idx, group in enumerate(groups):
+                for fragment in group:
+                    self.fragment_to_group_id[fragment] = idx
+                    for fragment2 in group:
+                        self.fragment_to_group.setdefault(fragment, set([])).add(fragment2)
+
             images = {}
             for img in image_map:
+                images[img] = []
                 key = 'detail'
                 if key not in image_map[img]:
                     key = 'summary'
@@ -65,25 +81,23 @@ class MichiganDataset(Dataset):
                 if val_n_items_per_writer is not None and split.is_val():
                     images[img] = images[img][:val_n_items_per_writer]
 
-            self.labels = sorted(images.keys())
-            self.__label_idxes = {k: i for i, k in enumerate(self.labels)}
+            self.image_names = sorted(images.keys())
 
             if split == MichiganDataset.Split.TRAIN:
-                self.labels = self.labels[: int(len(self.labels) * split.length)]
+                self.image_names = self.image_names[: int(len(self.image_names) * split.length)]
             elif split == MichiganDataset.Split.VAL:
-                self.labels = self.labels[-int(len(self.labels) * split.length):]
-            elif split == MichiganDataset.Split.ALL:
-                self.labels = self.labels
+                self.image_names = self.image_names[-int(len(self.image_names) * split.length):]
             else:
-                raise NotImplementedError(f'Split {split} is not implemented')
+                self.image_names = self.image_names
 
+            self.image_idxes = {k: i for i, k in enumerate(self.image_names)}
             self.data = []
             self.data_labels = []
-            for img in self.labels:
+            for img in self.image_names:
                 data, labels = [], []
                 for fragment in sorted(images[img]):
                     data.append(fragment)
-                    labels.append(self.__label_idxes[img])
+                    labels.append(self.fragment_to_group_id[img])
 
                 if split.is_val() and len(data) < 2:
                     continue
@@ -92,6 +106,7 @@ class MichiganDataset(Dataset):
                 self.data_labels.extend(labels)
         else:
             self.data = samples
+
         self.transforms = transforms
 
     def __len__(self):

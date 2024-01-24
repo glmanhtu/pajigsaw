@@ -103,6 +103,11 @@ def build_dataset(mode, config, transforms):
         split = Pajigsaw.Split.from_string(mode)
         dataset = Pajigsaw(config.DATA.DATA_PATH, split, transform=transform, image_size=patch_size)
 
+    elif config.DATA.DATASET == 'michigan':
+        split = MichiganDataset.Split.from_string(mode)
+        repeat = 3 if split.is_train() else 1
+        dataset = MichiganDataset(config.DATA.DATA_PATH, split, transforms=transform)
+
     else:
         raise NotImplementedError(f"We haven't supported {config.DATA.DATASET}")
 

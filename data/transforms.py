@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 import torchvision
-from PIL import Image
+from PIL import Image, ImageFilter
 from torchvision import transforms
 import torchvision.transforms.functional as F
 import albumentations as A
@@ -77,6 +77,27 @@ class RandomSizedCrop:
         cropper = transforms.RandomCrop((height, width), pad_if_needed=self.pad_if_needed, fill=self.fill,
                                         padding_mode=self.padding_mode)
         return cropper(image)
+
+
+class GaussianBlur(object):
+    """
+    Apply Gaussian Blur to the PIL image.
+    """
+    def __init__(self, p=0.5, radius_min=0.1, radius_max=2.):
+        self.prob = p
+        self.radius_min = radius_min
+        self.radius_max = radius_max
+
+    def __call__(self, img):
+        do_it = random.random() <= self.prob
+        if not do_it:
+            return img
+
+        return img.filter(
+            ImageFilter.GaussianBlur(
+                radius=random.uniform(self.radius_min, self.radius_max)
+            )
+        )
 
 
 class UnNormalize(object):

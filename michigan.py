@@ -6,16 +6,20 @@ import time
 
 import albumentations as A
 import cv2
+import numpy as np
 import pandas as pd
 import torch
 import torchvision
 from ml_engine.data.samplers import MPerClassSampler
 from torch.utils.data import DataLoader
 
+from data import transforms
+from data.build import build_dataset
 from data.datasets.geshaem_dataset import GeshaemPatch, MergeDataset
 from data.datasets.michigan_dataset import MichiganTest, MichiganDataset
 from data.samplers import DistributedIndicatesSampler
 from data.transforms import ACompose, PadCenterCrop
+from misc import wi19_evaluate
 from misc.engine import Trainer
 from misc.metric import calc_map_prak
 from misc.utils import AverageMeter, get_combinations
@@ -62,35 +66,31 @@ class HisfragTrainer(Trainer):
         return torch.nn.BCEWithLogitsLoss()
 
     def get_transforms(self):
-        patch_size = self.config.DATA.IMG_SIZE
+        img_size = self.config.DATA.IMG_SIZE
 
         train_transform = torchvision.transforms.Compose([
-            torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1), fill=(255, 255, 255)),
+            torchvision.transforms.RandomCrop(img_size, pad_if_needed=True, fill=(255, 255, 255)),
+            torchvision.transforms.RandomResizedCrop(img_size, scale=(0.6, 1.0)),
             ACompose([
-                A.ShiftScaleRotate(shift_limit=0., scale_limit=0.1, rotate_limit=10, p=0.5, value=(255, 255, 255),
-                                   border_mode=cv2.BORDER_CONSTANT),
+                A.CoarseDropout(max_holes=32, min_holes=3, min_height=16, max_height=64, min_width=16, max_width=64,
+                                fill_value=255, p=0.9),
             ]),
-            torchvision.transforms.RandomCrop(patch_size, pad_if_needed=True, fill=(255, 255, 255)),
-            ACompose([
-                A.CoarseDropout(max_holes=8, min_holes=1, min_height=16, max_height=64, min_width=16, max_width=64,
-                                fill_value=255, always_apply=True),
-            ]),
+            torchvision.transforms.RandomHorizontalFlip(p=0.5),
+            torchvision.transforms.RandomVerticalFlip(p=0.5),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.ColorJitter(brightness=0.2, contrast=0.3, saturation=0.3, hue=0.1),
             ], p=.5),
-            torchvision.transforms.RandomApply([
-                torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
-            ], p=.5),
+            transforms.GaussianBlur(p=0.5, radius_max=1),
+            # transforms.Solarization(p=0.2),
             torchvision.transforms.RandomGrayscale(p=0.2),
-            ACompose([
-                A.CLAHE()
-            ]),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
 
         val_transforms = torchvision.transforms.Compose([
-            PadCenterCrop((patch_size, patch_size), pad_if_needed=True, fill=(255, 255, 255)),
+            PadCenterCrop((img_size, img_size), pad_if_needed=True, fill=(255, 255, 255)),
+            torchvision.transforms.Resize(int(img_size * 1.15)),
+            torchvision.transforms.CenterCrop(img_size),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
@@ -103,16 +103,10 @@ class HisfragTrainer(Trainer):
     def get_dataloader(self, mode):
         if mode in self.data_loader_registers:
             return self.data_loader_registers[mode]
-
         if mode != 'train':
             raise Exception('Only Train mode should be executed')
-        transform = self.get_transforms()[mode]
-        dataset = MichiganDataset(self.config.DATA.DATA_PATH, MichiganDataset.Split.ALL, transforms=transform)
-        if mode == 'train':
-            geshaem_dataset = GeshaemPatch(args.geshaem_data_path, GeshaemPatch.Split.TRAIN, transform=transform,
-                                           base_idx=len(dataset) + 1)
 
-            dataset = MergeDataset([dataset, geshaem_dataset], transform=transform)
+        dataset, repeat = build_dataset(mode=mode, config=self.config, transforms=self.get_transforms())
         max_dataset_length = len(dataset) * 3
         self.logger.info(f'[{mode}] Dataset length: {max_dataset_length}')
         sampler = MPerClassSampler(dataset.data_labels, m=3, length_before_new_iter=max_dataset_length)
@@ -386,12 +380,12 @@ class HisfragTrainer(Trainer):
     @torch.no_grad()
     def validate(self):
         self.model.eval()
-        return self.geshaem_test()
-        # distance_matrix, labels = self.validate_dataloader(MichiganTest.Split.VAL, remove_cache_file=True)
-        # m_ap, top1, pr_k10, pr_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
-        # self.logger.info(f'Michigan eval: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_k10:.3f}\t'
-        #                  f'Pr@k100 {pr_k100:.3f}')
-        # return 1 - m_ap
+        self.geshaem_test()
+        distance_matrix, labels = self.validate_dataloader(MichiganTest.Split.VAL, remove_cache_file=True)
+        m_ap, top1, pr_k10, pr_k100 = wi19_evaluate.get_metrics(distance_matrix, np.asarray(labels))
+        self.logger.info(f'Michigan eval: mAP {m_ap:.3f}\t' f'Top 1 {top1:.3f}\t' f'Pr@k10 {pr_k10:.3f}\t'
+                         f'Pr@k100 {pr_k100:.3f}')
+        return 1 - m_ap
 
 
 if __name__ == '__main__':

@@ -1,0 +1,14 @@
+MODEL:
+  TYPE: pjs
+  NAME: michigan_base_patch16_384
+  DROP_PATH_RATE: 0.1
+  NUM_CLASSES: 1
+  PJS:
+    EMBED_DIM: 768
+    PATCH_SIZE: 16
+    NUM_HEADS: 12
+    DEPTH: 12
+    C_DEPTH: 12
+DATA:
+  DATASET: michigan
+  IMG_SIZE: 384

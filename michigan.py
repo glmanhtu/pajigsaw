@@ -63,7 +63,7 @@ def parse_option():
 class HisfragTrainer(Trainer):
 
     def get_criterion(self):
-        return torch.nn.BCEWithLogitsLoss()
+        return torch.nn.BCEWithLogitsLoss(reduction='sum')
 
     def get_transforms(self):
         img_size = self.config.DATA.IMG_SIZE
@@ -72,7 +72,7 @@ class HisfragTrainer(Trainer):
             torchvision.transforms.RandomCrop(img_size, pad_if_needed=True, fill=(255, 255, 255)),
             torchvision.transforms.RandomResizedCrop(img_size, scale=(0.6, 1.0)),
             ACompose([
-                A.CoarseDropout(max_holes=32, min_holes=3, min_height=16, max_height=64, min_width=16, max_width=64,
+                A.CoarseDropout(max_holes=16, min_holes=3, min_height=16, max_height=64, min_width=16, max_width=64,
                                 fill_value=255, p=0.9),
             ]),
             torchvision.transforms.RandomHorizontalFlip(p=0.5),

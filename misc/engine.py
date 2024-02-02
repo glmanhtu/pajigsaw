@@ -159,8 +159,8 @@ class Trainer:
         self.logger.info("Start training...")
         config = self.config
         start_time = time.time()
-        loss = self.validate()
-        self.logger.info(f"Init loss: {loss}")
+        # loss = self.validate()
+        # self.logger.info(f"Init loss: {loss}")
         for epoch in range(self.config.TRAIN.START_EPOCH, self.config.TRAIN.EPOCHS):
             self.train_one_epoch(epoch, data_loader, optimizer, lr_scheduler, loss_scaler, criterion)
 

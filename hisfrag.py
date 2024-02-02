@@ -4,7 +4,6 @@ import os
 import time
 
 import albumentations as A
-import cv2
 import numpy as np
 import pandas as pd
 import torch
@@ -15,7 +14,7 @@ from torch.utils.data import DataLoader
 from data.build import build_dataset
 from data.datasets.hisfrag_dataset import HisFrag20Test
 from data.samplers import DistributedIndicatesSampler
-from data.transforms import ACompose
+from data.transforms import ACompose, PadCenterCrop
 from misc import wi19_evaluate, utils
 from misc.engine import Trainer
 from misc.utils import AverageMeter, get_combinations
@@ -58,35 +57,32 @@ def parse_option():
 class HisfragTrainer(Trainer):
 
     def get_criterion(self):
-        return torch.nn.BCEWithLogitsLoss()
+        return torch.nn.BCEWithLogitsLoss(reduction='sum')
 
     def get_transforms(self):
         patch_size = self.config.DATA.IMG_SIZE
 
         train_transform = torchvision.transforms.Compose([
-            torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1), fill=0),
-            ACompose([
-                A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.5, value=(0, 0, 0),
-                                   border_mode=cv2.BORDER_CONSTANT),
-            ]),
             torchvision.transforms.RandomCrop(patch_size, pad_if_needed=True),
+            torchvision.transforms.RandomResizedCrop(patch_size, scale=(0.6, 1.0)),
+            ACompose([
+                A.CoarseDropout(max_holes=16, min_holes=3, min_height=16, max_height=64, min_width=16, max_width=64,
+                                fill_value=0, p=0.9),
+            ]),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3),
             ], p=.5),
             torchvision.transforms.RandomApply([
                 torchvision.transforms.GaussianBlur((3, 3), (1.0, 2.0)),
             ], p=.5),
+            torchvision.transforms.RandomGrayscale(p=0.2),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
 
         val_transforms = torchvision.transforms.Compose([
-            torchvision.transforms.CenterCrop(patch_size),
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ])
-
-        test_transforms = torchvision.transforms.Compose([
+            PadCenterCrop((patch_size, patch_size), pad_if_needed=True, fill=(0, 0, 0)),
+            torchvision.transforms.Resize(int(patch_size * 1.15)),
             torchvision.transforms.CenterCrop(patch_size),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
@@ -95,7 +91,7 @@ class HisfragTrainer(Trainer):
         return {
             'train': train_transform,
             'val': val_transforms,
-            'test': test_transforms
+            'test': val_transforms
         }
 
     def get_dataloader(self, mode):
@@ -116,6 +112,7 @@ class HisfragTrainer(Trainer):
 
     def prepare_data(self, samples, targets):
         n = samples.size(0)
+        device = samples.device
         # split the positive and negative pairs
         eyes_ = torch.eye(n, dtype=torch.bool).cuda()
         pos_mask = targets.expand(
@@ -124,23 +121,29 @@ class HisfragTrainer(Trainer):
         neg_mask = ~pos_mask
         pos_mask[:, :n] = pos_mask[:, :n] * ~eyes_
 
-        pos_groups, neg_groups = [], []
+        pos_groups, neg_groups = None, None
         for i in range(n):
-            it = torch.tensor([i], device=samples.device)
+            it = torch.tensor([i], device=device)
             pos_pair_idx = torch.nonzero(pos_mask[i, i:]).view(-1)
             if pos_pair_idx.shape[0] > 0:
                 combinations = get_combinations(it, pos_pair_idx + i)
-                pos_groups.append(combinations)
+                if pos_groups is None:
+                    pos_groups = combinations
+                else:
+                    pos_groups = torch.cat((pos_groups, combinations), dim=0)
 
-            neg_pair_idx = torch.nonzero(neg_mask[i, i:]).view(-1)
+            neg_pair_idx = torch.nonzero(neg_mask[i, :]).view(-1)
             if neg_pair_idx.shape[0] > 0:
-                combinations = get_combinations(it, neg_pair_idx + i)
-                neg_groups.append(combinations)
+                combinations = get_combinations(it, neg_pair_idx)
+                if neg_groups is None:
+                    neg_groups = combinations
+                else:
+                    neg_groups = torch.cat((neg_groups, combinations), dim=0)
 
         pos_groups = torch.cat(pos_groups, dim=0)
         neg_groups = torch.cat(neg_groups, dim=0)
 
-        neg_length = min(neg_groups.shape[0], int(2 * pos_groups.shape[0]))
+        neg_length = min(neg_groups.shape[0], pos_groups.shape[0])
         neg_groups = neg_groups[torch.randperm(neg_groups.shape[0])[:neg_length]]
 
         labels = [1.] * pos_groups.shape[0] + [0.] * neg_groups.shape[0]

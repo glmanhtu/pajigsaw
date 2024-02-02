@@ -203,7 +203,7 @@ class HisfragTrainer(Trainer):
                 self.logger.info(f'X2 dataset size: {len(x2_dataset)}, lower_bound: {x1_lower_bound}')
                 x2_dataloader = DataLoader(
                     x2_dataset,
-                    batch_size=self.config.DATA.BATCH_SIZE,
+                    batch_size=self.config.DATA.TEST_BATCH_SIZE,
                     shuffle=False,  # Very important, shuffle have to be False
                     num_workers=self.config.DATA.NUM_WORKERS,
                     pin_memory=True,

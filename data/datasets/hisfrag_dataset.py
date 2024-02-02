@@ -28,7 +28,7 @@ class _Split(Enum):
     def length(self) -> float:
         split_lengths = {
             _Split.TRAIN: 0.93,  # percentage of the dataset
-            _Split.VAL: 0.07,
+            _Split.VAL: 0.05,
             _Split.TEST: 1.
         }
         return split_lengths[self]

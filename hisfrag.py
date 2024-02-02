@@ -140,9 +140,6 @@ class HisfragTrainer(Trainer):
                 else:
                     neg_groups = torch.cat((neg_groups, combinations), dim=0)
 
-        pos_groups = torch.cat(pos_groups, dim=0)
-        neg_groups = torch.cat(neg_groups, dim=0)
-
         neg_length = min(neg_groups.shape[0], pos_groups.shape[0])
         neg_groups = neg_groups[torch.randperm(neg_groups.shape[0])[:neg_length]]
 

@@ -119,29 +119,33 @@ class HisfragTrainer(Trainer):
 
     def prepare_data(self, samples, targets):
         n = samples.size(0)
+        device = samples.device
         # split the positive and negative pairs
-        eyes_ = torch.eye(n, dtype=torch.bool).cuda()
+        eyes_ = torch.eye(n, dtype=torch.bool, device=device)
         pos_mask = targets.expand(
             targets.shape[0], n
         ).t() == targets.expand(n, targets.shape[0])
         neg_mask = ~pos_mask
         pos_mask[:, :n] = pos_mask[:, :n] * ~eyes_
 
-        pos_groups, neg_groups = [], []
+        pos_groups, neg_groups = None, None
         for i in range(n):
-            it = torch.tensor([i], device=samples.device)
+            it = torch.tensor([i], device=device)
             pos_pair_idx = torch.nonzero(pos_mask[i, i:]).view(-1)
             if pos_pair_idx.shape[0] > 0:
                 combinations = get_combinations(it, pos_pair_idx + i)
-                pos_groups.append(combinations)
+                if pos_groups is None:
+                    pos_groups = combinations
+                else:
+                    pos_groups = torch.cat((pos_groups, combinations), dim=0)
 
-            neg_pair_idx = torch.nonzero(neg_mask[i, i:]).view(-1)
+            neg_pair_idx = torch.nonzero(neg_mask[i, :]).view(-1)
             if neg_pair_idx.shape[0] > 0:
-                combinations = get_combinations(it, neg_pair_idx + i)
-                neg_groups.append(combinations)
-
-        pos_groups = torch.cat(pos_groups, dim=0)
-        neg_groups = torch.cat(neg_groups, dim=0)
+                combinations = get_combinations(it, neg_pair_idx)
+                if neg_groups is None:
+                    neg_groups = combinations
+                else:
+                    neg_groups = torch.cat((neg_groups, combinations), dim=0)
 
         neg_length = min(neg_groups.shape[0], int(2 * pos_groups.shape[0]))
         neg_groups = neg_groups[torch.randperm(neg_groups.shape[0])[:neg_length]]

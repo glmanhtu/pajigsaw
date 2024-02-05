@@ -4,6 +4,7 @@ import os
 import time
 
 import albumentations as A
+import cv2
 import numpy as np
 import pandas as pd
 import torch
@@ -63,6 +64,11 @@ class HisfragTrainer(Trainer):
         patch_size = self.config.DATA.IMG_SIZE
 
         train_transform = torchvision.transforms.Compose([
+            torchvision.transforms.RandomAffine(5, translate=(0.1, 0.1), fill=0),
+            ACompose([
+                A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.5, value=(0, 0, 0),
+                                   border_mode=cv2.BORDER_CONSTANT),
+            ]),
             torchvision.transforms.RandomCrop(patch_size, pad_if_needed=True),
             torchvision.transforms.RandomResizedCrop(patch_size, scale=(0.6, 1.0)),
             ACompose([
@@ -81,8 +87,6 @@ class HisfragTrainer(Trainer):
         ])
 
         val_transforms = torchvision.transforms.Compose([
-            PadCenterCrop((patch_size, patch_size), pad_if_needed=True, fill=(0, 0, 0)),
-            torchvision.transforms.Resize(int(patch_size * 1.15)),
             torchvision.transforms.CenterCrop(patch_size),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),

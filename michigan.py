@@ -87,7 +87,7 @@ class HisfragTrainer(Trainer):
         ])
 
         val_transforms = torchvision.transforms.Compose([
-            torchvision.transforms.CenterCrop(img_size),
+            PadCenterCrop((img_size, img_size), pad_if_needed=True, fill=(255, 255, 255)),
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
